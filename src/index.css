@@ -1,0 +1,34 @@
+@import "tailwindcss";
+@import "tailwindcss";
+
+/* ... mevcut diğer stillerin ... */
+
+@utility no-spinner {
+  -moz-appearance: textfield;
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+}
+/* src/index.css */
+@media print {
+  /* Yazdırma sırasında menüleri ve butonları gizle */
+  nav, .bottom-nav, button, .no-print {
+    display: none !important;
+  }
+  
+  /* Arka planı beyaz yap ve gölgeleri kaldır */
+  body {
+    background: white !important;
+    padding: 0 !important;
+  }
+  
+  .print-container {
+    box-shadow: none !important;
+    border: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+}
