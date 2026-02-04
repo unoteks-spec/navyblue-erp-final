@@ -1,36 +1,38 @@
-import React, { useEffect, useState } from 'react';
-import { getFabricsByOrderNo, supabase } from '../../api/orderService';
-import { Printer, MessageCircle, X, CheckCircle, RotateCcw } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+// updateGroupFabricDeadlines fonksiyonunu orderService'e eklediğini varsayıyoruz
+import { getFabricsByOrderNo, updateGroupFabricStatus, updateGroupFabricDeadlines } from '../../api/orderService';
+import { X, CheckCircle, RotateCcw, FileDown, Loader2, Calendar, Save } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 export default function FabricOrderPrint({ order, onClose, onSuccess }) {
   const [summary, setSummary] = useState([]);
   const [updating, setUpdating] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   
-  // order objesi içindeki order_no'yu kullanıyoruz
+  // 🛠️ TERMIN STATE'LERI
+  const [deadlines, setDeadlines] = useState({
+    knitted: order.knitted_deadline || '',
+    woven: order.woven_deadline || ''
+  });
+
+  const knittedRef = useRef();
+  const wovenRef = useRef();
   const orderNo = order?.order_no;
 
   useEffect(() => {
     if (orderNo) {
-      getFabricsByOrderNo(orderNo).then(data => {
-        const sortedData = [...data].sort((a, b) => (b.isMain ? 1 : 0) - (a.isMain ? 1 : 0));
-        setSummary(sortedData);
-      });
+      getFabricsByOrderNo(orderNo).then(data => setSummary(data));
     }
   }, [orderNo]);
 
-  // ✅ SİPARİŞ DURUMUNU GÜNCELLEME (SUPABASE)
-  const handleToggleOrdered = async () => {
+  // ✅ 1. TERMINLERI GRUP BAZINDA KAYDETME
+  const handleSaveDeadlines = async () => {
     setUpdating(true);
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ fabric_ordered: !order.fabric_ordered })
-        .eq('id', order.id);
-      
-      if (error) throw error;
-      
-      // Ana listeyi yenilemesi için callback çağırıyoruz
+      await updateGroupFabricDeadlines(orderNo, deadlines);
       if (onSuccess) onSuccess();
+      alert("Termin tarihleri tüm grup için kaydedildi!");
     } catch (e) {
       alert("Hata: " + e.message);
     } finally {
@@ -38,127 +40,199 @@ export default function FabricOrderPrint({ order, onClose, onSuccess }) {
     }
   };
 
-  const sendToWhatsApp = (type) => {
-    const filtered = summary.filter(f => f.type === type);
-    if (filtered.length === 0) return alert(`${type} kumaş bulunamadı!`);
-
-    let message = `*NAVY BLUE - Kumaş Tedarik Listesi (${type.toUpperCase()})*\n`;
-    message += `*Sipariş No:* ${orderNo}\n`;
-    message += `----------------------------\n`;
-    
-    filtered.forEach(f => {
-      const amount = Number(f.totalAmount || 0).toFixed(2);
-      message += `• *${amount} ${f.unit.toUpperCase()}* - ${f.kind} (${f.color})\n`;
-      if (f.content) message += `  _İçerik: ${f.content}_\n`;
-    });
-
-    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+  const handleDownloadPDF = async (type, elementRef) => {
+    if (!elementRef.current) return;
+    setIsGenerating(true);
+    try {
+      const element = elementRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        backgroundColor: "#ffffff"
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const imgWidth = 210;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      const date = new Date().toLocaleDateString('tr-TR').replace(/\./g, '-');
+      const fileName = `AlfaSpor_Siparis_${orderNo}_${type.toUpperCase()}_${date}.pdf`;
+      pdf.save(fileName);
+    } catch (error) {
+      alert("PDF oluşturulurken bir hata oluştu.");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
-  const handlePrint = () => window.print();
+  const handleToggleOrdered = async () => {
+    setUpdating(true);
+    try {
+      await updateGroupFabricStatus(orderNo, !order.fabric_ordered);
+      if (onSuccess) onSuccess();
+    } catch (e) { alert("Hata: " + e.message); }
+    finally { setUpdating(false); }
+  };
+
+  const knittedFabrics = summary.filter(f => f.type === 'Örme');
+  const wovenFabrics = summary.filter(f => f.type === 'Dokuma');
 
   return (
-    <div className="fixed inset-0 z-60 bg-white overflow-y-auto p-8 print:p-0">
-      {/* Yazdırma Öncesi Kontrol Barı */}
-      <div className="max-w-4xl mx-auto mb-8 flex flex-col md:flex-row justify-between items-center no-print bg-slate-50 p-6 rounded-4xl border border-slate-200 gap-4 shadow-sm">
-        <div className="flex gap-2">
-          <button onClick={() => sendToWhatsApp('Örme')} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 hover:bg-emerald-700 transition-all">
-            <MessageCircle size={16} /> Örme
-          </button>
-          <button onClick={() => sendToWhatsApp('Dokuma')} className="bg-orange-500 text-white px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 hover:bg-orange-600 transition-all">
-            <MessageCircle size={16} /> Dokuma
-          </button>
+    <div className="fixed inset-0 z-100 bg-slate-900/50 backdrop-blur-sm overflow-y-auto p-4 md:p-8">
+      
+      {/* ÜST KONTROL PANELİ */}
+      <div className="max-w-4xl mx-auto mb-6 bg-white p-6 rounded-3xl shadow-2xl sticky top-0 z-10 no-print space-y-4">
+        <div className="flex flex-wrap justify-between items-center gap-4">
+          
+          {/* PDF Butonları */}
+          <div className="flex gap-2">
+            {knittedFabrics.length > 0 && (
+              <button 
+                onClick={() => handleDownloadPDF('orme', knittedRef)} 
+                disabled={isGenerating}
+                className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black flex items-center gap-2 hover:bg-emerald-700 disabled:opacity-50 transition-all uppercase"
+              >
+                {isGenerating ? <Loader2 className="animate-spin" size={14} /> : <FileDown size={14} />} Örme PDF
+              </button>
+            )}
+            {wovenFabrics.length > 0 && (
+              <button 
+                onClick={() => handleDownloadPDF('dokuma', wovenRef)} 
+                disabled={isGenerating}
+                className="bg-orange-500 text-white px-5 py-2.5 rounded-xl text-[10px] font-black flex items-center gap-2 hover:bg-orange-600 disabled:opacity-50 transition-all uppercase"
+              >
+                {isGenerating ? <Loader2 className="animate-spin" size={14} /> : <FileDown size={14} />} Dokuma PDF
+              </button>
+            )}
+          </div>
+
+          {/* Sipariş Durumu ve Kapatma */}
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={handleToggleOrdered}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-[10px] uppercase transition-all ${
+                order.fabric_ordered ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {order.fabric_ordered ? <CheckCircle size={14} /> : <RotateCcw size={14} />}
+              {order.fabric_ordered ? 'Grup Sipariş Edildi' : 'Grubu İşaretle'}
+            </button>
+            <button onClick={onClose} className="p-2 text-slate-400 hover:text-red-500 transition-colors"><X size={28} /></button>
+          </div>
         </div>
 
-        {/* ✅ SİPARİŞ VERİLDİ İŞARETLEME ALANI */}
-        <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Sipariş Durumu:</span>
-          <button 
-            onClick={handleToggleOrdered}
-            disabled={updating}
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-xl font-black text-[10px] uppercase transition-all ${
-              order.fabric_ordered 
-              ? 'bg-indigo-600 text-white shadow-md' 
-              : 'bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600'
-            }`}
-          >
-            {updating ? '...' : (order.fabric_ordered ? <CheckCircle size={14} /> : <RotateCcw size={14} />)}
-            {order.fabric_ordered ? 'Sipariş Verildi' : 'Verildi Olarak İşaretle'}
-          </button>
-        </div>
+        {/* 🛠️ TERMIN GIRIŞ ALANI */}
+        <div className="flex flex-wrap items-end gap-4 pt-4 border-t border-slate-100">
+           <div className="flex-1 min-w-37.5">
+              <label className="block text-[9px] font-black text-emerald-600 uppercase mb-1 ml-1">Örme Kumaş Termini</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                <input 
+                  type="date" 
+                  value={deadlines.knitted}
+                  onChange={(e) => setDeadlines({...deadlines, knitted: e.target.value})}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                />
+              </div>
+           </div>
 
-        <div className="flex gap-3">
-          <button onClick={handlePrint} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-2 rounded-xl font-black text-sm shadow-lg hover:bg-blue-600 transition-all">
-            <Printer size={18} /> Yazdır / PDF
-          </button>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-red-500 transition-all">
-            <X size={24} />
-          </button>
+           <div className="flex-1 min-w-37.5">
+              <label className="block text-[9px] font-black text-orange-600 uppercase mb-1 ml-1">Dokuma Kumaş Termini</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                <input 
+                  type="date" 
+                  value={deadlines.woven}
+                  onChange={(e) => setDeadlines({...deadlines, woven: e.target.value})}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+                />
+              </div>
+           </div>
+
+           <button 
+             onClick={handleSaveDeadlines}
+             disabled={updating}
+             className="flex items-center gap-2 bg-slate-900 text-white px-6 py-2 rounded-xl font-black text-[10px] uppercase hover:bg-blue-600 transition-all shadow-lg active:scale-95"
+           >
+             {updating ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+             Tarihleri Kaydet
+           </button>
         </div>
       </div>
 
-      {/* A4 GÖRÜNÜMÜ */}
-      <div className="max-w-4xl mx-auto border border-slate-100 p-12 rounded-4xl shadow-2xl bg-white print:border-none print:shadow-none print:p-0">
-        <div className="flex justify-between items-start border-b-4 border-slate-900 pb-6 mb-8">
-          <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">NAVY BLUE</h1>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em]">Fabric Purchase Order</p>
+      {/* PDF İÇERİKLERİ */}
+      <div className="space-y-20">
+        {knittedFabrics.length > 0 && (
+          <div ref={knittedRef} className="max-w-4xl mx-auto bg-white p-16 rounded-sm">
+             <PDFHeader title="Örme Kumaş" orderNo={orderNo} hex="#059669" />
+             <FabricTable data={knittedFabrics} />
+             <PDFFooter />
           </div>
-          <div className="text-right">
-            <div className="text-sm font-black text-slate-900 uppercase">Sipariş: {orderNo}</div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase">{new Date().toLocaleDateString('tr-TR')}</div>
-          </div>
-        </div>
+        )}
 
-        <table className="w-full text-left">
-          <thead>
-            <tr className="border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-              <th className="py-4">Tip</th>
-              <th className="py-4">Kumaş Cinsi / İçerik</th>
-              <th className="py-4">Renk</th>
-              <th className="py-4 text-right">Miktar</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {summary.map((fabric, idx) => (
-              <tr key={idx} className={`${fabric.isMain ? 'bg-blue-50/30' : ''}`}>
-                <td className="py-4">
-                   <span className={`text-[9px] font-black px-2 py-0.5 rounded uppercase ${fabric.type === 'Örme' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>
-                    {fabric.type}
-                   </span>
-                </td>
-                <td className="py-4">
-                  <div className="font-black text-slate-800 uppercase text-sm">
-                    {fabric.isMain && <span className="text-blue-600 mr-1">[ANA]</span>}
-                    {fabric.kind}
-                  </div>
-                  <div className="text-[10px] text-slate-400 font-medium">{fabric.content}</div>
-                </td>
-                <td className="py-4">
-                  <span className="text-xs font-bold text-slate-600 uppercase">{fabric.color}</span>
-                </td>
-                <td className="py-4 text-right">
-                  <div className="text-lg font-black text-slate-900">
-                    {Number(fabric.totalAmount || 0).toFixed(2)} 
-                    <span className="text-[10px] ml-1 text-slate-400 uppercase">{fabric.unit}</span>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div className="mt-20 pt-8 border-t border-slate-100 grid grid-cols-2 gap-10">
-          <p className="text-xs text-slate-500 italic">
-            * Bu miktar %5 kesim fazlalığı eklenerek hesaplanmıştır.<br/>
-            * Lütfen termin onayı veriniz.
-          </p>
-          <div className="text-right flex flex-col items-end">
-            <div className="w-32 h-px bg-slate-200 mb-2"></div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Navy Blue Operasyon Onayı</p>
+        {wovenFabrics.length > 0 && (
+          <div ref={wovenRef} className="max-w-4xl mx-auto bg-white p-16 rounded-sm">
+             <PDFHeader title="Dokuma Kumaş" orderNo={orderNo} hex="#ea580c" />
+             <FabricTable data={wovenFabrics} />
+             <PDFFooter />
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
 }
+
+// PDF ALT BİLEŞENLERİ (Aynen korundu)
+const PDFHeader = ({ title, orderNo, hex }) => (
+  <div style={{ borderBottom: `4px solid #0f172a`, paddingBottom: '24px', marginBottom: '32px', display: 'flex', justifyContent: 'space-between' }}>
+    <div>
+      <h1 style={{ fontSize: '30px', fontWeight: '900', color: '#0f172a', margin: 0 }}>Alfa Spor</h1>
+      <p style={{ fontSize: '10px', fontWeight: '700', color: hex, textTransform: 'uppercase', letterSpacing: '2px', marginTop: '4px' }}>{title} TEDARİK FORMU</p>
+    </div>
+    <div style={{ textAlign: 'right' }}>
+      <div style={{ fontSize: '14px', fontWeight: '900', color: '#0f172a' }}>NO: {orderNo}</div>
+      <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748b' }}>{new Date().toLocaleDateString('tr-TR')}</div>
+    </div>
+  </div>
+);
+
+const PDFFooter = () => (
+  <div style={{ marginTop: '60px', paddingTop: '32px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+    <p style={{ fontSize: '9px', color: '#64748b', fontStyle: 'italic', margin: 0 }}>
+      * Bu miktar %5 kesim fazlalığı eklenerek hesaplanmıştır.<br/>
+      * Alfa Spor Dijital Sipariş Formu.
+    </p>
+    <div style={{ textAlign: 'right' }}>
+      <div style={{ width: '120px', height: '1px', backgroundColor: '#e2e8f0', marginBottom: '8px', marginLeft: 'auto' }}></div>
+      <p style={{ fontSize: '10px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase' }}>Alfa Spor Onayı</p>
+    </div>
+  </div>
+);
+
+const FabricTable = ({ data }) => (
+  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+    <thead>
+      <tr style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
+        <th style={{ padding: '12px 0', fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase' }}>Cins / Renk</th>
+        <th style={{ padding: '12px 0', fontSize: '10px', color: '#94a3b8', textTransform: 'uppercase', textAlign: 'right' }}>Miktar</th>
+      </tr>
+    </thead>
+    <tbody>
+      {data.map((f, i) => (
+        <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+          <td style={{ padding: '16px 0' }}>
+            <div style={{ fontWeight: '900', color: '#1e293b', textTransform: 'uppercase', fontSize: '14px' }}>{f.kind} - {f.color}</div>
+            <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>{f.content}</div>
+          </td>
+          <td style={{ padding: '16px 0', textAlign: 'right' }}>
+            <div style={{ fontSize: '18px', fontWeight: '900', color: '#0f172a' }}>
+              {Number(f.totalAmount || 0).toFixed(2)} 
+              <span style={{ fontSize: '10px', color: '#94a3b8', marginLeft: '4px' }}>{f.unit.toUpperCase()}</span>
+            </div>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+);

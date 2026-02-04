@@ -9,6 +9,7 @@ import SizeMatrix from '../components/orders/SizeMatrix';
 import AddOrderModal from '../components/orders/AddOrderModal';
 import { saveOrder, uploadModelImage } from '../api/orderService';
 
+// --- YARDIMCI FONKSİYONLAR ---
 const capitalizeTR = (str) => {
   if (!str) return "";
   return str
@@ -24,6 +25,56 @@ const GARNI_KEYS = [
   { id: 'g4', label: 'Garni Kumaş 4' },
 ];
 
+// --- KUMAŞ KARTI BİLEŞENİ (DIŞARI TAŞINDI) ---
+const FabricCard = ({ id, label, isMain, register, watch, setValue, handleCapitalize }) => {
+  const unitValue = watch(`fabrics.${id}.unit`) || 'Kg';
+
+  return (
+    <div className={`bg-white p-6 rounded-4xl border ${isMain ? 'border-2 border-blue-50 shadow-sm relative overflow-hidden' : 'border-slate-100 shadow-sm'} space-y-5`}>
+      {isMain && <div className="absolute top-0 left-0 w-1.5 bg-blue-600 h-full"></div>}
+      <span className={`font-black uppercase tracking-widest text-[10px] ${isMain ? 'text-blue-600' : 'text-slate-400'}`}>
+        {label}
+      </span>
+      <div className={`grid grid-cols-1 md:grid-cols-4 ${isMain ? 'lg:grid-cols-7' : 'lg:grid-cols-3'} gap-4`}>
+        <Input label="Cinsi" {...register(`fabrics.${id}.kind`)} onChange={(e) => handleCapitalize(e, `fabrics.${id}.kind`)} />
+        <Input label="Renk" {...register(`fabrics.${id}.color`)} onChange={(e) => handleCapitalize(e, `fabrics.${id}.color`)} />
+        <Input label="İçerik" {...register(`fabrics.${id}.content`)} onChange={(e) => handleCapitalize(e, `fabrics.${id}.content`)} />
+        
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-semibold text-gray-700 ml-1">Tip</label>
+          <select 
+            {...register(`fabrics.${id}.type`)} 
+            onChange={(e) => {
+              const val = e.target.value;
+              setValue(`fabrics.${id}.type`, val);
+              setValue(`fabrics.${id}.unit`, val === 'Dokuma' ? 'Mt' : 'Kg');
+            }}
+            className="h-10 px-2 rounded-xl border border-gray-200 bg-slate-50 text-[11px] font-bold outline-none cursor-pointer hover:bg-white transition-all"
+          >
+            <option value="Örme">Örme</option>
+            <option value="Dokuma">Dokuma</option>
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-semibold text-gray-700 ml-1">Birim Gider</label>
+          <div className="flex bg-slate-50 rounded-xl border border-gray-200 focus-within:ring-4 focus-within:ring-blue-50 transition-all overflow-hidden h-10">
+            <input type="number" step="0.001" {...register(`fabrics.${id}.perPieceKg`)} className="w-full px-3 bg-transparent outline-none text-sm font-medium" placeholder="0.000" />
+            <div className="bg-white border-l border-gray-200 px-3 flex items-center text-[10px] font-black text-blue-600 uppercase">
+              {unitValue}
+            </div>
+          </div>
+          <input type="hidden" {...register(`fabrics.${id}.unit`)} />
+        </div>
+        
+        <Input label="GSM" type="number" {...register(`fabrics.${id}.gsm`)} />
+        {isMain && <Input label="En (cm)" type="number" {...register(`fabrics.${id}.width`)} />}
+      </div>
+    </div>
+  );
+};
+
+// --- ANA BİLEŞEN ---
 export default function Orders({ editingOrder, onComplete }) {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -36,11 +87,11 @@ export default function Orders({ editingOrder, onComplete }) {
       extraPercent: 5,
       qtyBySize: { S: 0, M: 0, L: 0, XL: 0 },
       fabrics: {
-        main: { unit: 'kg', type: 'Örme' },
-        g1: { unit: 'kg', type: 'Örme' },
-        g2: { unit: 'kg', type: 'Örme' },
-        g3: { unit: 'kg', type: 'Örme' },
-        g4: { unit: 'kg', type: 'Örme' }
+        main: { unit: 'Kg', type: 'Örme' },
+        g1: { unit: 'Kg', type: 'Örme' },
+        g2: { unit: 'Kg', type: 'Örme' },
+        g3: { unit: 'Kg', type: 'Örme' },
+        g4: { unit: 'Kg', type: 'Örme' }
       }
     }
   });
@@ -49,18 +100,17 @@ export default function Orders({ editingOrder, onComplete }) {
 
   useEffect(() => {
     if (editingOrder) {
-      // 🛠️ Veritabanından (snake_case) -> Form'a (camelCase) eşleşme düzeltildi
       reset({
         customer: editingOrder.customer,
         article: editingOrder.article,
         model: editingOrder.model,
         color: editingOrder.color,
         due: editingOrder.due,
-        extraPercent: editingOrder.extra_percent || editingOrder.extraPercent || 5,
-        qtyBySize: editingOrder.qty_by_size || editingOrder.qtyBySize || { S: 0, M: 0, L: 0, XL: 0 },
+        extraPercent: editingOrder.extra_percent || 5,
+        qtyBySize: editingOrder.qty_by_size || { S: 0, M: 0, L: 0, XL: 0 },
         fabrics: editingOrder.fabrics || {},
-        postProcesses: editingOrder.post_processes || editingOrder.postProcesses || "",
-        modelImage: editingOrder.model_image || editingOrder.modelImage || null
+        postProcesses: editingOrder.post_processes || "",
+        modelImage: editingOrder.model_image || null
       });
       setSelectedOrderNo(editingOrder.order_no);
     } else {
@@ -68,11 +118,11 @@ export default function Orders({ editingOrder, onComplete }) {
         extraPercent: 5,
         qtyBySize: { S: 0, M: 0, L: 0, XL: 0 },
         fabrics: {
-          main: { unit: 'kg', type: 'Örme' },
-          g1: { unit: 'kg', type: 'Örme' },
-          g2: { unit: 'kg', type: 'Örme' },
-          g3: { unit: 'kg', type: 'Örme' },
-          g4: { unit: 'kg', type: 'Örme' }
+          main: { unit: 'Kg', type: 'Örme' },
+          g1: { unit: 'Kg', type: 'Örme' },
+          g2: { unit: 'Kg', type: 'Örme' },
+          g3: { unit: 'Kg', type: 'Örme' },
+          g4: { unit: 'Kg', type: 'Örme' }
         }
       });
       setSelectedOrderNo(null);
@@ -85,7 +135,6 @@ export default function Orders({ editingOrder, onComplete }) {
     setUploading(true);
     try {
       const publicUrl = await uploadModelImage(file);
-      // Hem modelImage hem model_image olarak set ediyoruz ki garanti olsun
       setValue("modelImage", publicUrl); 
       setStatus({ type: 'success', msg: 'Resim başarıyla yüklendi!' });
     } catch (error) {
@@ -104,11 +153,8 @@ export default function Orders({ editingOrder, onComplete }) {
   const onSubmit = async (data) => {
     setLoading(true);
     try {
-      // API'ye göndermeden önce veriyi temizliyoruz
-      const result = await saveOrder(data, editingOrder?.id, selectedOrderNo);
-      
+      await saveOrder(data, editingOrder?.id, selectedOrderNo);
       setStatus({ type: 'success', msg: 'İşlem Başarılı!' });
-
       if (onComplete) {
         setTimeout(() => {
           onComplete(); 
@@ -122,39 +168,6 @@ export default function Orders({ editingOrder, onComplete }) {
       setLoading(false);
     }
   };
-
-  // FabricCard aynı kalıyor...
-  const FabricCard = ({ id, label, isMain = false }) => (
-    <div className={`bg-white p-6 rounded-4xl border ${isMain ? 'border-2 border-blue-50 shadow-sm relative overflow-hidden' : 'border-slate-100 shadow-sm'} space-y-5`}>
-      {isMain && <div className="absolute top-0 left-0 w-1.5 bg-blue-600 h-full"></div>}
-      <span className={`font-black uppercase tracking-widest text-[10px] ${isMain ? 'text-blue-600' : 'text-slate-400'}`}>
-        {label}
-      </span>
-      <div className={`grid grid-cols-1 md:grid-cols-4 ${isMain ? 'lg:grid-cols-7' : 'lg:grid-cols-3'} gap-4`}>
-        <Input label="Cinsi" {...register(`fabrics.${id}.kind`)} onChange={(e) => handleCapitalize(e, `fabrics.${id}.kind`)} />
-        <Input label="Renk" {...register(`fabrics.${id}.color`)} onChange={(e) => handleCapitalize(e, `fabrics.${id}.color`)} />
-        <Input label="İçerik" {...register(`fabrics.${id}.content`)} onChange={(e) => handleCapitalize(e, `fabrics.${id}.content`)} />
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-semibold text-gray-700 ml-1">Tip</label>
-          <select {...register(`fabrics.${id}.type`)} className="h-10 px-2 rounded-xl border border-gray-200 bg-slate-50 text-[11px] font-bold outline-none cursor-pointer hover:bg-white transition-all">
-            <option value="Örme">Örme</option>
-            <option value="Dokuma">Dokuma</option>
-          </select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-semibold text-gray-700 ml-1">Birim Gider</label>
-          <div className="flex bg-slate-50 rounded-xl border border-gray-200 focus-within:ring-4 focus-within:ring-blue-50 transition-all overflow-hidden h-10">
-            <input type="number" step="0.001" {...register(`fabrics.${id}.perPieceKg`)} className="w-full px-3 bg-transparent outline-none text-sm font-medium" placeholder="0.000" />
-            <div className="bg-white border-l border-gray-200 px-3 flex items-center text-[10px] font-black text-blue-600 uppercase">
-              {watch(`fabrics.${id}.unit`)}
-            </div>
-          </div>
-        </div>
-        <Input label="GSM" type="number" {...register(`fabrics.${id}.gsm`)} />
-        {isMain && <Input label="En (cm)" type="number" {...register(`fabrics.${id}.width`)} />}
-      </div>
-    </div>
-  );
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-8 pb-32">
@@ -196,12 +209,7 @@ export default function Orders({ editingOrder, onComplete }) {
               <Link2 size={16} /> {selectedOrderNo ? 'Grubu Değiştir' : 'Siparişe Ekle'}
             </button>
           )}
-          <button 
-            type="submit" 
-            form="order-form"
-            disabled={loading || uploading} 
-            className={`flex-1 md:flex-none flex items-center justify-center gap-2 text-white px-8 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all ${editingOrder ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
-          >
+          <button type="submit" form="order-form" disabled={loading || uploading} className={`flex-1 md:flex-none flex items-center justify-center gap-2 text-white px-8 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all ${editingOrder ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
             {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 
             {editingOrder ? 'Kaydet' : 'Siparişi Oluştur'}
           </button>
@@ -259,9 +267,11 @@ export default function Orders({ editingOrder, onComplete }) {
             <div className="w-1.5 h-4 bg-blue-600 rounded-full"></div>
             <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Kumaş Detayları</h2>
           </div>
-          <FabricCard id="main" label="Ana Kumaş" isMain />
+          <FabricCard id="main" label="Ana Kumaş" isMain={true} register={register} watch={watch} setValue={setValue} handleCapitalize={handleCapitalize} />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {GARNI_KEYS.map(g => <FabricCard key={g.id} id={g.id} label={g.label} />)}
+            {GARNI_KEYS.map(g => (
+              <FabricCard key={g.id} id={g.id} label={g.label} isMain={false} register={register} watch={watch} setValue={setValue} handleCapitalize={handleCapitalize} />
+            ))}
           </div>
         </section>
 

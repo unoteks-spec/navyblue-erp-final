@@ -160,3 +160,27 @@ export const updateOrderStage = async (id, stage, tracking) => {
 };
 
 export const moveOrderBack = (id, stage) => supabase.from('orders').update({ current_stage: stage }).eq('id', id);
+
+// src/api/orderService.js dosyasına şu fonksiyonu ekle:
+
+export const updateGroupFabricStatus = async (orderNo, status) => {
+  const { error } = await supabase
+    .from('orders')
+    .update({ fabric_ordered: status })
+    .eq('order_no', orderNo);
+  
+  if (error) throw error;
+  return true;
+};
+export const updateGroupFabricDeadlines = async (orderNo, deadlines) => {
+  const { error } = await supabase
+    .from('orders')
+    .update({ 
+      knitted_deadline: deadlines.knitted || null,
+      woven_deadline: deadlines.woven || null
+    })
+    .eq('order_no', orderNo);
+  
+  if (error) throw error;
+  return true;
+};
