@@ -3,7 +3,7 @@ import { getDashboardStats } from '../api/orderService';
 import { 
   Package, Ruler, Calendar, ArrowUpRight, Droplet, 
   CheckCircle2, Scissors, Printer, AlertTriangle,
-  LayoutGrid, PieChart
+  LayoutGrid, PieChart, RefreshCcw
 } from 'lucide-react';
 
 export default function Dashboard() {
