@@ -103,30 +103,39 @@ export default function Orders({ editingOrder, onComplete }) {
   // ✅ BURASI GÜNCELLENDİ: ARTIK GRUP NUMARASINI ASLA KAÇIRMAZ
   const onSubmit = async (data) => {
     setLoading(true);
+    console.log("Kayıt denemesi başladı...", { data, selectedOrderNo });
+
     try {
-      // selectedOrderNo eğer doluysa (Siparişe Ekle denildiyse) onu kullanıyoruz
+      // API çağrısını yapıyoruz
       const result = await saveOrder(data, editingOrder?.id, selectedOrderNo);
       
+      console.log("API'den dönen sonuç:", result);
+
       setStatus({ 
         type: 'success', 
-        msg: editingOrder ? 'Sipariş Güncellendi!' : (selectedOrderNo ? 'Gruba Ekleme Başarılı!' : `Yeni Sipariş No: ${result.order_no}`)
+        msg: 'İşlem Başarılı!' 
       });
 
+      // ✅ Liste sayfasına yönlendirme tetikleyici
       if (onComplete) {
         setTimeout(() => {
+          console.log("Yönlendirme tetikleniyor...");
           onComplete(); 
-          if (!editingOrder) {
-            reset();
-            setSelectedOrderNo(null);
-          }
+          if (!editingOrder) reset();
         }, 1500);
       }
+
     } catch (error) {
-      console.error("Kayıt Hatası:", error);
-      setStatus({ type: 'error', msg: 'Kayıt sırasında hata oluştu: ' + error.message });
+      // 🚨 GİZLİ HATAYI EKRANA BASALIM
+      console.error("KRİTİK HATA DETAYI:", error);
+      alert("SİSTEM HATASI: " + (error.message || "Bilinmeyen bir hata oluştu"));
+      
+      setStatus({ 
+        type: 'error', 
+        msg: 'Hata oluştu! Detay konsolda.' 
+      });
     } finally {
       setLoading(false);
-      setTimeout(() => setStatus({ type: '', msg: '' }), 4000);
     }
   };
 
