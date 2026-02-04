@@ -4,17 +4,15 @@ export { supabase };
 
 /**
  * 1. SİPARİŞ KAYDET VEYA GÜNCELLE
- * Artikel Ekleme ve Grup Yönetimi Düzeltilmiş Sürüm
  */
 export const saveOrder = async (formData, orderId = null, forceOrderNo = null) => {
   let finalOrderNo = forceOrderNo;
 
   // --- 🆕 OTOMATİK SİPARİŞ NO ÜRETİMİ ---
-  // Sadece yeni bir kayıtsa VE dışarıdan bir grup numarası GELMEMİŞSE numara üret.
   if (!orderId && !finalOrderNo) {
     try {
       const year = new Date().getFullYear();
-      const customerBase = (formData.customer || "SIP").trim();
+      const customerBase = String(formData.customer || "SIP").trim();
       let prefix = customerBase
         .substring(0, 3)
         .toLocaleUpperCase('tr-TR')
@@ -44,13 +42,13 @@ export const saveOrder = async (formData, orderId = null, forceOrderNo = null) =
     }
   }
 
-  // Veritabanı payload hazırlığı (Hem camelCase hem snake_case desteği için)
+  // --- 🛠️ VERİ TEMİZLEME (Payload) ---
   const dbPayload = {
     order_no: finalOrderNo,
-    customer: (formData.customer || "").trim(),
-    article: (formData.article || "").trim(),
-    model: formData.model || "",
-    color: formData.color || "",
+    customer: String(formData.customer || "").trim(),
+    article: String(formData.article || "").trim(),
+    model: String(formData.model || ""),
+    color: String(formData.color || ""),
     due: formData.due || null,
     extra_percent: Number(formData.extra_percent ?? formData.extraPercent ?? 5),
     qty_by_size: formData.qty_by_size ?? formData.qtyBySize ?? {},
@@ -60,18 +58,28 @@ export const saveOrder = async (formData, orderId = null, forceOrderNo = null) =
     updated_at: new Date().toISOString()
   };
 
-  const query = orderId 
-    ? supabase.from('orders').update(dbPayload).eq('id', orderId) 
-    : supabase.from('orders').insert([dbPayload]);
+  // DEBUG: Terminale/Konsola ne gittiğini görelim
+  console.log("Supabase'e gönderilen veri:", dbPayload);
 
-  const { data, error } = await query.select();
-  
-  if (error) {
-    console.error("Supabase İşlem Hatası:", error.message);
-    throw error;
+  let result;
+  if (orderId) {
+    result = await supabase.from('orders').update(dbPayload).eq('id', orderId).select();
+  } else {
+    result = await supabase.from('orders').insert([dbPayload]).select();
+  }
+
+  // --- 🚨 HATA KONTROLÜ (Kritik Bölge) ---
+  if (result.error) {
+    console.error("SUPABASE KAYIT HATASI DETAYLI:", {
+      mesaj: result.error.message,
+      kod: result.error.code,
+      detay: result.error.details,
+      ipucu: result.error.hint
+    });
+    throw new Error(`Veritabanı Hatası: ${result.error.message}`);
   }
   
-  return data && data.length > 0 ? data[0] : null;
+  return result.data && result.data.length > 0 ? result.data[0] : null;
 };
 
 /**
