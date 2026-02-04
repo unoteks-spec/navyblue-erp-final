@@ -46,7 +46,28 @@ export const saveOrder = async (formData, orderId = null, forceOrderNo = null) =
 };
 
 /**
- * 2. DASHBOARD İSTATİSTİKLERİ
+ * 2. KESİM İŞLEMLERİ (Vercel'in hata verdiği yer)
+ */
+export const updateCuttingDetails = async (orderId, details) => {
+  const { error } = await supabase.from('orders').update({
+    marker_width: details.markerWidth,
+    cutting_date: details.cuttingDate
+  }).eq('id', orderId);
+  if (error) throw error;
+};
+
+export const updateCuttingResults = async (orderId, results, details) => {
+  const { error } = await supabase.from('orders').update({ 
+    cutting_qty: results,
+    cutting_date: details.cuttingDate,
+    marker_width: details.markerWidth,
+    status: 'cut_completed'
+  }).eq('id', orderId);
+  if (error) throw error;
+};
+
+/**
+ * 3. DASHBOARD İSTATİSTİKLERİ
  */
 export const getDashboardStats = async () => {
   const [ordersRes, deliveriesRes] = await Promise.all([
@@ -94,7 +115,7 @@ export const getDashboardStats = async () => {
 };
 
 /**
- * 3. GRUP BAZLI KUMAŞ İHTİYAÇLARI
+ * 4. GRUP BAZLI KUMAŞ İHTİYAÇLARI
  */
 export const getFabricsByOrderNo = async (orderNo) => {
   const { data, error } = await supabase.from('orders').select('*').eq('order_no', orderNo);
@@ -113,13 +134,11 @@ export const getFabricsByOrderNo = async (orderNo) => {
 };
 
 /**
- * 4. YARDIMCI İŞLEMLER
+ * 5. DİĞER TÜM YARDIMCI İŞLEMLER
  */
 export const getAllOrders = () => supabase.from('orders').select('*').order('created_at', { ascending: false }).then(res => res.data);
 export const deleteOrder = (id) => supabase.from('orders').delete().eq('id', id);
 export const addFabricDelivery = (data) => supabase.from('fabric_deliveries').insert([data]).select();
-
-// 🛠️ VERCEL'İN HATA VERDİĞİ FONKSİYON:
 export const deleteFabricDelivery = (id) => supabase.from('fabric_deliveries').delete().eq('id', id);
 
 export const uploadModelImage = async (file) => {
