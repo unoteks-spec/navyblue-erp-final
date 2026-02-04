@@ -49,17 +49,18 @@ export default function Orders({ editingOrder, onComplete }) {
 
   useEffect(() => {
     if (editingOrder) {
+      // 🛠️ Veritabanından (snake_case) -> Form'a (camelCase) eşleşme düzeltildi
       reset({
         customer: editingOrder.customer,
         article: editingOrder.article,
         model: editingOrder.model,
         color: editingOrder.color,
         due: editingOrder.due,
-        extraPercent: editingOrder.extra_percent,
-        qtyBySize: editingOrder.qty_by_size,
-        fabrics: editingOrder.fabrics,
-        postProcesses: editingOrder.post_processes,
-        modelImage: editingOrder.model_image
+        extraPercent: editingOrder.extra_percent || editingOrder.extraPercent || 5,
+        qtyBySize: editingOrder.qty_by_size || editingOrder.qtyBySize || { S: 0, M: 0, L: 0, XL: 0 },
+        fabrics: editingOrder.fabrics || {},
+        postProcesses: editingOrder.post_processes || editingOrder.postProcesses || "",
+        modelImage: editingOrder.model_image || editingOrder.modelImage || null
       });
       setSelectedOrderNo(editingOrder.order_no);
     } else {
@@ -84,6 +85,7 @@ export default function Orders({ editingOrder, onComplete }) {
     setUploading(true);
     try {
       const publicUrl = await uploadModelImage(file);
+      // Hem modelImage hem model_image olarak set ediyoruz ki garanti olsun
       setValue("modelImage", publicUrl); 
       setStatus({ type: 'success', msg: 'Resim başarıyla yüklendi!' });
     } catch (error) {
@@ -102,12 +104,10 @@ export default function Orders({ editingOrder, onComplete }) {
   const onSubmit = async (data) => {
     setLoading(true);
     try {
+      // API'ye göndermeden önce veriyi temizliyoruz
       const result = await saveOrder(data, editingOrder?.id, selectedOrderNo);
       
-      setStatus({ 
-        type: 'success', 
-        msg: 'İşlem Başarılı!' 
-      });
+      setStatus({ type: 'success', msg: 'İşlem Başarılı!' });
 
       if (onComplete) {
         setTimeout(() => {
@@ -123,6 +123,7 @@ export default function Orders({ editingOrder, onComplete }) {
     }
   };
 
+  // FabricCard aynı kalıyor...
   const FabricCard = ({ id, label, isMain = false }) => (
     <div className={`bg-white p-6 rounded-4xl border ${isMain ? 'border-2 border-blue-50 shadow-sm relative overflow-hidden' : 'border-slate-100 shadow-sm'} space-y-5`}>
       {isMain && <div className="absolute top-0 left-0 w-1.5 bg-blue-600 h-full"></div>}
@@ -195,7 +196,6 @@ export default function Orders({ editingOrder, onComplete }) {
               <Link2 size={16} /> {selectedOrderNo ? 'Grubu Değiştir' : 'Siparişe Ekle'}
             </button>
           )}
-          {/* BUTON TİPİ SUBMIT OLARAK DÜZELTİLDİ */}
           <button 
             type="submit" 
             form="order-form"
@@ -209,7 +209,6 @@ export default function Orders({ editingOrder, onComplete }) {
       </div>
 
       <form id="order-form" className="grid gap-8" onSubmit={handleSubmit(onSubmit)}>
-        {/* HATA PANELİ: EĞER BİR ALAN EKSİKSE BURADA YAZACAK */}
         {Object.keys(errors).length > 0 && (
           <div className="bg-red-50 p-4 rounded-2xl border border-red-100 flex items-center gap-3 text-red-600 font-black text-[10px] uppercase tracking-widest">
             <AlertCircle size={18} />
@@ -223,7 +222,6 @@ export default function Orders({ editingOrder, onComplete }) {
             <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Temel Bilgiler</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5">
-            {/* REQUIRED ESNETİLDİ */}
             <Input label="Müşteri" {...register("customer")} onChange={(e) => handleCapitalize(e, "customer")} readOnly={!!selectedOrderNo || !!editingOrder} />
             <Input label="Artikel" {...register("article")} onChange={(e) => handleCapitalize(e, "article")} />
             <Input label="Model" {...register("model")} onChange={(e) => handleCapitalize(e, "model")} />
