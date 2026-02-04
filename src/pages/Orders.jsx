@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { 
   Save, Link2, CheckCircle, AlertCircle, Loader2, RefreshCcw, 
-  UploadCloud, PlusCircle // 👈 PlusCircle eklendi
+  UploadCloud, PlusCircle 
 } from 'lucide-react';
 import { Input, TextArea } from '../components/ui/Input';
 import SizeMatrix from '../components/orders/SizeMatrix';
@@ -104,16 +104,24 @@ export default function Orders({ editingOrder, onComplete }) {
     setLoading(true);
     try {
       const result = await saveOrder(data, editingOrder?.id, selectedOrderNo);
+      
       setStatus({ 
         type: 'success', 
         msg: editingOrder ? 'Sipariş Güncellendi!' : `Sipariş Kaydedildi! No: ${result.order_no}` 
       });
-      if (editingOrder && onComplete) {
-        setTimeout(() => onComplete(), 1500);
+
+      // ✅ KRİTİK DÜZELTME: Hem yeni kayıt hem güncelleme sonrası listeye dön
+      if (onComplete) {
+        setTimeout(() => {
+          onComplete(); // App.jsx'teki setActivePage('list') tetiklenir
+          if (!editingOrder) reset();
+        }, 1500);
       } else if (!selectedOrderNo) {
         reset();
       }
+
     } catch (error) {
+      console.error("Kayıt Hatası:", error);
       setStatus({ type: 'error', msg: 'Kayıt sırasında hata oluştu.' });
     } finally {
       setLoading(false);
@@ -154,7 +162,6 @@ export default function Orders({ editingOrder, onComplete }) {
   );
 
   return (
-    // 1. STANDART GENİŞLİK (max-w-7xl)
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-8 pb-32">
       <AddOrderModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSelect={(o) => { setValue("customer", o.customer); setSelectedOrderNo(o.order_no); setIsModalOpen(false); }} />
 
@@ -165,7 +172,6 @@ export default function Orders({ editingOrder, onComplete }) {
         </div>
       )}
 
-      {/* 2. STANDART BAŞLIK YAPISI */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-5 rounded-4xl shadow-sm border border-slate-100 sticky top-4 z-40 gap-4">
         <div className="flex items-center gap-3">
           <div className={`p-2.5 rounded-xl text-white shadow-lg ${editingOrder ? 'bg-blue-600' : 'bg-slate-900'}`}>
@@ -195,7 +201,6 @@ export default function Orders({ editingOrder, onComplete }) {
       </div>
 
       <form className="grid gap-8" onSubmit={handleSubmit(onSubmit)}>
-        {/* TEMEL BİLGİLER */}
         <section className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
           <div className="flex items-center gap-2 border-b border-slate-50 pb-4">
             <div className="w-1.5 h-4 bg-blue-600 rounded-full"></div>
@@ -234,7 +239,6 @@ export default function Orders({ editingOrder, onComplete }) {
 
         <SizeMatrix register={register} watch={watch} />
 
-        {/* KUMAŞLAR */}
         <section className="space-y-6">
           <div className="flex items-center gap-2 ml-4">
             <div className="w-1.5 h-4 bg-blue-600 rounded-full"></div>
@@ -246,7 +250,6 @@ export default function Orders({ editingOrder, onComplete }) {
           </div>
         </section>
 
-        {/* İŞLEMLER */}
         <section className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
           <TextArea label="Kesim Sonrası İşlemler" {...register("postProcesses")} placeholder="Baskı, Nakış, Yıkama vb. detayları buraya yazınız..." />
         </section>
