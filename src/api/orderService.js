@@ -32,11 +32,11 @@ export const saveOrder = async (formData, orderId = null, forceOrderNo = null) =
     model: String(formData.model || ""),
     color: String(formData.color || ""),
     due: formData.due || null,
-    extra_percent: Number(formData.extra_percent ?? 5),
-    qty_by_size: formData.qty_by_size || {},
+    extra_percent: Number(formData.extraPercent ?? 5), // 'extraPercent' frontend'den geliyor
+    qty_by_size: formData.qtyBySize || {}, // 'qtyBySize' frontend'den geliyor
     fabrics: formData.fabrics || {},
-    post_processes: formData.post_processes || "",
-    model_image: formData.model_image || null,
+    post_processes: formData.postProcesses || "", // 'postProcesses' frontend'den geliyor
+    model_image: formData.modelImage || null, // 'modelImage' frontend'den geliyor
     updated_at: new Date().toISOString()
   };
 
@@ -47,7 +47,7 @@ export const saveOrder = async (formData, orderId = null, forceOrderNo = null) =
 };
 
 /**
- * 2. DASHBOARD İSTATİSTİKLERİ (KUMAŞ BİRLEŞTİRME DÜZELTİLDİ)
+ * 2. DASHBOARD VE KUMAŞ İHTİYAÇ HESAPLAMA (TÜM GRUPLAR)
  */
 export const getDashboardStats = async () => {
   const [ordersRes, deliveriesRes] = await Promise.all([
@@ -72,70 +72,60 @@ export const getDashboardStats = async () => {
   const fabricMap = {};
 
   orders.forEach(order => {
-    // 1. Planlanan ve Kesilen Adetler
     const plannedQty = Object.values(order.qty_by_size || {}).reduce((a, b) => a + (Number(b) || 0), 0);
     const actualQty = Object.values(order.cutting_qty || {}).reduce((a, b) => a + (Number(b) || 0), 0);
     
     stats.totalPlanned += plannedQty;
     stats.totalActualCut += actualQty;
 
-    // 2. Kumaş Sipariş Sayacı
     if (order.fabric_ordered) stats.fabricOrderedCount++;
     else stats.waitingFabricOrder++;
 
-    // 3. KUMAŞ HESAPLAMA (Burada düzelttik)
     Object.values(order.fabrics || {}).forEach(f => {
       if (!f.kind || !f.perPieceKg) return;
-      
       const key = `${f.kind}-${f.color}`.toLowerCase().trim();
       if (!fabricMap[key]) {
-        fabricMap[key] = { 
-          kind: f.kind, color: f.color, unit: f.unit || 'kg', 
-          needed: 0, received: 0, isOrdered: order.fabric_ordered 
-        };
+        fabricMap[key] = { kind: f.kind, color: f.color, unit: f.unit || 'kg', needed: 0, received: 0 };
       }
-      
       const extra = 1 + (Number(order.extra_percent || 5) / 100);
-      const need = (plannedQty * extra * Number(f.perPieceKg));
-      fabricMap[key].needed += need;
-      
-      // Eğer gruptaki bir siparişte bile kumaş istenmediyse "İstenmedi" kalsın
-      if (!order.fabric_ordered) fabricMap[key].isOrdered = false;
+      fabricMap[key].needed += (plannedQty * extra * Number(f.perPieceKg));
     });
   });
 
-  // Gelen kumaşları eşleştir
   deliveries.forEach(del => {
     const key = `${del.fabric_kind}-${del.color || ''}`.toLowerCase().trim();
-    if (fabricMap[key]) {
-      fabricMap[key].received += Number(del.amount_received || 0);
-    }
+    if (fabricMap[key]) fabricMap[key].received += Number(del.amount_received || 0);
   });
 
-  // Net eksikleri hesapla ve Dashboard'a hazırla
   stats.fabrics = Object.values(fabricMap).map(f => ({
     ...f,
     netEksik: Math.max(0, f.needed - f.received)
-  })).filter(f => f.netEksik > 0.05); // Çok küçük farkları gösterme
+  })).filter(f => f.netEksik > 0.1);
 
   return stats;
 };
 
 /**
- * 3. DİĞER FONKSİYONLAR (Eksiksiz)
+ * 3. GRUP BAZLI KUMAŞ İHTİYACI (LİSTE İÇİN)
  */
 export const getFabricsByOrderNo = async (orderNo) => {
+  // Bu grup altındaki TÜM artikelleri çekiyoruz
   const { data, error } = await supabase.from('orders').select('*').eq('order_no', orderNo);
   if (error) throw error;
+  
   const combinedFabrics = {};
   data.forEach(order => {
-    const extra = 1 + (Number(order.extra_percent || 0) / 100);
-    const totalPieces = Math.ceil(Object.values(order.qty_by_size || {}).reduce((a, b) => a + (Number(b) || 0), 0) * extra);
-    Object.entries(order.fabrics || {}).forEach(([key, f]) => {
-      if (!f.kind) return; 
-      const fabricKey = `${f.kind}-${f.color}-${f.unit}`.toLowerCase().trim();
-      if (!combinedFabrics[fabricKey]) combinedFabrics[fabricKey] = { ...f, totalAmount: 0, isMain: key === 'main' };
-      combinedFabrics[fabricKey].totalAmount += totalPieces * (Number(f.perPieceKg) || 0);
+    const extra = 1 + (Number(order.extra_percent || 5) / 100);
+    const orderQty = Object.values(order.qty_by_size || {}).reduce((a, b) => a + (Number(b) || 0), 0);
+
+    Object.entries(order.fabrics || {}).forEach(([fKey, f]) => {
+      if (!f.kind || !f.perPieceKg) return;
+      const fabricUniqueKey = `${f.kind}-${f.color}-${f.unit}`.toLowerCase().trim();
+      
+      if (!combinedFabrics[fabricUniqueKey]) {
+        combinedFabrics[fabricUniqueKey] = { ...f, totalAmount: 0, isMain: fKey === 'main' };
+      }
+      combinedFabrics[fabricUniqueKey].totalAmount += (orderQty * extra * Number(f.perPieceKg));
     });
   });
   return Object.values(combinedFabrics).sort((a, b) => b.isMain - a.isMain);
