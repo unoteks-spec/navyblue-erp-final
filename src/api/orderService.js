@@ -1,29 +1,27 @@
 import { supabase } from './supabaseClient';
-import { toTitleCaseTR } from '../utils/stringUtils';
 
 export { supabase };
 
 /**
  * 1. SİPARİŞ KAYDET VEYA GÜNCELLE
- * Dinamik Sipariş No Üretimi: MÜŞ-YIL-SIRA (Örn: LCW-2026-001)
+ * Artikel Ekleme ve Grup Yönetimi Düzeltilmiş Sürüm
  */
 export const saveOrder = async (formData, orderId = null, forceOrderNo = null) => {
   let finalOrderNo = forceOrderNo;
 
-  // --- 🆕 OTOMATİK SİPARİŞ NO ÜRETİMİ (Sadece Yeni Kayıtlarda) ---
-  if (!orderId && !forceOrderNo) {
+  // --- 🆕 OTOMATİK SİPARİŞ NO ÜRETİMİ ---
+  // Sadece yeni bir kayıtsa VE dışarıdan bir grup numarası GELMEMİŞSE numara üret.
+  if (!orderId && !finalOrderNo) {
     try {
       const year = new Date().getFullYear();
-      // Müşteri isminin ilk 3 harfini al, Türkçe karakterleri büyüt, boşlukları temizle
       const customerBase = (formData.customer || "SIP").trim();
       let prefix = customerBase
         .substring(0, 3)
         .toLocaleUpperCase('tr-TR')
         .replace(/\s/g, 'X'); 
       
-      if (prefix.length < 3) prefix = prefix.padEnd(3, 'X');
+      if (prefix.length < 3) prefix = prefix.padEnd(3, '0');
 
-      // Veritabanında bu prefix ve yıla ait son numarayı bul
       const { data: lastOrders } = await supabase
         .from('orders')
         .select('order_no')
@@ -42,35 +40,38 @@ export const saveOrder = async (formData, orderId = null, forceOrderNo = null) =
       finalOrderNo = `${prefix}-${year}-${String(sequence).padStart(3, '0')}`;
     } catch (err) {
       console.error("Sipariş no üretim hatası:", err);
-      finalOrderNo = `ORD-${Date.now()}`; // Hata durumunda yedek plan
+      finalOrderNo = `ORD-${Date.now()}`;
     }
   }
 
+  // Veritabanı payload hazırlığı (Hem camelCase hem snake_case desteği için)
   const dbPayload = {
     order_no: finalOrderNo,
-    customer: toTitleCaseTR(formData.customer || "").trim(),
-    article: toTitleCaseTR(formData.article || "").trim(),
+    customer: (formData.customer || "").trim(),
+    article: (formData.article || "").trim(),
     model: formData.model || "",
     color: formData.color || "",
     due: formData.due || null,
-    extra_percent: Number(formData.extra_percent ?? formData.extraPercent ?? 0),
+    extra_percent: Number(formData.extra_percent ?? formData.extraPercent ?? 5),
     qty_by_size: formData.qty_by_size ?? formData.qtyBySize ?? {},
     fabrics: formData.fabrics || {},
-    post_processes: formData.post_processes ?? formData.postProcesses ?? [],
-    model_image: formData.model_image ?? formData.modelImage ?? null
+    post_processes: formData.post_processes ?? formData.postProcesses ?? "",
+    model_image: formData.model_image ?? formData.modelImage ?? null,
+    updated_at: new Date().toISOString()
   };
 
-  let query = orderId 
+  const query = orderId 
     ? supabase.from('orders').update(dbPayload).eq('id', orderId) 
     : supabase.from('orders').insert([dbPayload]);
 
   const { data, error } = await query.select();
   
   if (error) {
-    console.error("Sipariş Kayıt/Güncelleme Hatası:", error.message);
+    console.error("Supabase İşlem Hatası:", error.message);
     throw error;
   }
-  return data[0];
+  
+  return data && data.length > 0 ? data[0] : null;
 };
 
 /**
@@ -106,7 +107,7 @@ export const updateCuttingResults = async (orderId, results, details) => {
 };
 
 /**
- * 4. DASHBOARD İSTATİSTİKLERİ (Workflow V3)
+ * 4. DASHBOARD İSTATİSTİKLERİ
  */
 export const getDashboardStats = async () => {
   const [ordersRes, deliveriesRes] = await Promise.all([
@@ -125,7 +126,7 @@ export const getDashboardStats = async () => {
     totalActualCut: 0,
     fabricOrderedCount: 0, 
     waitingFabricOrder: 0,
-    fabrics: [], // UI'da beklenen isim
+    fabrics: [],
     deadlines: orders
       .filter(o => o.due)
       .sort((a, b) => new Date(a.due) - new Date(b.due))
@@ -166,72 +167,24 @@ export const getDashboardStats = async () => {
     }
   });
 
-  // UI uyumluluğu için objeyi diziye çevir ve netEksik hesapla
   stats.fabrics = Object.values(fabricMap).map(f => ({
     ...f,
     netEksik: Math.max(0, f.needed - f.received)
   })).filter(f => f.netEksik > 0.1);
 
-  // Dashboard StatCard'da "totalPieces" bekliyorsa:
-  stats.totalPieces = stats.totalPlanned;
-
   return stats;
 };
 
 /**
- * 5. YAZDIRMA İÇİN KUMAŞ ÖZETİ
+ * 5. GENEL VERİ ÇEKME FONKSİYONLARI
  */
-export const getFabricsByOrderNo = async (orderNo) => {
-  const { data, error } = await supabase.from('orders').select('*').eq('order_no', orderNo);
-  if (error) throw error;
-  
-  const combinedFabrics = {};
-  data.forEach(order => {
-    const extra = 1 + (Number(order.extra_percent ?? order.extraPercent ?? 0) / 100);
-    const qtyObj = order.qty_by_size ?? order.qtyBySize ?? {};
-    const totalPieces = Math.ceil(Object.values(qtyObj).reduce((a, b) => a + (Number(b) || 0), 0) * extra);
+export const getAllOrders = () => 
+  supabase.from('orders').select('*').order('created_at', { ascending: false }).then(res => res.data);
 
-    Object.entries(order.fabrics || {}).forEach(([key, f]) => {
-      if (!f.kind) return; 
-      const fabricKey = `${f.kind}-${f.color}-${f.unit}`.toLowerCase().trim();
-      if (!combinedFabrics[fabricKey]) {
-        combinedFabrics[fabricKey] = { ...f, totalAmount: 0, isMain: key === 'main' };
-      }
-      combinedFabrics[fabricKey].totalAmount += totalPieces * (Number(f.perPieceKg) || 0);
-    });
-  });
-  return Object.values(combinedFabrics).sort((a, b) => b.isMain - a.isMain);
+export const getRecentOrders = async () => {
+  const { data } = await supabase.from('orders').select('order_no, customer').order('created_at', { ascending: false }).limit(40);
+  return Array.from(new Set(data.map(a => a.order_no))).map(no => data.find(a => a.order_no === no));
 };
-
-// orderService.js içine ekle:
-export const updateOrderStage = async (orderId, stageKey, currentTracking) => {
-  const now = new Date().toISOString();
-  const updatedTracking = { 
-    ...(currentTracking || {}), 
-    [stageKey]: now 
-  };
-
-  
-
-  const { error } = await supabase
-    .from('orders')
-    .update({ 
-      current_stage: stageKey,
-      tracking: updatedTracking 
-    })
-    .eq('id', orderId);
-
-  if (error) throw error;
-  return updatedTracking;
-
-
-  
-};
-
-/**
- * 6. YARDIMCILAR
- */
-export const getAllOrders = () => supabase.from('orders').select('*').order('created_at', { ascending: false }).then(res => res.data);
 
 export const deleteOrder = async (id) => {
   const { error } = await supabase.from('orders').delete().eq('id', id);
@@ -239,35 +192,19 @@ export const deleteOrder = async (id) => {
   return true;
 };
 
+/**
+ * 6. KUMAŞ VE DOSYA İŞLEMLERİ
+ */
 export const addFabricDelivery = (data) => supabase.from('fabric_deliveries').insert([data]).select();
-export const deleteFabricDelivery = (id) => supabase.from('fabric_deliveries').delete().eq('id', id);
 
 export const uploadModelImage = async (file) => {
   try {
     const fileExt = file.name.split('.').pop();
     const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-    const { data, error } = await supabase.storage.from('models').upload(fileName, file);
+    const { error } = await supabase.storage.from('models').upload(fileName, file);
     if (error) throw error;
     return supabase.storage.from('models').getPublicUrl(fileName).data.publicUrl;
   } catch (err) {
     throw err;
   }
-};
-
-export const getRecentOrders = async () => {
-  const { data } = await supabase.from('orders').select('order_no, customer').order('created_at', { ascending: false }).limit(40);
-  return Array.from(new Set(data.map(a => a.order_no))).map(no => data.find(a => a.order_no === no));
-};
-
-// orderService.js içine ekle:
-export const moveOrderBack = async (orderId, prevStageKey) => {
-  const { error } = await supabase
-    .from('orders')
-    .update({ 
-      current_stage: prevStageKey
-    })
-    .eq('id', orderId);
-
-  if (error) throw error;
-  return true;
 };
