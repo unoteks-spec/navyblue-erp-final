@@ -9,7 +9,6 @@ import SizeMatrix from '../components/orders/SizeMatrix';
 import AddOrderModal from '../components/orders/AddOrderModal';
 import { saveOrder, uploadModelImage } from '../api/orderService';
 
-// 🇹🇷 Türkçe Karakter Destekli Büyük Harf Fonksiyonu
 const capitalizeTR = (str) => {
   if (!str) return "";
   return str
@@ -100,40 +99,25 @@ export default function Orders({ editingOrder, onComplete }) {
     setValue(name, val);
   };
 
-  // ✅ BURASI GÜNCELLENDİ: ARTIK GRUP NUMARASINI ASLA KAÇIRMAZ
   const onSubmit = async (data) => {
     setLoading(true);
-    console.log("Kayıt denemesi başladı...", { data, selectedOrderNo });
-
     try {
-      // API çağrısını yapıyoruz
       const result = await saveOrder(data, editingOrder?.id, selectedOrderNo);
       
-      console.log("API'den dönen sonuç:", result);
-
       setStatus({ 
         type: 'success', 
         msg: 'İşlem Başarılı!' 
       });
 
-      // ✅ Liste sayfasına yönlendirme tetikleyici
       if (onComplete) {
         setTimeout(() => {
-          console.log("Yönlendirme tetikleniyor...");
           onComplete(); 
           if (!editingOrder) reset();
         }, 1500);
       }
-
     } catch (error) {
-      // 🚨 GİZLİ HATAYI EKRANA BASALIM
-      console.error("KRİTİK HATA DETAYI:", error);
       alert("SİSTEM HATASI: " + (error.message || "Bilinmeyen bir hata oluştu"));
-      
-      setStatus({ 
-        type: 'error', 
-        msg: 'Hata oluştu! Detay konsolda.' 
-      });
+      setStatus({ type: 'error', msg: 'Hata oluştu!' });
     } finally {
       setLoading(false);
     }
@@ -173,19 +157,18 @@ export default function Orders({ editingOrder, onComplete }) {
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-8 pb-32">
-      {/* MODAL KONTROLÜ */}
       <AddOrderModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
         onSelect={(o) => { 
           setValue("customer", o.customer); 
-          setSelectedOrderNo(o.order_no); // Grup No buraya set ediliyor
+          setSelectedOrderNo(o.order_no);
           setIsModalOpen(false); 
         }} 
       />
 
       {status.msg && (
-        <div className={`fixed top-6 right-6 flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl z-50 animate-in fade-in slide-in-from-top-4 duration-300 text-white font-black text-[11px] uppercase ${status.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
+        <div className={`fixed top-6 right-6 flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl z-50 text-white font-black text-[11px] uppercase ${status.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
           {status.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
           {status.msg}
         </div>
@@ -208,26 +191,40 @@ export default function Orders({ editingOrder, onComplete }) {
         
         <div className="flex gap-2 w-full md:w-auto">
           {!editingOrder && (
-            <button type="button" onClick={() => setIsModalOpen(true)} className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase border transition-all ${selectedOrderNo ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-100' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
+            <button type="button" onClick={() => setIsModalOpen(true)} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-black text-[10px] uppercase border transition-all bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100">
               <Link2 size={16} /> {selectedOrderNo ? 'Grubu Değiştir' : 'Siparişe Ekle'}
             </button>
           )}
-          <button onClick={handleSubmit(onSubmit)} disabled={loading || uploading} className={`flex-1 md:flex-none flex items-center justify-center gap-2 text-white px-8 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all ${editingOrder ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
+          {/* BUTON TİPİ SUBMIT OLARAK DÜZELTİLDİ */}
+          <button 
+            type="submit" 
+            form="order-form"
+            disabled={loading || uploading} 
+            className={`flex-1 md:flex-none flex items-center justify-center gap-2 text-white px-8 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all ${editingOrder ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+          >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 
             {editingOrder ? 'Kaydet' : 'Siparişi Oluştur'}
           </button>
         </div>
       </div>
 
-      <form className="grid gap-8" onSubmit={handleSubmit(onSubmit)}>
-        {/* FORM İÇERİĞİ AYNI KALIYOR */}
+      <form id="order-form" className="grid gap-8" onSubmit={handleSubmit(onSubmit)}>
+        {/* HATA PANELİ: EĞER BİR ALAN EKSİKSE BURADA YAZACAK */}
+        {Object.keys(errors).length > 0 && (
+          <div className="bg-red-50 p-4 rounded-2xl border border-red-100 flex items-center gap-3 text-red-600 font-black text-[10px] uppercase tracking-widest">
+            <AlertCircle size={18} />
+            Lütfen şu alanları kontrol edin: {Object.keys(errors).join(", ")}
+          </div>
+        )}
+
         <section className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
           <div className="flex items-center gap-2 border-b border-slate-50 pb-4">
             <div className="w-1.5 h-4 bg-blue-600 rounded-full"></div>
             <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Temel Bilgiler</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5">
-            <Input label="Müşteri" {...register("customer", { required: true })} onChange={(e) => handleCapitalize(e, "customer")} readOnly={!!selectedOrderNo || !!editingOrder} />
+            {/* REQUIRED ESNETİLDİ */}
+            <Input label="Müşteri" {...register("customer")} onChange={(e) => handleCapitalize(e, "customer")} readOnly={!!selectedOrderNo || !!editingOrder} />
             <Input label="Artikel" {...register("article")} onChange={(e) => handleCapitalize(e, "article")} />
             <Input label="Model" {...register("model")} onChange={(e) => handleCapitalize(e, "model")} />
             <Input label="Renk" {...register("color")} onChange={(e) => handleCapitalize(e, "color")} />
