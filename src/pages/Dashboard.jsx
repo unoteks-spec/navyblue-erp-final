@@ -88,7 +88,7 @@ export default function Dashboard() {
           icon={<Droplet className="text-purple-600" size={24} />} 
           label="Kumaş Kalemi" 
           value={stats?.fabrics?.length} 
-          subValue="Eksik Hammadde Türü" 
+          subValue="Eksik Kumaş Türü" 
         />
       </div>
 
@@ -135,7 +135,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between border-b border-white/10 pb-4">
             <div className="flex items-center gap-3">
               <Ruler className="text-blue-400" size={18} />
-              <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Net Hammadde İhtiyacı</h2>
+              <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Net Kumaş İhtiyacı</h2>
             </div>
             <span className="text-[8px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded font-black tracking-widest uppercase">Anlık Veri</span>
           </div>
@@ -169,7 +169,7 @@ export default function Dashboard() {
             )) : (
               <div className="py-20 text-center space-y-3">
                 <CheckCircle2 size={40} className="mx-auto text-emerald-500/20" />
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Hammadde eksiği bulunmuyor.</p>
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Kumaş eksiği bulunmuyor.</p>
               </div>
             )}
           </div>

@@ -1,7 +1,4 @@
 @import "tailwindcss";
-@import "tailwindcss";
-
-/* ... mevcut diğer stillerin ... */
 
 @utility no-spinner {
   -moz-appearance: textfield;
@@ -11,14 +8,12 @@
     margin: 0;
   }
 }
-/* src/index.css */
+
 @media print {
-  /* Yazdırma sırasında menüleri ve butonları gizle */
   nav, .bottom-nav, button, .no-print {
     display: none !important;
   }
   
-  /* Arka planı beyaz yap ve gölgeleri kaldır */
   body {
     background: white !important;
     padding: 0 !important;
