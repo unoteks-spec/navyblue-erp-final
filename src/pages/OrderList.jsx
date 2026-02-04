@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
-  Search, Hash, Printer, Truck, Trash2, Edit3, Scissors, CheckCircle, LayoutGrid // 👈 LayoutGrid eklendi
+  Search, Hash, Printer, Truck, Trash2, Edit3, Scissors, CheckCircle, LayoutGrid, RefreshCcw
 } from 'lucide-react';
 import { getAllOrders, deleteOrder, supabase } from "../api/orderService";
 import FabricOrderPrint from '../components/orders/FabricOrderPrint';
@@ -22,7 +22,9 @@ export default function OrderList({ onEditOrder }) {
   const [cuttingResultOrder, setCuttingResultOrder] = useState(null);
 
   const loadData = useCallback(async () => {
-    setLoading(true);
+    // Sadece ilk yüklemede tam ekran loading göster, tazeleme yaparken kullanıcıyı engelleme
+    if (orders.length === 0) setLoading(true);
+    
     try {
       const ordersData = await getAllOrders();
       const { data: deliveriesData, error: dError } = await supabase.from('fabric_deliveries').select('*');
@@ -35,9 +37,17 @@ export default function OrderList({ onEditOrder }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [orders.length]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { 
+    // 1. Sayfa ilk açıldığında yükle
+    loadData(); 
+
+    // 2. Sayfaya her odaklanıldığında (sekme değiştirme, mobil uygulama geri gelme) veriyi tazele
+    window.addEventListener('focus', loadData);
+    
+    return () => window.removeEventListener('focus', loadData);
+  }, [loadData]);
 
   const handleDeleteOrder = async (id, orderNo) => {
     if (window.confirm(`${orderNo} numaralı siparişi silmek istediğinize emin misiniz?`)) {
@@ -78,10 +88,9 @@ export default function OrderList({ onEditOrder }) {
   );
 
   return (
-    // 1. STANDART GENİŞLİK (max-w-7xl)
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32">
       
-      {/* 2. STANDART BAŞLIK YAPISI */}
+      {/* BAŞLIK VE YENİLEME BUTONU */}
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-slate-900 rounded-xl text-white shadow-lg">
@@ -92,9 +101,14 @@ export default function OrderList({ onEditOrder }) {
             <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase">Mevcut Üretim Planları</p>
           </div>
         </div>
+        <button 
+          onClick={loadData} 
+          className="p-2.5 bg-white border border-slate-100 rounded-xl hover:bg-slate-50 transition-all shadow-sm group"
+        >
+          <RefreshCcw size={18} className={`text-slate-400 group-hover:text-blue-600 ${loading ? 'animate-spin text-blue-600' : ''}`} />
+        </button>
       </div>
 
-      {/* ARAMA ÇUBUĞU STANDARTLAŞTIRILDI */}
       <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -108,7 +122,7 @@ export default function OrderList({ onEditOrder }) {
       </div>
 
       <div className="grid gap-6">
-        {loading ? (
+        {loading && orders.length === 0 ? (
           <div className="text-center py-20 text-slate-300 font-black animate-pulse uppercase text-[10px] tracking-[0.3em]">Sistem Senkronize Ediliyor...</div>
         ) : filteredOrders.map(order => {
           const stats = calculateProgress(order);
@@ -130,7 +144,6 @@ export default function OrderList({ onEditOrder }) {
               </div>
 
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-                {/* SOL BÖLÜM */}
                 <div className="flex items-start gap-4 flex-1 min-w-0">
                   <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center overflow-hidden transition-all duration-500 shrink-0 ${isCut ? 'bg-emerald-600 text-white shadow-inner' : 'bg-slate-50 text-slate-400 group-hover:bg-slate-900 group-hover:text-white'}`}>
                     {order.model_image ? (
@@ -148,13 +161,10 @@ export default function OrderList({ onEditOrder }) {
                       <span className="truncate">{order.article}</span>
                       <span className="text-slate-200">/</span>
                       <span className="text-slate-600 font-black truncate">{order.model}</span>
-                      <span className="text-slate-200">/</span>
-                      <span className="truncate shrink-0">{order.color}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* ORTA: İLERLEME ÇUBUĞU */}
                 <div className="flex-1 w-full lg:max-w-60">
                   <div className="flex justify-between items-end mb-1.5">
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Kumaş Durumu</span>
@@ -165,28 +175,11 @@ export default function OrderList({ onEditOrder }) {
                   </div>
                 </div>
 
-                {/* SAĞ: AKSİYON BUTONLARI */}
                 <div className="flex flex-wrap items-center gap-2">
-                  <button 
-                    onClick={() => setPrintOrder(order)} 
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[9px] transition-all border uppercase tracking-tighter ${
-                      order.fabric_ordered 
-                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' 
-                      : 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-600 hover:text-white'
-                    }`}
-                  >
-                    <Printer size={14} /> Sipariş
-                  </button>
-
+                  <button onClick={() => setPrintOrder(order)} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[9px] transition-all border uppercase tracking-tighter ${order.fabric_ordered ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-600 hover:text-white'}`}><Printer size={14} /> Sipariş</button>
                   <button onClick={() => setIntakeOrder(order)} className="flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2.5 rounded-xl font-black text-[9px] hover:bg-blue-600 hover:text-white transition-all border border-blue-100 uppercase tracking-tighter"><Truck size={14} /> Giriş</button>
                   <button onClick={() => setPreparingOrder(order)} className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl font-black text-[9px] hover:bg-blue-600 transition-all shadow-lg uppercase tracking-tighter"><Scissors size={14} /> Emre Git</button>
-                  <button 
-                    onClick={() => setCuttingResultOrder(order)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[9px] transition-all border uppercase tracking-tighter ${isCut ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white'}`}
-                  >
-                    {isCut ? <CheckCircle size={14} /> : <Scissors size={14} />}
-                    {isCut ? 'Kesildi' : 'Sonuç Gir'}
-                  </button>
+                  <button onClick={() => setCuttingResultOrder(order)} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[9px] transition-all border uppercase tracking-tighter ${isCut ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white'}`}>{isCut ? <CheckCircle size={14} /> : <Scissors size={14} />}{isCut ? 'Kesildi' : 'Sonuç Gir'}</button>
                 </div>
               </div>
             </div>
@@ -194,7 +187,6 @@ export default function OrderList({ onEditOrder }) {
         })}
       </div>
 
-      {/* MODALLAR DEĞİŞMEDİ */}
       {printOrder && <FabricOrderPrint order={printOrder} onClose={() => setPrintOrder(null)} onSuccess={loadData} />}
       {intakeOrder && <FabricIntakeModal order={intakeOrder} allOrders={orders} onClose={() => setIntakeOrder(null)} onSuccess={loadData} />}
       {preparingOrder && <CuttingOrderModal order={preparingOrder} onClose={() => setPreparingOrder(null)} onConfirm={(upd) => { setPreparingOrder(null); setPrintCuttingOrder(upd); loadData(); }} />}
