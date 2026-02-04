@@ -100,29 +100,30 @@ export default function Orders({ editingOrder, onComplete }) {
     setValue(name, val);
   };
 
+  // ✅ BURASI GÜNCELLENDİ: ARTIK GRUP NUMARASINI ASLA KAÇIRMAZ
   const onSubmit = async (data) => {
     setLoading(true);
     try {
+      // selectedOrderNo eğer doluysa (Siparişe Ekle denildiyse) onu kullanıyoruz
       const result = await saveOrder(data, editingOrder?.id, selectedOrderNo);
       
       setStatus({ 
         type: 'success', 
-        msg: editingOrder ? 'Sipariş Güncellendi!' : `Sipariş Kaydedildi! No: ${result.order_no}` 
+        msg: editingOrder ? 'Sipariş Güncellendi!' : (selectedOrderNo ? 'Gruba Ekleme Başarılı!' : `Yeni Sipariş No: ${result.order_no}`)
       });
 
-      // ✅ KRİTİK DÜZELTME: Hem yeni kayıt hem güncelleme sonrası listeye dön
       if (onComplete) {
         setTimeout(() => {
-          onComplete(); // App.jsx'teki setActivePage('list') tetiklenir
-          if (!editingOrder) reset();
+          onComplete(); 
+          if (!editingOrder) {
+            reset();
+            setSelectedOrderNo(null);
+          }
         }, 1500);
-      } else if (!selectedOrderNo) {
-        reset();
       }
-
     } catch (error) {
       console.error("Kayıt Hatası:", error);
-      setStatus({ type: 'error', msg: 'Kayıt sırasında hata oluştu.' });
+      setStatus({ type: 'error', msg: 'Kayıt sırasında hata oluştu: ' + error.message });
     } finally {
       setLoading(false);
       setTimeout(() => setStatus({ type: '', msg: '' }), 4000);
@@ -163,7 +164,16 @@ export default function Orders({ editingOrder, onComplete }) {
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-8 pb-32">
-      <AddOrderModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSelect={(o) => { setValue("customer", o.customer); setSelectedOrderNo(o.order_no); setIsModalOpen(false); }} />
+      {/* MODAL KONTROLÜ */}
+      <AddOrderModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        onSelect={(o) => { 
+          setValue("customer", o.customer); 
+          setSelectedOrderNo(o.order_no); // Grup No buraya set ediliyor
+          setIsModalOpen(false); 
+        }} 
+      />
 
       {status.msg && (
         <div className={`fixed top-6 right-6 flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl z-50 animate-in fade-in slide-in-from-top-4 duration-300 text-white font-black text-[11px] uppercase ${status.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
@@ -182,7 +192,7 @@ export default function Orders({ editingOrder, onComplete }) {
               {editingOrder ? 'Siparişi Güncelle' : 'Yeni İş Emri'}
             </h1>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
-              {editingOrder ? `Grup: ${editingOrder.order_no}` : 'Üretim Kayıt Girişi'}
+              {selectedOrderNo ? `Grup: ${selectedOrderNo}` : (editingOrder ? `Grup: ${editingOrder.order_no}` : 'Üretim Kayıt Girişi')}
             </p>
           </div>
         </div>
@@ -201,6 +211,7 @@ export default function Orders({ editingOrder, onComplete }) {
       </div>
 
       <form className="grid gap-8" onSubmit={handleSubmit(onSubmit)}>
+        {/* FORM İÇERİĞİ AYNI KALIYOR */}
         <section className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
           <div className="flex items-center gap-2 border-b border-slate-50 pb-4">
             <div className="w-1.5 h-4 bg-blue-600 rounded-full"></div>
