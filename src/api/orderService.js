@@ -184,3 +184,12 @@ export const updateGroupFabricDeadlines = async (orderNo, deadlines) => {
   if (error) throw error;
   return true;
 };
+export const archiveOrder = async (id) => {
+  const { error } = await supabase
+    .from('orders')
+    .update({ is_archived: true })
+    .eq('id', id);
+  
+  if (error) throw error;
+  return true;
+};

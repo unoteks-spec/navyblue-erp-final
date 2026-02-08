@@ -3,7 +3,6 @@ import {
   Search, Hash, Printer, Truck, Trash2, Edit3, Scissors, CheckCircle, LayoutGrid, RefreshCcw
 } from 'lucide-react';
 import { getAllOrders, deleteOrder, supabase } from "../api/orderService";
-// ÖNEMLİ: orderService içine birazdan ekleyeceğimiz fonksiyonu import ediyoruz
 import { updateGroupFabricStatus } from "../api/orderService";
 
 import FabricOrderPrint from '../components/orders/FabricOrderPrint';
@@ -57,9 +56,6 @@ export default function OrderList({ onEditOrder }) {
     }
   };
 
-  /**
-   * 🛠️ MADDE 3-A: RENK VE CİNS HASSASİYETLİ İLERLEME HESABI
-   */
   const calculateProgress = (order) => {
     const qtyByOrder = order.qty_by_size || order.qtyBySize || {};
     const baseTotal = Object.values(qtyByOrder).reduce((a, b) => a + (Number(b) || 0), 0);
@@ -67,19 +63,16 @@ export default function OrderList({ onEditOrder }) {
     const totalPieces = Math.ceil(baseTotal * extraFactor);
 
     let needed = 0;
-    // Siparişteki kumaş türlerini ve renklerini eşleştirme anahtarı olarak tutalım
     const orderFabricKeys = new Set();
     
     Object.values(order.fabrics || {}).forEach(f => {
       if (!f.kind || !f.color) return;
       needed += totalPieces * (Number(f.perPieceKg || 0));
-      // "süprem-siyah" gibi benzersiz bir anahtar oluşturuyoruz
       orderFabricKeys.add(`${f.kind.toLowerCase()}-${f.color.toLowerCase()}`);
     });
 
     if (needed === 0) return { percent: 0 };
 
-    // Sadece bu gruba ait VE bu artikelin renkleriyle eşleşen girişleri topla
     const received = deliveries
       .filter(d => 
         d.order_no === order.order_no && 
@@ -140,7 +133,6 @@ export default function OrderList({ onEditOrder }) {
           return (
             <div key={order.id} className={`bg-white p-5 md:p-6 rounded-[2.5rem] border transition-all group relative overflow-visible ${isCut ? 'border-emerald-500/30 bg-emerald-50/5' : 'border-slate-100'} hover:shadow-xl hover:border-blue-200`}>
               
-              {/* Düzenle/Sil */}
               <div className="absolute -top-3 -right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 z-30">
                 <button onClick={() => onEditOrder(order)} className="w-9 h-9 bg-white text-slate-400 hover:text-blue-600 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center transition-all hover:scale-110"><Edit3 size={14} /></button>
                 <button onClick={() => handleDeleteOrder(order.id, order.order_no)} className="w-9 h-9 bg-white text-slate-400 hover:text-red-600 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center transition-all hover:scale-110"><Trash2 size={14} /></button>
@@ -153,11 +145,13 @@ export default function OrderList({ onEditOrder }) {
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-black text-slate-900 tracking-tighter text-lg md:text-xl uppercase truncate leading-none">{order.order_no}</span>
+                      {/* 🛠️ ARTIKEL BURAYA TAŞINDI (Büyük ve Siyah) */}
+                      <span className="font-black text-slate-900 tracking-tighter text-lg md:text-xl uppercase truncate leading-none">{order.article}</span>
                       <span className="bg-blue-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase">{order.customer}</span>
                     </div>
                     <div className="text-[10px] text-slate-400 font-bold mt-1.5 uppercase flex items-center gap-2">
-                      <span className="text-blue-600">{order.article}</span>
+                      {/* 🛠️ GRUP NO (ORDER NO) BURAYA TAŞINDI (Küçük ve Renkli) */}
+                      <span className="text-blue-600">{order.order_no}</span>
                       <span className="text-slate-200">/</span>
                       <span className="text-slate-600 font-black">{order.model}</span>
                       <span className="text-slate-200">/</span>
@@ -166,7 +160,6 @@ export default function OrderList({ onEditOrder }) {
                   </div>
                 </div>
 
-                {/* Kumaş İlerleme Barı */}
                 <div className="flex-1 w-full lg:max-w-60">
                   <div className="flex justify-between items-end mb-1.5">
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Kumaş Giriş Hassasiyeti</span>
@@ -177,9 +170,7 @@ export default function OrderList({ onEditOrder }) {
                   </div>
                 </div>
 
-                {/* Aksiyon Butonları */}
                 <div className="flex flex-wrap items-center gap-2">
-                  {/* 🛠️ MADDE 3-B: GRUP BAZLI BUTON RENGİ */}
                   <button 
                     onClick={() => setPrintOrder(order)} 
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[9px] transition-all border uppercase tracking-tighter ${
@@ -201,7 +192,6 @@ export default function OrderList({ onEditOrder }) {
         })}
       </div>
 
-      {/* MODALLAR */}
       {printOrder && <FabricOrderPrint order={printOrder} onClose={() => setPrintOrder(null)} onSuccess={loadData} />}
       {intakeOrder && <FabricIntakeModal order={intakeOrder} allOrders={orders} onClose={() => setIntakeOrder(null)} onSuccess={loadData} />}
       {preparingOrder && <CuttingOrderModal order={preparingOrder} onClose={() => setPreparingOrder(null)} onConfirm={(upd) => { setPreparingOrder(null); setPrintCuttingOrder(upd); loadData(); }} />}
