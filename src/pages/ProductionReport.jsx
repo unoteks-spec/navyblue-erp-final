@@ -34,7 +34,6 @@ export default function ProductionReport() {
     return stageMap[key] || 'KESİM BEKLİYOR';
   };
 
-  // 🛠️ %100 GARANTİLİ PDF MOTORU
   const downloadPDF = async () => {
     if (!reportRef.current) return;
     try {
@@ -45,7 +44,6 @@ export default function ProductionReport() {
         scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
-        // 🚀 OKLCH KİRLİLİĞİNİ TEMİZLEYEN ENJEKTÖR
         onclone: (clonedDoc) => {
           const style = clonedDoc.createElement('style');
           style.innerHTML = `
@@ -75,7 +73,7 @@ export default function ProductionReport() {
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`NavyBlue_Rapor_${new Date().toISOString().split('T')[0]}.pdf`);
+      pdf.save(`NavyBlue_Detayli_Rapor_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
       console.error("PDF Hatası:", error);
       alert("Hata oluştu, lütfen sayfayı yenileyip tekrar deneyin.");
@@ -101,7 +99,7 @@ export default function ProductionReport() {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32">
       
-      {/* KONTROL PANELİ (NO-PRINT) */}
+      {/* KONTROL PANELİ */}
       <div className="bg-white p-5 rounded-4xl border border-slate-100 shadow-sm space-y-4 no-print">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -135,10 +133,9 @@ export default function ProductionReport() {
         </div>
       </div>
 
-      {/* --- RAPOR KONTEYNERI (REF BURADA) --- */}
+      {/* --- RAPOR KONTEYNERI --- */}
       <div ref={reportRef} data-report-container className="bg-white rounded-4xl border border-[#f1f5f9] overflow-hidden shadow-none">
         
-        {/* Rapor Başlığı (Sabit Renkler) */}
         <div style={{ backgroundColor: '#0f172a' }} className="p-8 text-white flex justify-between items-end pdf-bg-dark">
           <div className="space-y-1">
             <h2 className="text-3xl font-black tracking-tighter uppercase pdf-text-white" style={{ color: '#ffffff' }}>NAVY BLUE</h2>
@@ -150,7 +147,6 @@ export default function ProductionReport() {
           </div>
         </div>
 
-        {/* Özet Şeridi */}
         <div className="grid grid-cols-3 border-b border-[#f1f5f9]" style={{ backgroundColor: '#f8fafc' }}>
           <div className="p-6 text-center border-r border-[#f1f5f9]">
             <div className="text-[9px] font-black text-[#94a3b8] uppercase mb-1 tracking-widest">Aktif İş Emri</div>
@@ -166,12 +162,14 @@ export default function ProductionReport() {
           </div>
         </div>
 
-        {/* Tablo Alanı */}
         <div className="p-8">
           <table className="w-full">
             <thead>
               <tr className="text-[9px] font-black text-[#94a3b8] uppercase tracking-widest border-b border-[#f1f5f9]">
                 <th className="py-4 px-2 text-left">Artikel No</th>
+                {/* 🛠️ YENİ SÜTUNLAR */}
+                <th className="py-4 px-2 text-left">Model</th>
+                <th className="py-4 px-2 text-left">Renk</th>
                 <th className="py-4 px-2 text-left">Müşteri / Grup</th>
                 <th className="py-4 px-2 text-left" style={{ color: '#2563eb' }}>Konum</th>
                 <th className="py-4 px-2 text-center">Termin</th>
@@ -187,6 +185,10 @@ export default function ProductionReport() {
                 return (
                   <tr key={o.id}>
                     <td className="py-4 px-2 font-black text-[#0f172a] text-sm uppercase" style={{ color: '#0f172a' }}>{o.article}</td>
+                    {/* 🛠️ MODEL VE RENK VERİLERİ */}
+                    <td className="py-4 px-2 text-[11px] font-bold text-[#1e293b] uppercase">{o.model || '-'}</td>
+                    <td className="py-4 px-2 text-[11px] font-bold text-[#64748b] uppercase">{o.color || '-'}</td>
+                    
                     <td className="py-4 px-2">
                       <div className="text-[11px] font-black text-[#1e293b] uppercase leading-none" style={{ color: '#1e293b' }}>{o.customer}</div>
                       <div className="text-[9px] font-bold uppercase mt-1" style={{ color: '#2563eb' }}>Grup: {o.order_no}</div>
@@ -213,7 +215,6 @@ export default function ProductionReport() {
           </table>
         </div>
 
-        {/* Rapor Alt Bilgi */}
         <div className="p-8 border-t border-[#f1f5f9] flex justify-between items-center text-[9px] font-black text-[#94a3b8] uppercase tracking-widest" style={{ backgroundColor: '#f8fafc' }}>
           <div>* MADE FOR SEABORNS - NAVY BLUE ERP</div>
           <div className="flex gap-10">
