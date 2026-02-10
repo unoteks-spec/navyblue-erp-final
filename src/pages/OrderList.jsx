@@ -22,7 +22,13 @@ export default function OrderList({ onEditOrder }) {
   const [cuttingResultOrder, setCuttingResultOrder] = useState(null);
   const [selectedOrderDetail, setSelectedOrderDetail] = useState(null);
 
-  const sizeOrder = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL', '36', '38', '40', '42', '44', '46', '48'];
+  // 🛠️ BEDEN SIRALAMA ANAHTARI (2XL ve XXL her ikisini de kapsayacak şekilde güncellendi)
+  const sizeOrder = [
+    'XXS', 'XS', 'S', 'M', 'L', 'XL', 
+    'XXL', '2XL', // 2XL'i XXL'in hemen yanına koyduk
+    '3XL', '4XL', '5XL', 
+    '36', '38', '40', '42', '44', '46', '48'
+  ];
 
   useEffect(() => {
     if (selectedOrderDetail) {
@@ -93,7 +99,7 @@ export default function OrderList({ onEditOrder }) {
         <button onClick={loadData} className="p-2.5 bg-white border border-slate-100 rounded-xl hover:bg-slate-50"><RefreshCcw size={18} className={loading ? 'animate-spin' : ''} /></button>
       </div>
 
-      {/* 🛠️ ARAMA / FİLTRELEME (Geri Gelen Kısım) */}
+      {/* ARAMA */}
       <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -148,10 +154,10 @@ export default function OrderList({ onEditOrder }) {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <button onClick={() => setPrintOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter ${order.fabric_ordered ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-50 text-indigo-600'}`}>Sipariş Formu</button>
+                  <button onClick={() => setPrintOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter ${order.fabric_ordered ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>Sipariş Formu</button>
                   <button onClick={() => setIntakeOrder(order)} className="bg-blue-50 text-blue-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border">Giriş Yap</button>
                   <button onClick={() => setPreparingOrder(order)} className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg">Kesim Emri</button>
-                  <button onClick={() => setCuttingResultOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border ${isCut ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg' : 'bg-emerald-50 text-emerald-600'}`}>Sonuç Gir</button>
+                  <button onClick={() => setCuttingResultOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border ${isCut ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>Sonuç Gir</button>
                 </div>
               </div>
             </div>
@@ -159,7 +165,7 @@ export default function OrderList({ onEditOrder }) {
         })}
       </div>
 
-      {/* MODAL: MOBIL FIX UYGULANMIS VERSİYON */}
+      {/* MODAL: DETAY KARTI (Beden Sıralaması Fixlendi) */}
       {selectedOrderDetail && (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="absolute inset-0" onClick={() => setSelectedOrderDetail(null)}></div>
@@ -174,27 +180,27 @@ export default function OrderList({ onEditOrder }) {
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-              <div className="p-8 md:p-10 bg-slate-50/50 flex flex-col md:flex-row gap-8">
+              <div className="p-8 md:p-10 bg-slate-50/50 flex flex-col md:flex-row gap-8 border-b border-slate-100">
                 <div className="w-32 h-44 bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-inner shrink-0 mx-auto md:mx-0">
                   {selectedOrderDetail.model_image ? <img src={selectedOrderDetail.model_image} className="w-full h-full object-cover" /> : <Hash size={30} className="text-slate-100 m-auto mt-16" />}
                 </div>
                 <div className="flex-1 space-y-4 text-center md:text-left">
                   <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">{selectedOrderDetail.model}</h2>
                   <p className="text-lg font-bold text-blue-600 uppercase mt-1">{selectedOrderDetail.article}</p>
-                  <div className="grid grid-cols-3 gap-4 py-4 border-t border-slate-200/50">
+                  <div className="grid grid-cols-3 gap-4 py-4 border-t border-slate-200/50 text-left">
                     <div><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Müşteri</span><span className="text-xs font-black text-slate-700 uppercase">{selectedOrderDetail.customer}</span></div>
-                    <div><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Termin</span><span className="text-xs font-black text-slate-900 uppercase flex items-center justify-center md:justify-start gap-1"><Calendar size={12}/> {selectedOrderDetail.due ? new Date(selectedOrderDetail.due).toLocaleDateString('tr-TR') : '-'}</span></div>
-                    <div><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Konum</span><span className="text-[10px] font-black text-blue-600 uppercase flex items-center justify-center md:justify-start gap-1"><Activity size={10}/> {getStageLabel(selectedOrderDetail.current_stage)}</span></div>
+                    <div><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Termin</span><span className="text-xs font-black text-slate-900 uppercase flex items-center gap-1"><Calendar size={12}/> {selectedOrderDetail.due ? new Date(selectedOrderDetail.due).toLocaleDateString('tr-TR') : '-'}</span></div>
+                    <div><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Konum</span><span className="text-[10px] font-black text-blue-600 uppercase flex items-center gap-1"><Activity size={10}/> {getStageLabel(selectedOrderDetail.current_stage)}</span></div>
                   </div>
                 </div>
               </div>
 
               <div className="p-8 md:p-10 space-y-8">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                   <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Beden Denge Matrisi</h3>
+                   <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2"><Scissors size={14}/> Beden Denge Matrisi</h3>
                    <div className="flex gap-2">
-                      <div className="text-[9px] font-black text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg">SIP: {Object.values(selectedOrderDetail.qty_by_size || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
-                      <div className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg">KES: {Object.values(selectedOrderDetail.cutting_qty || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
+                      <div className="text-[9px] font-black text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">SIP: {Object.values(selectedOrderDetail.qty_by_size || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
+                      <div className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">KES: {Object.values(selectedOrderDetail.cutting_qty || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
                    </div>
                 </div>
 
