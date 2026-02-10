@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
-  Search, Hash, Printer, Truck, Trash2, Edit3, Scissors, CheckCircle, LayoutGrid, RefreshCcw, X, Info, MapPin, Calendar, Activity
+  Search, Hash, Printer, Truck, Trash2, Edit3, Scissors, CheckCircle, LayoutGrid, RefreshCcw, X, Calendar, Activity
 } from 'lucide-react';
 import { getAllOrders, deleteOrder, supabase } from "../api/orderService";
 
@@ -24,7 +24,6 @@ export default function OrderList({ onEditOrder }) {
 
   const sizeOrder = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', '4XL', '5XL', '36', '38', '40', '42', '44', '46', '48'];
 
-  // 🛠️ MOBİL SCROLL LOCK: Modal açıkken arka planın kaymasını engeller
   useEffect(() => {
     if (selectedOrderDetail) {
       document.body.style.overflow = 'hidden';
@@ -83,7 +82,7 @@ export default function OrderList({ onEditOrder }) {
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32">
       
       {/* ÜST PANEL */}
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-slate-900 rounded-xl text-white shadow-lg"><LayoutGrid size={20} /></div>
           <div>
@@ -91,7 +90,20 @@ export default function OrderList({ onEditOrder }) {
             <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase mt-1">Navy Blue ERP</p>
           </div>
         </div>
-        <button onClick={loadData} className="p-2.5 bg-white border border-slate-100 rounded-xl hover:bg-slate-50 shadow-sm"><RefreshCcw size={18} className={loading ? 'animate-spin' : ''} /></button>
+        <button onClick={loadData} className="p-2.5 bg-white border border-slate-100 rounded-xl hover:bg-slate-50"><RefreshCcw size={18} className={loading ? 'animate-spin' : ''} /></button>
+      </div>
+
+      {/* 🛠️ ARAMA / FİLTRELEME (Geri Gelen Kısım) */}
+      <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+          <input 
+            type="text" 
+            placeholder="Grup, Müşteri veya Artikel Ara..."
+            className="w-full pl-11 pr-4 py-2 bg-slate-50 border-transparent rounded-xl outline-none focus:bg-white text-[11px] font-bold transition-all"
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
       </div>
 
       {/* LİSTE */}
@@ -100,19 +112,18 @@ export default function OrderList({ onEditOrder }) {
           const stats = calculateProgress(order);
           const isCut = order.status === 'cut_completed';
           return (
-            <div key={order.id} className={`bg-white p-5 md:p-6 rounded-[2.5rem] border transition-all group relative overflow-visible ${isCut ? 'border-emerald-500/30 bg-emerald-50/5' : 'border-slate-100'} hover:shadow-xl`}>
-              
+            <div key={order.id} className={`bg-white p-5 md:p-6 rounded-[2.5rem] border transition-all group relative ${isCut ? 'border-emerald-500/30' : 'border-slate-100'} hover:shadow-xl`}>
               <div className="absolute -top-3 -right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all z-30">
                 <button onClick={(e) => { e.stopPropagation(); onEditOrder(order); }} className="w-9 h-9 bg-white text-slate-400 hover:text-blue-600 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110"><Edit3 size={14} /></button>
-                <button onClick={(e) => { e.stopPropagation(); deleteOrder(order.id); loadData(); }} className="w-9 h-9 bg-white text-slate-400 hover:text-red-600 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110"><Trash2 size={14} /></button>
+                <button onClick={(e) => { e.stopPropagation(); if(window.confirm('Emin misiniz?')) { deleteOrder(order.id); loadData(); } }} className="w-9 h-9 bg-white text-slate-400 hover:text-red-600 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110"><Trash2 size={14} /></button>
               </div>
 
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                <div onClick={() => setSelectedOrderDetail(order)} className="flex items-start gap-4 flex-1 cursor-pointer hover:opacity-80 transition-all">
+                <div onClick={() => setSelectedOrderDetail(order)} className="flex items-start gap-4 flex-1 cursor-pointer hover:opacity-80">
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 ${isCut ? 'bg-emerald-600' : 'bg-slate-900'} text-white`}>
                     {order.model_image ? <img src={order.model_image} className="w-full h-full object-cover" /> : <Hash size={20} />}
                   </div>
-                  <div className="min-w-0">
+                  <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-black text-slate-900 tracking-tighter text-lg md:text-xl uppercase leading-none">{order.article}</span>
                       <span className="bg-blue-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase">{order.customer}</span>
@@ -126,7 +137,6 @@ export default function OrderList({ onEditOrder }) {
                   </div>
                 </div>
 
-                {/* KUMAŞ TAKİP BARI */}
                 <div className="flex-1 w-full lg:max-w-60">
                   <div className="flex justify-between items-end mb-1.5">
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Kumaş Girişi</span>
@@ -138,10 +148,10 @@ export default function OrderList({ onEditOrder }) {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <button onClick={() => setPrintOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter transition-all ${order.fabric_ordered ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-600 hover:text-white'}`}>Sipariş Formu</button>
-                  <button onClick={() => setIntakeOrder(order)} className="bg-blue-50 text-blue-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter transition-all">Giriş Yap</button>
-                  <button onClick={() => setPreparingOrder(order)} className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg tracking-tighter transition-all">Kesim Emri</button>
-                  <button onClick={() => setCuttingResultOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter transition-all ${isCut ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>Sonuç Gir</button>
+                  <button onClick={() => setPrintOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter ${order.fabric_ordered ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-50 text-indigo-600'}`}>Sipariş Formu</button>
+                  <button onClick={() => setIntakeOrder(order)} className="bg-blue-50 text-blue-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border">Giriş Yap</button>
+                  <button onClick={() => setPreparingOrder(order)} className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg">Kesim Emri</button>
+                  <button onClick={() => setCuttingResultOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border ${isCut ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg' : 'bg-emerald-50 text-emerald-600'}`}>Sonuç Gir</button>
                 </div>
               </div>
             </div>
@@ -149,41 +159,28 @@ export default function OrderList({ onEditOrder }) {
         })}
       </div>
 
-      {/* 🛠️ MODAL: MOBİL FIX UYGULANMIŞ VERSİYON */}
+      {/* MODAL: MOBIL FIX UYGULANMIS VERSİYON */}
       {selectedOrderDetail && (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm">
-          {/* Backdrop Click */}
           <div className="absolute inset-0" onClick={() => setSelectedOrderDetail(null)}></div>
-          
           <div className="relative bg-white w-full max-w-4xl h-full md:h-auto md:max-h-[90vh] rounded-none md:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-300">
-            
-            {/* 🛠️ STICKY HEADER (Kapat Butonu Sabit) */}
-            <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-100 p-4 md:p-6 flex justify-between items-center">
+            <div className="sticky top-0 z-20 bg-white border-b border-slate-100 p-4 md:p-6 flex justify-between items-center">
               <div className="flex items-center gap-3">
                  <span className="px-3 py-1 bg-blue-600 text-white text-[9px] font-black rounded-lg uppercase tracking-widest">Sipariş Detayı</span>
-                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">{selectedOrderDetail.article}</span>
               </div>
-              <button 
-                onClick={() => setSelectedOrderDetail(null)} 
-                className="p-3 bg-slate-900 text-white rounded-2xl hover:bg-blue-600 transition-all shadow-lg"
-              >
+              <button onClick={() => setSelectedOrderDetail(null)} className="p-3 bg-slate-900 text-white rounded-2xl hover:bg-blue-600 shadow-lg">
                 <X size={20} />
               </button>
             </div>
 
-            {/* SCROLLABLE İÇERİK */}
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-              
-              {/* MODEL BİLGİSİ */}
               <div className="p-8 md:p-10 bg-slate-50/50 flex flex-col md:flex-row gap-8">
                 <div className="w-32 h-44 bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-inner shrink-0 mx-auto md:mx-0">
                   {selectedOrderDetail.model_image ? <img src={selectedOrderDetail.model_image} className="w-full h-full object-cover" /> : <Hash size={30} className="text-slate-100 m-auto mt-16" />}
                 </div>
                 <div className="flex-1 space-y-4 text-center md:text-left">
-                  <div>
-                    <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">{selectedOrderDetail.model}</h2>
-                    <p className="text-lg font-bold text-blue-600 uppercase mt-1">Renk: {selectedOrderDetail.color || '-'}</p>
-                  </div>
+                  <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">{selectedOrderDetail.model}</h2>
+                  <p className="text-lg font-bold text-blue-600 uppercase mt-1">{selectedOrderDetail.article}</p>
                   <div className="grid grid-cols-3 gap-4 py-4 border-t border-slate-200/50">
                     <div><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Müşteri</span><span className="text-xs font-black text-slate-700 uppercase">{selectedOrderDetail.customer}</span></div>
                     <div><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Termin</span><span className="text-xs font-black text-slate-900 uppercase flex items-center justify-center md:justify-start gap-1"><Calendar size={12}/> {selectedOrderDetail.due ? new Date(selectedOrderDetail.due).toLocaleDateString('tr-TR') : '-'}</span></div>
@@ -192,13 +189,12 @@ export default function OrderList({ onEditOrder }) {
                 </div>
               </div>
 
-              {/* BEDEN MATRİSİ */}
               <div className="p-8 md:p-10 space-y-8">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                   <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2"><Scissors size={14}/> Beden Denge Matrisi</h3>
+                   <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Beden Denge Matrisi</h3>
                    <div className="flex gap-2">
-                      <div className="text-[9px] font-black text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">SIP: {Object.values(selectedOrderDetail.qty_by_size || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
-                      <div className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">KES: {Object.values(selectedOrderDetail.cutting_qty || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
+                      <div className="text-[9px] font-black text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg">SIP: {Object.values(selectedOrderDetail.qty_by_size || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
+                      <div className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg">KES: {Object.values(selectedOrderDetail.cutting_qty || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
                    </div>
                 </div>
 
@@ -228,9 +224,8 @@ export default function OrderList({ onEditOrder }) {
               </div>
             </div>
 
-            {/* FOOTER ACTION */}
             <div className="p-6 md:p-8 bg-white border-t border-slate-100">
-               <button onClick={() => setSelectedOrderDetail(null)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] shadow-lg">Kapat</button>
+               <button onClick={() => setSelectedOrderDetail(null)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.3em]">Kapat</button>
             </div>
           </div>
         </div>
