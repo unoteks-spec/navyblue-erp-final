@@ -22,10 +22,9 @@ export default function OrderList({ onEditOrder }) {
   const [cuttingResultOrder, setCuttingResultOrder] = useState(null);
   const [selectedOrderDetail, setSelectedOrderDetail] = useState(null);
 
-  // 🛠️ BEDEN SIRALAMA ANAHTARI (2XL ve XXL her ikisini de kapsayacak şekilde güncellendi)
   const sizeOrder = [
     'XXS', 'XS', 'S', 'M', 'L', 'XL', 
-    'XXL', '2XL', // 2XL'i XXL'in hemen yanına koyduk
+    'XXL', '2XL', 
     '3XL', '4XL', '5XL', 
     '36', '38', '40', '42', '44', '46', '48'
   ];
@@ -116,9 +115,12 @@ export default function OrderList({ onEditOrder }) {
       <div className="grid gap-6">
         {filteredOrders.map(order => {
           const stats = calculateProgress(order);
-          const isCut = order.status === 'cut_completed';
+          // 🛠️ ISCUT MANTIĞI GÜÇLENDİRİLDİ
+          const totalCut = Object.values(order.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
+          const isCut = order.status === 'cut_completed' || totalCut > 0;
+
           return (
-            <div key={order.id} className={`bg-white p-5 md:p-6 rounded-[2.5rem] border transition-all group relative ${isCut ? 'border-emerald-500/30' : 'border-slate-100'} hover:shadow-xl`}>
+            <div key={order.id} className={`bg-white p-5 md:p-6 rounded-[2.5rem] border transition-all group relative ${isCut ? 'border-emerald-500/30 bg-emerald-50/5' : 'border-slate-100'} hover:shadow-xl`}>
               <div className="absolute -top-3 -right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all z-30">
                 <button onClick={(e) => { e.stopPropagation(); onEditOrder(order); }} className="w-9 h-9 bg-white text-slate-400 hover:text-blue-600 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110"><Edit3 size={14} /></button>
                 <button onClick={(e) => { e.stopPropagation(); if(window.confirm('Emin misiniz?')) { deleteOrder(order.id); loadData(); } }} className="w-9 h-9 bg-white text-slate-400 hover:text-red-600 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110"><Trash2 size={14} /></button>
@@ -157,7 +159,19 @@ export default function OrderList({ onEditOrder }) {
                   <button onClick={() => setPrintOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter ${order.fabric_ordered ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>Sipariş Formu</button>
                   <button onClick={() => setIntakeOrder(order)} className="bg-blue-50 text-blue-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border">Giriş Yap</button>
                   <button onClick={() => setPreparingOrder(order)} className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg">Kesim Emri</button>
-                  <button onClick={() => setCuttingResultOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border ${isCut ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>Sonuç Gir</button>
+                  
+                  {/* 🛠️ GERİ GELEN "SONUÇ GİR" / "KESİLDİ" MANTIĞI */}
+                  <button 
+                    onClick={() => setCuttingResultOrder(order)} 
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter transition-all ${
+                      isCut 
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-100' 
+                        : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white'
+                    }`}
+                  >
+                    {isCut ? <CheckCircle size={14} /> : <Scissors size={14} />}
+                    {isCut ? 'Kesildi' : 'Sonuç Gir'}
+                  </button>
                 </div>
               </div>
             </div>
@@ -165,7 +179,7 @@ export default function OrderList({ onEditOrder }) {
         })}
       </div>
 
-      {/* MODAL: DETAY KARTI (Beden Sıralaması Fixlendi) */}
+      {/* MODAL: DETAY KARTI */}
       {selectedOrderDetail && (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="absolute inset-0" onClick={() => setSelectedOrderDetail(null)}></div>
