@@ -47,14 +47,25 @@ export default function FabricIntakeModal({ order, allOrders, onClose, onSuccess
 
   const availableFabrics = order?.fabrics ? Object.values(order.fabrics).filter(f => f.kind) : [];
 
+  // 🛠️ DÜZELTİLEN HESAPLAMA MANTIĞI: Cins + Renk Bazlı Filtreleme
   const targetAmount = useMemo(() => {
     if (!formData.fabric_kind || !order || !allOrders) return null;
+
+    // Önce dropdown'dan seçilen kumaşın detaylarını (özellikle rengini) bulalım
+    const selectedFabricInfo = availableFabrics.find(f => f.kind === formData.fabric_kind);
+    const selectedColor = selectedFabricInfo?.color;
+
     const groupItems = allOrders.filter(o => o.order_no === order.order_no);
     let totalNeededForGroup = 0;
     let unit = 'kg';
 
     groupItems.forEach(item => {
-      const fabric = Object.values(item.fabrics || {}).find(f => f.kind === formData.fabric_kind);
+      // 🛠️ BURASI DEĞİŞTİ: Sadece hem cinsi (kind) HEM DE rengi (color) tutan kumaşı topluyoruz
+      const fabric = Object.values(item.fabrics || {}).find(f => 
+        f.kind === formData.fabric_kind && 
+        f.color === selectedColor
+      );
+
       if (fabric) {
         const qty = Object.values(item.qty_by_size || {}).reduce((a, b) => a + (Number(b) || 0), 0);
         const extra = 1 + (Number(item.extra_percent || 5) / 100);
@@ -64,7 +75,7 @@ export default function FabricIntakeModal({ order, allOrders, onClose, onSuccess
     });
 
     return { total: totalNeededForGroup.toFixed(2), unit: unit };
-  }, [formData.fabric_kind, order, allOrders]);
+  }, [formData.fabric_kind, order, allOrders, availableFabrics]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
