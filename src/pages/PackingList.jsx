@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Trash2, Building2, User, FileSpreadsheet, Tag, Calendar, Printer } from 'lucide-react';
+import { Plus, Trash2, Building2, User, FileSpreadsheet, Tag, Printer } from 'lucide-react';
 import { supabase } from '../api/orderService';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -20,6 +20,7 @@ export default function PackingList() {
 
   useEffect(() => {
     const fetchOrders = async () => {
+      // 🛠️ Sadece aktif olanları çekiyoruz
       const { data } = await supabase.from('orders').select('*').is('is_archived', false).neq('status', 'archived').order('order_no', { ascending: false });
       setOrders(data || []);
     };
@@ -28,6 +29,7 @@ export default function PackingList() {
 
   const activeOrder = useMemo(() => orders.find(o => o.id === activeRefOrderId), [activeRefOrderId, orders]);
 
+  // 🛠️ DİNAMİK BEDENLER: Seçilen siparişe göre butonları günceller
   const activeOrderSizes = useMemo(() => {
     if (!activeOrder) return [];
     return Object.keys(activeOrder.qty_by_size || {}).sort((a, b) => {
@@ -37,6 +39,7 @@ export default function PackingList() {
     });
   }, [activeOrder]);
 
+  // 🛠️ ZEKİ KOLİ SAYACI: Karma kolileri (aynı no) tek koli sayar
   const totals = useMemo(() => {
     const uniqueBoxNumbers = new Set();
     let tQty = 0; let tNet = 0; let tGross = 0;
@@ -52,9 +55,15 @@ export default function PackingList() {
         tGross += (Number(b.gross) * boxCountInRow);
       }
     });
-    return { totalQty: tQty, totalNet: tNet.toFixed(2), totalGross: tGross.toFixed(2), totalBoxes: uniqueBoxNumbers.size };
+    return { 
+      totalQty: tQty, 
+      totalNet: Number(tNet).toFixed(2), 
+      totalGross: Number(tGross).toFixed(2), 
+      totalBoxes: uniqueBoxNumbers.size 
+    };
   }, [boxes]);
 
+  // 🛠️ OTOMATİK AĞIRLIK HESAPLAMA
   useEffect(() => {
     const updatedBoxes = boxes.map(box => {
       const orderWeights = unitWeights[box.orderId];
@@ -69,18 +78,25 @@ export default function PackingList() {
     if (JSON.stringify(updatedBoxes) !== JSON.stringify(boxes)) setBoxes(updatedBoxes);
   }, [unitWeights, boxTare, boxes]);
 
-  // 🚀 YAKIŞIKLI EXCEL (Hücre Hücre İşlendi)
+  // 🚀 PROFESYONEL EXCEL EXPORT (ExcelJS)
   const exportToExcel = async () => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Packing List');
-    worksheet.columns = [{ width: 12 }, { width: 22 }, { width: 22 }, { width: 15 }, { width: 10 }, { width: 12 }, { width: 15 }, { width: 15 }, { width: 18 }];
+    
+    // Sütun Genişlikleri
+    worksheet.columns = [
+      { width: 12 }, { width: 25 }, { width: 22 }, { width: 15 }, 
+      { width: 10 }, { width: 12 }, { width: 15 }, { width: 15 }, { width: 18 }
+    ];
 
+    // 1. Başlık Alanı
     const titleRow = worksheet.addRow(['PACKING LIST']);
     worksheet.mergeCells('A1:I1');
     titleRow.getCell(1).font = { size: 18, bold: true, color: { argb: 'FFFFFFFF' } };
     titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
     titleRow.getCell(1).alignment = { horizontal: 'center' };
 
+    // 2. Exporter & Consignee Bilgileri
     worksheet.addRow([]);
     worksheet.addRow(['DATE', today]);
     worksheet.addRow(['EXPORTER', 'ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.']).font = { bold: true };
@@ -90,7 +106,8 @@ export default function PackingList() {
     worksheet.addRow(['DELIVERY ADDRESS', consignee.address || '-']);
     worksheet.addRow([]);
 
-    const headerRow = worksheet.addRow(["Box No", "Model", "Article", "Color", "Size", "Quantity", "Net (KG)", "Gross (KG)", "Dimensions"]);
+    // 3. Tablo Başlıkları
+    const headerRow = worksheet.addRow(["Box No", "Model / Article / Color", "Dimensions", "Size", "Quantity", "Net (KG)", "Gross (KG)", "Unit Weight"]);
     headerRow.eachCell((cell) => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } };
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -98,19 +115,35 @@ export default function PackingList() {
       cell.alignment = { horizontal: 'center' };
     });
 
+    // 4. Veri Satırları
     boxes.forEach(b => {
       const ord = orders.find(o => o.id === b.orderId);
-      const row = worksheet.addRow([b.range, ord?.model || '-', ord?.article || '-', ord?.color || '-', b.size, b.qtyPerBox, b.net, b.gross, b.dimensions]);
+      const rowData = [
+        b.range, 
+        ord ? `${ord.model} / ${ord.article} / ${ord.color}` : '-',
+        b.dimensions,
+        b.size,
+        Number(b.qtyPerBox),
+        Number(b.net),
+        Number(b.gross),
+        unitWeights[b.orderId]?.[b.size] || '-'
+      ];
+      const row = worksheet.addRow(rowData);
       row.eachCell(c => {
         c.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
-        c.alignment = { horizontal: 'center' };
+        c.alignment = { horizontal: 'center', vertical: 'middle' }; // 🛠️ ORTALAMA BURADA
       });
     });
 
+    // 5. Grand Totals (Alt Bilgi)
     worksheet.addRow([]);
-    const footerRow = worksheet.addRow(['GRAND TOTALS', '', '', '', '', totals.totalQty, totals.totalNet, totals.totalGross, `${totals.totalBoxes} BOXES`]);
+    const footerRow = worksheet.addRow(['GRAND TOTALS', '', '', '', totals.totalQty, totals.totalNet, totals.totalGross, `${totals.totalBoxes} BOXES`]);
     footerRow.font = { bold: true };
-    footerRow.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } });
+    footerRow.eachCell(c => {
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+      c.alignment = { horizontal: 'center' }; // 🛠️ TOPLAMLARI ORTALA
+      c.border = { top: {style:'medium'} };
+    });
 
     const buffer = await workbook.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `PackingList_Alfa_${new Date().getTime()}.xlsx`);
@@ -123,7 +156,7 @@ export default function PackingList() {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32 bg-white print:p-0">
       
-      {/* 1. EXPORTER & CONSIGNEE (EN ÜSTTE) */}
+      {/* 1. EXPORTER & CONSIGNEE */}
       <div className="grid grid-cols-2 gap-8 p-8 border-2 border-slate-50 rounded-[2.5rem] print:border-none print:p-0">
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-blue-600 mb-1"><Building2 size={18}/> <span className="text-[10px] font-black uppercase tracking-[0.2em]">Exporter</span></div>
@@ -140,12 +173,12 @@ export default function PackingList() {
         </div>
       </div>
 
-      {/* 🛠️ 2. MAVİ REFERANS ALANI (ADRESİN ALTINDA) */}
+      {/* 🛠️ 2. MAVİ REFERANS ALANI */}
       <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-xl space-y-6 print:hidden">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-2">
             <span className="text-[9px] font-black uppercase opacity-60">1. Select Article & Color</span>
-            <select className="w-full bg-white/10 border border-white/20 rounded-xl p-3 text-xs font-bold outline-none cursor-pointer" value={activeRefOrderId} onChange={(e) => setActiveRefOrderId(e.target.value)}>
+            <select className="w-full bg-white/10 border border-white/20 rounded-xl p-3 text-xs font-bold outline-none" value={activeRefOrderId} onChange={(e) => setActiveRefOrderId(e.target.value)}>
               <option value="" className="text-slate-900">Choose...</option>
               {orders.map(o => <option key={o.id} value={o.id} className="text-slate-900">{o.article} - {o.color}</option>)}
             </select>
@@ -161,13 +194,15 @@ export default function PackingList() {
         </div>
         {activeOrder && (
           <div className="pt-4 border-t border-white/10 animate-in fade-in">
-            <div className="flex items-center gap-2 mb-3"><Tag size={12}/> <span className="text-[10px] font-black uppercase tracking-widest">Weight Ref: {activeOrder.color}</span></div>
+            <div className="flex items-center gap-2 mb-3"><Tag size={12}/> <span className="text-[10px] font-black uppercase tracking-widest">Weight Ref for {activeOrder.article} ({activeOrder.color})</span></div>
             <div className="flex flex-wrap gap-3">
               {activeOrderSizes.map(sz => (
-                <div key={sz} className="flex-1 min-w-18.75 space-y-1">
+                <div key={sz} className="flex-1 min-w-17.5 space-y-1">
                   <span className="text-[8px] font-black uppercase block text-center opacity-60">{sz}</span>
                   <input type="number" step="0.001" className="w-full bg-white text-slate-900 rounded-xl p-3 text-xs font-black text-center outline-none"
-                    value={unitWeights[activeRefOrderId]?.[sz] || ''} onChange={(e) => setUnitWeights({...unitWeights, [activeRefOrderId]: {...unitWeights[activeRefOrderId], [sz]: e.target.value}})} />
+                    value={unitWeights[activeRefOrderId]?.[sz] || ''} 
+                    onChange={(e) => setUnitWeights({...unitWeights, [activeRefOrderId]: {...unitWeights[activeRefOrderId], [sz]: e.target.value}})} 
+                  />
                 </div>
               ))}
             </div>
@@ -175,7 +210,7 @@ export default function PackingList() {
         )}
       </div>
 
-      {/* 3. ANA TABLO (EN ALTTA) */}
+      {/* 3. ANA TABLO */}
       <div className="overflow-hidden rounded-[2.5rem] border border-slate-100 shadow-sm print:border-none print:shadow-none">
         <table className="w-full text-left border-collapse">
           <thead className="bg-slate-50 text-[8px] font-black text-slate-400 uppercase tracking-widest border-b">
@@ -194,7 +229,7 @@ export default function PackingList() {
             {boxes.map((box) => {
               const ord = orders.find(o => o.id === box.orderId);
               return (
-                <tr key={box.id}>
+                <tr key={box.id} className="hover:bg-slate-50 transition-colors">
                   <td className="py-3 px-6">
                     <div className="print:hidden">
                       <select value={box.orderId} onChange={(e) => updateRow(box.id, 'orderId', e.target.value)} className="w-full bg-slate-50/50 border-none rounded-lg p-1 text-[10px] font-black outline-none focus:ring-1 focus:ring-blue-200">
@@ -202,7 +237,9 @@ export default function PackingList() {
                         {orders.map(o => <option key={o.id} value={o.id}>{o.article} - {o.color}</option>)}
                       </select>
                     </div>
-                    <div className="hidden print:block font-black uppercase">{ord?.article} / <span className="text-blue-600">{ord?.color}</span></div>
+                    <div className="hidden print:block font-black uppercase">
+                      {ord?.model} / {ord?.article} / <span className="text-blue-600">{ord?.color}</span>
+                    </div>
                   </td>
                   <td className="text-center"><input type="text" value={box.range} onChange={(e) => updateRow(box.id, 'range', e.target.value)} className="w-16 bg-transparent text-center outline-none font-black" /></td>
                   <td className="text-center"><input type="text" value={box.dimensions} onChange={(e) => updateRow(box.id, 'dimensions', e.target.value)} className="w-20 bg-transparent text-center text-slate-400 outline-none" /></td>
