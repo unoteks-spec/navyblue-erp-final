@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Trash2, Building2, User, FileSpreadsheet, Tag, Calendar, FileDown } from 'lucide-react';
+import { Plus, Trash2, Building2, User, FileSpreadsheet, Tag, Calendar, Printer } from 'lucide-react';
 import { supabase } from '../api/orderService';
-import * as XLSX from 'xlsx';
-import html2pdf from 'html2pdf.js'; // 🛠️ Mutlaka: npm install html2pdf.js
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 export default function PackingList() {
   const [orders, setOrders] = useState([]);
@@ -69,37 +69,51 @@ export default function PackingList() {
     if (JSON.stringify(updatedBoxes) !== JSON.stringify(boxes)) setBoxes(updatedBoxes);
   }, [unitWeights, boxTare, boxes]);
 
-  // 🛠️ DİREKT İNDİRME: window.print() tamamen kaldırıldı
-  const handleDownloadPDF = (e) => {
-    e.preventDefault(); // Tarayıcı varsayılanını engelle
-    const element = document.getElementById('packing-list-content');
-    const opt = {
-      margin: 10,
-      filename: `PackingList_AlfaSpor_${new Date().getTime()}.pdf`,
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
-    };
-    html2pdf().set(opt).from(element).save();
-  };
+  // 🚀 YAKIŞIKLI EXCEL (Hücre Hücre İşlendi)
+  const exportToExcel = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Packing List');
+    worksheet.columns = [{ width: 12 }, { width: 22 }, { width: 22 }, { width: 15 }, { width: 10 }, { width: 12 }, { width: 15 }, { width: 15 }, { width: 18 }];
 
-  const exportToExcel = () => {
-    const headerInfo = [
-      ["PACKING LIST"], ["DATE", today], [],
-      ["EXPORTER", "ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ."],
-      ["ADDRESS", "Meriç Mh. 5746/3 Sk. N.21 Mtk Sit. 35090 Bornova İzmir Turkey"], [],
-      ["CONSIGNEE", consignee.name], ["DELIVERY ADDRESS", consignee.address], [],
-      ["Box No", "Model", "Article", "Color", "Size", "Quantity", "Net Weight (KG)", "Gross Weight (KG)", "Dimensions"]
-    ];
-    const rowData = boxes.map(b => {
-      const ord = orders.find(o => o.id === b.orderId);
-      return [b.range, ord?.model || '-', ord?.article || '-', ord?.color || '-', b.size, b.qtyPerBox, b.net, b.gross, b.dimensions];
+    const titleRow = worksheet.addRow(['PACKING LIST']);
+    worksheet.mergeCells('A1:I1');
+    titleRow.getCell(1).font = { size: 18, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    titleRow.getCell(1).alignment = { horizontal: 'center' };
+
+    worksheet.addRow([]);
+    worksheet.addRow(['DATE', today]);
+    worksheet.addRow(['EXPORTER', 'ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.']).font = { bold: true };
+    worksheet.addRow(['ADDRESS', 'Meriç Mh. 5746/3 Sk. N.21 Mtk Sit. 35090 Bornova İzmir Turkey']);
+    worksheet.addRow([]);
+    worksheet.addRow(['CONSIGNEE', consignee.name || '-']).font = { bold: true };
+    worksheet.addRow(['DELIVERY ADDRESS', consignee.address || '-']);
+    worksheet.addRow([]);
+
+    const headerRow = worksheet.addRow(["Box No", "Model", "Article", "Color", "Size", "Quantity", "Net (KG)", "Gross (KG)", "Dimensions"]);
+    headerRow.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } };
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+      cell.alignment = { horizontal: 'center' };
     });
-    const footerInfo = [[], ["GRAND TOTALS", "", "", "", "", totals.totalQty, totals.totalNet, totals.totalGross, `${totals.totalBoxes} BOXES`], [], ["NAVY BLUE ERP SYSTEMS"]];
-    const finalAOA = [...headerInfo, ...rowData, ...footerInfo];
-    const ws = XLSX.utils.aoa_to_sheet(finalAOA);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "PackingList");
-    XLSX.writeFile(wb, `PackingList_Alfa_${new Date().getTime()}.xlsx`);
+
+    boxes.forEach(b => {
+      const ord = orders.find(o => o.id === b.orderId);
+      const row = worksheet.addRow([b.range, ord?.model || '-', ord?.article || '-', ord?.color || '-', b.size, b.qtyPerBox, b.net, b.gross, b.dimensions]);
+      row.eachCell(c => {
+        c.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+        c.alignment = { horizontal: 'center' };
+      });
+    });
+
+    worksheet.addRow([]);
+    const footerRow = worksheet.addRow(['GRAND TOTALS', '', '', '', '', totals.totalQty, totals.totalNet, totals.totalGross, `${totals.totalBoxes} BOXES`]);
+    footerRow.font = { bold: true };
+    footerRow.eachCell(c => c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), `PackingList_Alfa_${new Date().getTime()}.xlsx`);
   };
 
   const addRow = () => setBoxes([...boxes, { id: Date.now(), orderId: '', range: '', size: '', qtyPerBox: '', net: '', gross: '', dimensions: defaultDims }]);
@@ -107,92 +121,27 @@ export default function PackingList() {
   const removeRow = (id) => setBoxes(boxes.filter(b => b.id !== id));
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32 bg-white">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32 bg-white print:p-0">
       
-      {/* İNDİRİLECEK ALAN */}
-      <div id="packing-list-content" className="p-4 bg-white rounded-4xl">
-        {/* EXPORTER & CONSIGNEE SECTION */}
-        <div className="grid grid-cols-2 gap-8 p-8 border-2 border-slate-50 rounded-[2.5rem]">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-blue-600 mb-1"><Building2 size={18}/> <span className="text-[10px] font-black uppercase tracking-[0.2em]">Exporter</span></div>
-            <p className="font-black text-slate-900 text-sm leading-tight uppercase italic underline decoration-blue-500/30">ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.</p>
-            <p className="text-[10px] text-slate-500 font-bold leading-relaxed max-w-xs">
-              Meriç Mh. 5746/3 Sk. N.21 Mtk Sit. 35090 Bornova İzmir Turkey
-            </p>
-          </div>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-indigo-600"><User size={18}/> <span className="text-[10px] font-black uppercase tracking-[0.2em]">Consignee</span></div>
-              <div className="flex items-center gap-2 text-slate-400">
-                 <Calendar size={12}/>
-                 <span className="text-[10px] font-black uppercase tracking-tighter">Date: {today}</span>
-              </div>
-            </div>
-            <input type="text" placeholder="Buyer Name..." className="w-full font-black text-slate-900 border-b border-slate-100 outline-none" 
-              value={consignee.name} onChange={(e) => setConsignee({...consignee, name: e.target.value})} />
-            <textarea placeholder="Address..." className="w-full text-[11px] font-bold text-slate-500 border-none outline-none resize-none h-12" 
-              value={consignee.address} onChange={(e) => setConsignee({...consignee, address: e.target.value})} />
-          </div>
+      {/* 1. EXPORTER & CONSIGNEE (EN ÜSTTE) */}
+      <div className="grid grid-cols-2 gap-8 p-8 border-2 border-slate-50 rounded-[2.5rem] print:border-none print:p-0">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-blue-600 mb-1"><Building2 size={18}/> <span className="text-[10px] font-black uppercase tracking-[0.2em]">Exporter</span></div>
+          <p className="font-black text-slate-900 text-sm italic uppercase">ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.</p>
+          <p className="text-[10px] text-slate-500 font-bold max-w-xs leading-relaxed">Meriç Mh. 5746/3 Sk. N.21 Mtk Sit. 35090 Bornova İzmir Turkey</p>
         </div>
-
-        {/* TABLE */}
-        <div className="mt-8 overflow-hidden rounded-[2.5rem] border border-slate-100 shadow-sm">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-50 text-[8px] font-black text-slate-400 uppercase tracking-widest border-b">
-              <tr>
-                <th className="py-5 px-6">Model / Article / Color</th>
-                <th className="py-5 px-4 text-center">Box No</th>
-                <th className="py-5 px-4 text-center">Dims</th>
-                <th className="py-5 px-4 text-center">Size</th>
-                <th className="py-5 px-4 text-center">Qty</th>
-                <th className="py-5 px-4 text-center text-blue-600">Net</th>
-                <th className="py-5 px-4 text-center text-blue-600">Gross</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50 text-[10px] font-bold">
-              {boxes.map((box) => {
-                const ord = orders.find(o => o.id === box.orderId);
-                return (
-                  <tr key={box.id}>
-                    <td className="py-3 px-6">
-                      <div className="flex flex-col">
-                        <select value={box.orderId} onChange={(e) => updateRow(box.id, 'orderId', e.target.value)} className="w-full bg-slate-50/50 border-none rounded-lg p-1 text-[10px] font-black print-hidden">
-                          <option value="">Select...</option>
-                          {orders.map(o => <option key={o.id} value={o.id}>{o.article} - {o.color}</option>)}
-                        </select>
-                        <span className="hidden print-only-block uppercase">{ord?.article} / <span className="text-blue-600">{ord?.color}</span></span>
-                      </div>
-                    </td>
-                    <td className="text-center"><input type="text" value={box.range} onChange={(e) => updateRow(box.id, 'range', e.target.value)} className="w-16 bg-transparent text-center outline-none font-black" /></td>
-                    <td className="text-center"><input type="text" value={box.dimensions} onChange={(e) => updateRow(box.id, 'dimensions', e.target.value)} className="w-20 bg-transparent text-center text-slate-400 outline-none" /></td>
-                    <td className="text-center uppercase"><input type="text" value={box.size} onChange={(e) => updateRow(box.id, 'size', e.target.value.toUpperCase())} className="w-12 bg-transparent text-center outline-none" /></td>
-                    <td className="text-center"><input type="number" value={box.qtyPerBox} onChange={(e) => updateRow(box.id, 'qtyPerBox', e.target.value)} className="w-12 bg-transparent text-center outline-none" /></td>
-                    <td className="text-center text-slate-500">{box.net}</td>
-                    <td className="text-center font-black text-slate-900">{box.gross}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot className="bg-slate-900 text-white font-black text-[10px] uppercase">
-              <tr>
-                <td className="py-6 px-6">TOTAL SHIPMENT</td>
-                <td className="text-center">{totals.totalBoxes} BOXES</td>
-                <td colSpan="2"></td>
-                <td className="text-center">{totals.totalQty} PCS</td>
-                <td className="text-center">{totals.totalNet} KG</td>
-                <td className="text-center">{totals.totalGross} KG</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-
-        <div className="mt-12 text-center border-t border-slate-50 pt-8">
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-900">Navy Blue ERP Systems</p>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-indigo-600"><User size={18}/> <span className="text-[10px] font-black uppercase tracking-[0.2em]">Consignee</span></div>
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Date: {today}</span>
+          </div>
+          <input type="text" placeholder="Buyer Name..." className="w-full font-black text-slate-900 border-b border-slate-100 outline-none print:border-none" value={consignee.name} onChange={(e) => setConsignee({...consignee, name: e.target.value})} />
+          <textarea placeholder="Address..." className="w-full text-[11px] font-bold text-slate-500 border-none outline-none resize-none h-12 print:h-auto" value={consignee.address} onChange={(e) => setConsignee({...consignee, address: e.target.value})} />
         </div>
       </div>
 
-      {/* MAVİ REFERANS ALANI */}
-      <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-xl space-y-6">
+      {/* 🛠️ 2. MAVİ REFERANS ALANI (ADRESİN ALTINDA) */}
+      <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-xl space-y-6 print:hidden">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-2">
             <span className="text-[9px] font-black uppercase opacity-60">1. Select Article & Color</span>
@@ -202,7 +151,7 @@ export default function PackingList() {
             </select>
           </div>
           <div className="space-y-2">
-            <span className="text-[9px] font-black uppercase opacity-60">2. Box Tare (KG)</span>
+            <span className="text-[9px] font-black uppercase opacity-60">2. Box Tare (Empty KG)</span>
             <input type="number" step="0.01" className="w-full bg-white/10 border border-white/20 rounded-xl p-3 text-xs font-bold outline-none text-center" value={boxTare} onChange={(e) => setBoxTare(e.target.value)} />
           </div>
           <div className="space-y-2">
@@ -210,10 +159,9 @@ export default function PackingList() {
             <input type="text" className="w-full bg-white/10 border border-white/20 rounded-xl p-3 text-xs font-bold outline-none text-center" value={defaultDims} onChange={(e) => setDefaultDims(e.target.value)} />
           </div>
         </div>
-        
         {activeOrder && (
           <div className="pt-4 border-t border-white/10 animate-in fade-in">
-            <div className="flex items-center gap-2 mb-3"><Tag size={12}/> <span className="text-[10px] font-black uppercase tracking-widest">Weights for {activeOrder.color}:</span></div>
+            <div className="flex items-center gap-2 mb-3"><Tag size={12}/> <span className="text-[10px] font-black uppercase tracking-widest">Weight Ref: {activeOrder.color}</span></div>
             <div className="flex flex-wrap gap-3">
               {activeOrderSizes.map(sz => (
                 <div key={sz} className="flex-1 min-w-18.75 space-y-1">
@@ -227,12 +175,70 @@ export default function PackingList() {
         )}
       </div>
 
-      {/* ACTIONS */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4">
+      {/* 3. ANA TABLO (EN ALTTA) */}
+      <div className="overflow-hidden rounded-[2.5rem] border border-slate-100 shadow-sm print:border-none print:shadow-none">
+        <table className="w-full text-left border-collapse">
+          <thead className="bg-slate-50 text-[8px] font-black text-slate-400 uppercase tracking-widest border-b">
+            <tr>
+              <th className="py-5 px-6">Model / Article / Color</th>
+              <th className="py-5 px-4 text-center">Box No</th>
+              <th className="py-5 px-4 text-center">Dims</th>
+              <th className="py-5 px-4 text-center">Size</th>
+              <th className="py-5 px-4 text-center">Qty</th>
+              <th className="py-5 px-4 text-center text-blue-600">Net</th>
+              <th className="py-5 px-4 text-center text-blue-600">Gross</th>
+              <th className="py-5 px-6 print:hidden"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50 text-[10px] font-bold">
+            {boxes.map((box) => {
+              const ord = orders.find(o => o.id === box.orderId);
+              return (
+                <tr key={box.id}>
+                  <td className="py-3 px-6">
+                    <div className="print:hidden">
+                      <select value={box.orderId} onChange={(e) => updateRow(box.id, 'orderId', e.target.value)} className="w-full bg-slate-50/50 border-none rounded-lg p-1 text-[10px] font-black outline-none focus:ring-1 focus:ring-blue-200">
+                        <option value="">Select...</option>
+                        {orders.map(o => <option key={o.id} value={o.id}>{o.article} - {o.color}</option>)}
+                      </select>
+                    </div>
+                    <div className="hidden print:block font-black uppercase">{ord?.article} / <span className="text-blue-600">{ord?.color}</span></div>
+                  </td>
+                  <td className="text-center"><input type="text" value={box.range} onChange={(e) => updateRow(box.id, 'range', e.target.value)} className="w-16 bg-transparent text-center outline-none font-black" /></td>
+                  <td className="text-center"><input type="text" value={box.dimensions} onChange={(e) => updateRow(box.id, 'dimensions', e.target.value)} className="w-20 bg-transparent text-center text-slate-400 outline-none" /></td>
+                  <td className="text-center uppercase"><input type="text" value={box.size} onChange={(e) => updateRow(box.id, 'size', e.target.value.toUpperCase())} className="w-12 bg-transparent text-center outline-none font-black" /></td>
+                  <td className="text-center"><input type="number" value={box.qtyPerBox} onChange={(e) => updateRow(box.id, 'qtyPerBox', e.target.value)} className="w-12 bg-transparent text-center outline-none font-black" /></td>
+                  <td className="text-center text-slate-500 font-medium">{box.net}</td>
+                  <td className="text-center font-black text-slate-900">{box.gross}</td>
+                  <td className="px-6 text-right print:hidden"><button onClick={() => removeRow(box.id)} className="text-slate-200 hover:text-red-500 transition-all"><Trash2 size={14}/></button></td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot className="bg-slate-900 text-white font-black text-[10px] uppercase">
+            <tr>
+              <td className="py-6 px-6">GRAND TOTALS</td>
+              <td className="text-center">{totals.totalBoxes} BOXES</td>
+              <td colSpan="2"></td>
+              <td className="text-center">{totals.totalQty} PCS</td>
+              <td className="text-center">{totals.totalNet} KG</td>
+              <td className="text-center">{totals.totalGross} KG</td>
+              <td className="print:hidden"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div className="mt-12 text-center border-t border-slate-50 pt-8 print:block hidden">
+        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-900">Navy Blue ERP Systems</p>
+      </div>
+
+      {/* AKSİYON BUTONLARI */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 print:hidden">
         <button onClick={addRow} className="flex items-center gap-2 text-[10px] font-black text-blue-600 bg-blue-50 px-8 py-4 rounded-2xl hover:bg-blue-600 hover:text-white transition-all shadow-sm">+ ADD PACKING ROW</button>
         <div className="flex gap-3">
           <button onClick={exportToExcel} className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-6 py-3 rounded-xl font-black text-[10px] border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all uppercase shadow-sm"><FileSpreadsheet size={16}/> Excel Export</button>
-          <button onClick={handleDownloadPDF} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-[10px] shadow-lg hover:bg-blue-600 transition-all uppercase"><FileDown size={16}/> Download PDF</button>
+          <button onClick={() => window.print()} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-[10px] shadow-lg hover:bg-blue-600 transition-all uppercase"><Printer size={16}/> Print PDF</button>
         </div>
       </div>
     </div>
