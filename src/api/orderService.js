@@ -46,7 +46,7 @@ export const saveOrder = async (formData, orderId = null, forceOrderNo = null) =
 };
 
 /**
- * 2. KESİM İŞLEMLERİ (Vercel'in hata verdiği yer)
+ * 2. KESİM İŞLEMLERİ
  */
 export const updateCuttingDetails = async (orderId, details) => {
   const { error } = await supabase.from('orders').update({
@@ -70,10 +70,15 @@ export const updateCuttingResults = async (orderId, results, details) => {
  * 3. DASHBOARD İSTATİSTİKLERİ
  */
 export const getDashboardStats = async () => {
+  // 🛠️ GÜNCELLEME: Dashboard sadece AKTİF işleri göstersin (Yüklenen/Arşivlenenleri hariç tut)
   const [ordersRes, deliveriesRes] = await Promise.all([
-    supabase.from('orders').select('*').neq('status', 'completed'),
+    supabase.from('orders')
+      .select('*')
+      .not('status', 'in', '("completed","archived")') // Arşivlenenleri listeden düşürür
+      .is('is_archived', false), 
     supabase.from('fabric_deliveries').select('*')
   ]);
+  
   if (ordersRes.error) throw ordersRes.error;
   
   const orders = ordersRes.data;
@@ -85,7 +90,7 @@ export const getDashboardStats = async () => {
     fabricOrderedCount: orders.filter(o => o.fabric_ordered).length,
     waitingFabricOrder: orders.filter(o => !o.fabric_ordered).length,
     fabrics: [],
-    deadlines: orders.filter(o => o.due).sort((a, b) => new Date(a.due) - new Date(b.due)).slice(0, 5)
+    deadlines: orders.filter(o => o.due).sort((a, b) => new Date(a.due) - new Date(b.due)).slice(0, 10)
   };
 
   const fabricMap = {};
@@ -161,35 +166,31 @@ export const updateOrderStage = async (id, stage, tracking) => {
 
 export const moveOrderBack = (id, stage) => supabase.from('orders').update({ current_stage: stage }).eq('id', id);
 
-// src/api/orderService.js dosyasına şu fonksiyonu ekle:
-
 export const updateGroupFabricStatus = async (orderNo, status) => {
-  const { error } = await supabase
-    .from('orders')
-    .update({ fabric_ordered: status })
-    .eq('order_no', orderNo);
-  
+  const { error } = await supabase.from('orders').update({ fabric_ordered: status }).eq('order_no', orderNo);
   if (error) throw error;
   return true;
 };
+
 export const updateGroupFabricDeadlines = async (orderNo, deadlines) => {
-  const { error } = await supabase
-    .from('orders')
-    .update({ 
+  const { error } = await supabase.from('orders').update({ 
       knitted_deadline: deadlines.knitted || null,
       woven_deadline: deadlines.woven || null
-    })
-    .eq('order_no', orderNo);
-  
+  }).eq('order_no', orderNo);
   if (error) throw error;
   return true;
 };
+
+// 🛠️ TEK VE GÜNCEL ARŞİVLEME FONKSİYONU
 export const archiveOrder = async (id) => {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('orders')
-    .update({ is_archived: true })
+    .update({ 
+      status: 'archived',
+      is_archived: true 
+    })
     .eq('id', id);
   
   if (error) throw error;
-  return true;
+  return data;
 };
