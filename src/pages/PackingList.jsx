@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Trash2, Building2, User, FileSpreadsheet, Tag, Printer } from 'lucide-react';
+import { Plus, Trash2, Building2, User, FileSpreadsheet, Tag, Printer, Info } from 'lucide-react';
 import { supabase } from '../api/orderService';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -20,8 +20,13 @@ export default function PackingList() {
 
   useEffect(() => {
     const fetchOrders = async () => {
-      // 🛠️ Sadece aktif olanları çekiyoruz
-      const { data } = await supabase.from('orders').select('*').is('is_archived', false).neq('status', 'archived').order('order_no', { ascending: false });
+      // 🛠️ Sadece aktif olan (arşivlenmemiş) siparişleri çekiyoruz
+      const { data } = await supabase
+        .from('orders')
+        .select('*')
+        .is('is_archived', false)
+        .neq('status', 'archived')
+        .order('order_no', { ascending: false });
       setOrders(data || []);
     };
     fetchOrders();
@@ -78,32 +83,41 @@ export default function PackingList() {
     if (JSON.stringify(updatedBoxes) !== JSON.stringify(boxes)) setBoxes(updatedBoxes);
   }, [unitWeights, boxTare, boxes]);
 
-  // 🚀 PROFESYONEL EXCEL EXPORT (ExcelJS)
+  // 🚀 PROFESYONEL EXCEL EXPORT (ExcelJS - Tam Düzeltilmiş)
   const exportToExcel = async () => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Packing List');
     
-    // Sütun Genişlikleri
+    // 🛠️ DÜZELTME: Sütun Genişlikleri (Model sütunu genişletildi)
     worksheet.columns = [
-      { width: 12 }, { width: 25 }, { width: 22 }, { width: 15 }, 
-      { width: 10 }, { width: 12 }, { width: 15 }, { width: 15 }, { width: 18 }
+      { width: 12 }, // Box No
+      { width: 50 }, // Model / Article / Color (GENİŞ)
+      { width: 18 }, // Dimensions
+      { width: 10 }, // Size
+      { width: 12 }, // Qty
+      { width: 12 }, // Net
+      { width: 12 }, // Gross
+      { width: 15 }  // Unit Weight (Bilgi amaçlı)
     ];
 
-    // 1. Başlık Alanı
+    // 1. Başlık Alanı (Merge A1:H1)
     const titleRow = worksheet.addRow(['PACKING LIST']);
-    worksheet.mergeCells('A1:I1');
-    titleRow.getCell(1).font = { size: 18, bold: true, color: { argb: 'FFFFFFFF' } };
+    worksheet.mergeCells('A1:H1'); // 🛠️ DÜZELTME: Tablo genişliğine göre birleştirildi
+    titleRow.getCell(1).font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
     titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
     titleRow.getCell(1).alignment = { horizontal: 'center' };
 
-    // 2. Exporter & Consignee Bilgileri
+    // 2. Bilgi Alanları
     worksheet.addRow([]);
     worksheet.addRow(['DATE', today]);
     worksheet.addRow(['EXPORTER', 'ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.']).font = { bold: true };
     worksheet.addRow(['ADDRESS', 'Meriç Mh. 5746/3 Sk. N.21 Mtk Sit. 35090 Bornova İzmir Turkey']);
     worksheet.addRow([]);
+    
+    // 🛠️ DÜZELTME: Consignee & Address (Genişletilmiş Satırlar)
     worksheet.addRow(['CONSIGNEE', consignee.name || '-']).font = { bold: true };
-    worksheet.addRow(['DELIVERY ADDRESS', consignee.address || '-']);
+    const addrRow = worksheet.addRow(['DELIVERY ADDRESS', consignee.address || '-']);
+    addrRow.height = 30; // Adres sığsın diye yükseklik verildi
     worksheet.addRow([]);
 
     // 3. Tablo Başlıkları
@@ -123,25 +137,26 @@ export default function PackingList() {
         ord ? `${ord.model} / ${ord.article} / ${ord.color}` : '-',
         b.dimensions,
         b.size,
-        Number(b.qtyPerBox),
-        Number(b.net),
-        Number(b.gross),
+        Number(b.qtyPerBox) || 0,
+        Number(b.net) || 0,
+        Number(b.gross) || 0,
         unitWeights[b.orderId]?.[b.size] || '-'
       ];
       const row = worksheet.addRow(rowData);
-      row.eachCell(c => {
+      row.eachCell((c, colNumber) => {
         c.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
-        c.alignment = { horizontal: 'center', vertical: 'middle' }; // 🛠️ ORTALAMA BURADA
+        // Model sütunu hariç hepsini ortala
+        c.alignment = { horizontal: colNumber === 2 ? 'left' : 'center', vertical: 'middle' };
       });
     });
 
-    // 5. Grand Totals (Alt Bilgi)
+    // 5. 🛠️ DÜZELTME: Grand Totals (Hizalanmış & Ortalı)
     worksheet.addRow([]);
-    const footerRow = worksheet.addRow(['GRAND TOTALS', '', '', '', totals.totalQty, totals.totalNet, totals.totalGross, `${totals.totalBoxes} BOXES`]);
+    const footerRow = worksheet.addRow(['GRAND TOTALS', `${totals.totalBoxes} BOXES`, '', '', totals.totalQty, totals.totalNet, totals.totalGross, '']);
     footerRow.font = { bold: true };
-    footerRow.eachCell(c => {
+    footerRow.eachCell((c) => {
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-      c.alignment = { horizontal: 'center' }; // 🛠️ TOPLAMLARI ORTALA
+      c.alignment = { horizontal: 'center' }; // 🛠️ ORTALAMA
       c.border = { top: {style:'medium'} };
     });
 
@@ -156,8 +171,8 @@ export default function PackingList() {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32 bg-white print:p-0">
       
-      {/* 1. EXPORTER & CONSIGNEE */}
-      <div className="grid grid-cols-2 gap-8 p-8 border-2 border-slate-50 rounded-[2.5rem] print:border-none print:p-0">
+      {/* 1. EXPORTER & CONSIGNEE SECTION */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 border-2 border-slate-50 rounded-[2.5rem] print:border-none print:p-0">
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-blue-600 mb-1"><Building2 size={18}/> <span className="text-[10px] font-black uppercase tracking-[0.2em]">Exporter</span></div>
           <p className="font-black text-slate-900 text-sm italic uppercase">ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.</p>
@@ -173,13 +188,13 @@ export default function PackingList() {
         </div>
       </div>
 
-      {/* 🛠️ 2. MAVİ REFERANS ALANI */}
+      {/* 2. WEIGHT REFERENCE (BLUE AREA) */}
       <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-xl space-y-6 print:hidden">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-2">
             <span className="text-[9px] font-black uppercase opacity-60">1. Select Article & Color</span>
-            <select className="w-full bg-white/10 border border-white/20 rounded-xl p-3 text-xs font-bold outline-none" value={activeRefOrderId} onChange={(e) => setActiveRefOrderId(e.target.value)}>
-              <option value="" className="text-slate-900">Choose...</option>
+            <select className="w-full bg-white/10 border border-white/20 rounded-xl p-3 text-xs font-bold outline-none cursor-pointer" value={activeRefOrderId} onChange={(e) => setActiveRefOrderId(e.target.value)}>
+              <option value="" className="text-slate-900">Choose Order...</option>
               {orders.map(o => <option key={o.id} value={o.id} className="text-slate-900">{o.article} - {o.color}</option>)}
             </select>
           </div>
@@ -193,13 +208,13 @@ export default function PackingList() {
           </div>
         </div>
         {activeOrder && (
-          <div className="pt-4 border-t border-white/10 animate-in fade-in">
-            <div className="flex items-center gap-2 mb-3"><Tag size={12}/> <span className="text-[10px] font-black uppercase tracking-widest">Weight Ref for {activeOrder.article} ({activeOrder.color})</span></div>
+          <div className="pt-4 border-t border-white/10 animate-in slide-in-from-top duration-300">
+            <div className="flex items-center gap-2 mb-3"><Tag size={12}/> <span className="text-[10px] font-black uppercase tracking-widest">Weights for {activeOrder.article} ({activeOrder.color})</span></div>
             <div className="flex flex-wrap gap-3">
               {activeOrderSizes.map(sz => (
                 <div key={sz} className="flex-1 min-w-17.5 space-y-1">
                   <span className="text-[8px] font-black uppercase block text-center opacity-60">{sz}</span>
-                  <input type="number" step="0.001" className="w-full bg-white text-slate-900 rounded-xl p-3 text-xs font-black text-center outline-none"
+                  <input type="number" step="0.001" className="w-full bg-white text-slate-900 rounded-xl p-3 text-xs font-black text-center outline-none focus:ring-2 focus:ring-blue-400"
                     value={unitWeights[activeRefOrderId]?.[sz] || ''} 
                     onChange={(e) => setUnitWeights({...unitWeights, [activeRefOrderId]: {...unitWeights[activeRefOrderId], [sz]: e.target.value}})} 
                   />
@@ -210,7 +225,7 @@ export default function PackingList() {
         )}
       </div>
 
-      {/* 3. ANA TABLO */}
+      {/* 3. MAIN PACKING TABLE */}
       <div className="overflow-hidden rounded-[2.5rem] border border-slate-100 shadow-sm print:border-none print:shadow-none">
         <table className="w-full text-left border-collapse">
           <thead className="bg-slate-50 text-[8px] font-black text-slate-400 uppercase tracking-widest border-b">
@@ -229,11 +244,11 @@ export default function PackingList() {
             {boxes.map((box) => {
               const ord = orders.find(o => o.id === box.orderId);
               return (
-                <tr key={box.id} className="hover:bg-slate-50 transition-colors">
+                <tr key={box.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-3 px-6">
                     <div className="print:hidden">
                       <select value={box.orderId} onChange={(e) => updateRow(box.id, 'orderId', e.target.value)} className="w-full bg-slate-50/50 border-none rounded-lg p-1 text-[10px] font-black outline-none focus:ring-1 focus:ring-blue-200">
-                        <option value="">Select...</option>
+                        <option value="">Select Order...</option>
                         {orders.map(o => <option key={o.id} value={o.id}>{o.article} - {o.color}</option>)}
                       </select>
                     </div>
@@ -247,7 +262,11 @@ export default function PackingList() {
                   <td className="text-center"><input type="number" value={box.qtyPerBox} onChange={(e) => updateRow(box.id, 'qtyPerBox', e.target.value)} className="w-12 bg-transparent text-center outline-none font-black" /></td>
                   <td className="text-center text-slate-500 font-medium">{box.net}</td>
                   <td className="text-center font-black text-slate-900">{box.gross}</td>
-                  <td className="px-6 text-right print:hidden"><button onClick={() => removeRow(box.id)} className="text-slate-200 hover:text-red-500 transition-all"><Trash2 size={14}/></button></td>
+                  <td className="px-6 text-right print:hidden">
+                    <button onClick={() => removeRow(box.id)} className="text-slate-200 hover:text-red-500 transition-all">
+                      <Trash2 size={14}/>
+                    </button>
+                  </td>
                 </tr>
               );
             })}
@@ -266,16 +285,23 @@ export default function PackingList() {
         </table>
       </div>
 
+      {/* 4. FOOTER BRANDING */}
       <div className="mt-12 text-center border-t border-slate-50 pt-8 print:block hidden">
         <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-900">Navy Blue ERP Systems</p>
       </div>
 
-      {/* AKSİYON BUTONLARI */}
+      {/* 5. AKSİYON BUTONLARI */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 print:hidden">
-        <button onClick={addRow} className="flex items-center gap-2 text-[10px] font-black text-blue-600 bg-blue-50 px-8 py-4 rounded-2xl hover:bg-blue-600 hover:text-white transition-all shadow-sm">+ ADD PACKING ROW</button>
+        <button onClick={addRow} className="flex items-center gap-2 text-[10px] font-black text-blue-600 bg-blue-50 px-8 py-4 rounded-2xl hover:bg-blue-600 hover:text-white transition-all shadow-sm">
+          + ADD PACKING ROW
+        </button>
         <div className="flex gap-3">
-          <button onClick={exportToExcel} className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-6 py-3 rounded-xl font-black text-[10px] border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all uppercase shadow-sm"><FileSpreadsheet size={16}/> Excel Export</button>
-          <button onClick={() => window.print()} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-[10px] shadow-lg hover:bg-blue-600 transition-all uppercase"><Printer size={16}/> Print PDF</button>
+          <button onClick={exportToExcel} className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-6 py-3 rounded-xl font-black text-[10px] border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all uppercase shadow-sm">
+            <FileSpreadsheet size={16}/> Excel Export
+          </button>
+          <button onClick={() => window.print()} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-[10px] shadow-lg hover:bg-blue-600 transition-all uppercase">
+            <Printer size={16}/> Print PDF
+          </button>
         </div>
       </div>
     </div>
