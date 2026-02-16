@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Printer, Plus, Trash2, Info, Scale, Building2, User, FileSpreadsheet, Tag, Box } from 'lucide-react';
+import { Printer, Plus, Trash2, Info, Scale, Building2, User, FileSpreadsheet, Tag } from 'lucide-react';
 import { supabase } from '../api/orderService';
 import * as XLSX from 'xlsx';
 
@@ -26,6 +26,7 @@ export default function PackingList() {
 
   const activeOrder = useMemo(() => orders.find(o => o.id === activeRefOrderId), [activeRefOrderId, orders]);
 
+  // Mavi alan için beden sıralaması
   const activeOrderSizes = useMemo(() => {
     if (!activeOrder) return [];
     return Object.keys(activeOrder.qty_by_size || {}).sort((a, b) => {
@@ -85,11 +86,11 @@ export default function PackingList() {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32 bg-white print:p-0">
       
-      {/* 1. HEADER */}
+      {/* EXPORTER & CONSIGNEE SECTION */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 border-2 border-slate-50 rounded-[2.5rem] print:border-none print:p-0">
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-blue-600 mb-1"><Building2 size={18}/> <span className="text-[10px] font-black uppercase tracking-[0.2em]">Exporter</span></div>
-          <p className="font-black text-slate-900 text-sm leading-tight uppercase italic">ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.</p>
+          <p className="font-black text-slate-900 text-sm uppercase italic leading-tight">ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.</p>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Izmir, Turkey</p>
         </div>
         <div className="space-y-4">
@@ -101,7 +102,7 @@ export default function PackingList() {
         </div>
       </div>
 
-      {/* 2. WEIGHT & DIMS REFERENCE (MAVİ ALAN - INPUTLAR GERİ GELDİ) */}
+      {/* WEIGHT & DIMS REFERENCE */}
       <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-xl print:hidden space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-2">
@@ -125,12 +126,12 @@ export default function PackingList() {
         
         {activeOrder && (
           <div className="pt-4 border-t border-white/10 animate-in fade-in">
-            <div className="flex items-center gap-2 mb-3"><Tag size={12}/> <span className="text-[10px] font-black uppercase tracking-widest">Weight per Piece for {activeOrder.color}:</span></div>
+            <div className="flex items-center gap-2 mb-3"><Tag size={12}/> <span className="text-[10px] font-black uppercase tracking-widest">Weight Reference for {activeOrder.color}:</span></div>
             <div className="flex flex-wrap gap-3">
               {activeOrderSizes.map(sz => (
                 <div key={sz} className="flex-1 min-w-18.75 space-y-1">
                   <span className="text-[8px] font-black uppercase opacity-60 block text-center">{sz}</span>
-                  <input type="number" step="0.001" className="w-full bg-white text-slate-900 rounded-xl p-3 text-xs font-black text-center outline-none"
+                  <input type="number" step="0.001" className="w-full bg-white text-slate-900 rounded-xl p-3 text-xs font-black text-center outline-none focus:ring-4 focus:ring-blue-400 transition-all"
                     value={unitWeights[activeRefOrderId]?.[sz] || ''} onChange={(e) => setUnitWeights({...unitWeights, [activeRefOrderId]: {...unitWeights[activeRefOrderId], [sz]: e.target.value}})} />
                 </div>
               ))}
@@ -139,7 +140,7 @@ export default function PackingList() {
         )}
       </div>
 
-      {/* 3. MAIN TABLE (INPUTLAR GERİ GELDİ) */}
+      {/* MAIN TABLE (SIZE INPUT GERİ GELDİ 🛠️) */}
       <div className="overflow-hidden rounded-[2.5rem] border border-slate-100 shadow-sm print:border-none print:shadow-none">
         <table className="w-full text-left border-collapse">
           <thead className="bg-slate-50 text-[8px] font-black text-slate-400 uppercase tracking-widest border-b">
@@ -157,7 +158,6 @@ export default function PackingList() {
           <tbody className="divide-y divide-slate-50 text-[10px] font-bold">
             {boxes.map((box) => {
               const ord = orders.find(o => o.id === box.orderId);
-              const availableSizes = ord ? Object.keys(ord.qty_by_size || {}) : [];
               return (
                 <tr key={box.id} className="group hover:bg-slate-50 transition-all">
                   <td className="py-3 px-6">
@@ -178,15 +178,14 @@ export default function PackingList() {
                       className="w-20 bg-slate-50 border-none rounded-md px-2 py-1 text-center text-slate-400 outline-none" />
                   </td>
                   <td className="text-center uppercase">
-                    {/* BEDEN INPUTU (Model seçiliyse dropdown, değilse input) */}
-                    {availableSizes.length > 0 ? (
-                      <select value={box.size} onChange={(e) => updateRow(box.id, 'size', e.target.value)} className="w-14 bg-blue-50 border-none rounded-md px-1 py-1 text-center font-black outline-none">
-                        <option value="">-</option>
-                        {availableSizes.map(sz => <option key={sz} value={sz}>{sz}</option>)}
-                      </select>
-                    ) : (
-                      <input type="text" value={box.size} onChange={(e) => updateRow(box.id, 'size', e.target.value.toUpperCase())} className="w-12 bg-slate-50 border-none rounded-md text-center" />
-                    )}
+                    {/* 🛠️ BEDEN INPUTU TEKRAR SERBEST INPUT OLDU */}
+                    <input 
+                      type="text" 
+                      placeholder="M" 
+                      value={box.size} 
+                      onChange={(e) => updateRow(box.id, 'size', e.target.value.toUpperCase())} 
+                      className="w-14 mx-auto block bg-blue-50/50 border-none rounded-md px-2 py-1 text-[11px] font-black text-center outline-none focus:ring-2 focus:ring-blue-200" 
+                    />
                   </td>
                   <td className="text-center">
                     <input type="number" value={box.qtyPerBox} onChange={(e) => updateRow(box.id, 'qtyPerBox', e.target.value)} 
