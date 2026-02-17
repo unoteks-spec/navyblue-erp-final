@@ -194,3 +194,25 @@ export const archiveOrder = async (id) => {
   if (error) throw error;
   return data;
 };
+// src/api/orderService.js
+
+/**
+ * SİPARİŞİ SEVK EDİLEN ADETLERLE ARŞİVLE
+ */
+export const archiveOrderWithQty = async (id, shippedQty) => {
+  const { data, error } = await supabase
+    .from('orders')
+    .update({ 
+      status: 'archived',
+      is_archived: true,
+      shipped_qty: shippedQty, // 🛠️ Yeni: Beden bazlı sevkiyat verisi
+      completed_at: new Date().toISOString()
+    })
+    .eq('id', id);
+  
+  if (error) {
+    console.error("Arşivleme hatası:", error.message);
+    throw error;
+  }
+  return data;
+};

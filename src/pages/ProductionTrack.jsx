@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { getAllOrders, updateOrderStage, moveOrderBack, archiveOrder } from '../api/orderService';
+import { getAllOrders, updateOrderStage, moveOrderBack } from '../api/orderService';
 import { 
   Clock, ChevronRight, Activity, User, Undo2, Hash, Archive, PackageCheck 
 } from 'lucide-react';
 
+// 🛠️ YENİ MODAL İMPORTU
+import ShipmentResultModal from '../components/orders/ShipmentResultModal';
+
 const STAGES = [
-  { key: 'kesimhanede', label: 'KESİMHANEDE' },
+  { key: 'kesimhanede', label: 'KESİMHANE' },
   { key: 'baski', label: 'BASKIDA' },
   { key: 'nakis', label: 'NAKIŞTA' },
   { key: 'dikim', label: 'DİKİMDE' },
@@ -18,6 +21,9 @@ const STAGES = [
 export default function ProductionTrack() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // 🛠️ SEVKİYAT MODAL KONTROLÜ
+  const [shipmentModalOrder, setShipmentModalOrder] = useState(null);
 
   // Verileri yükleme fonksiyonu
   const load = async () => {
@@ -58,16 +64,9 @@ export default function ProductionTrack() {
     }
   };
 
-  // Arşivleme (Sadece Yüklendi sütununda görünür)
-  const handleArchive = async (id) => {
-    if (window.confirm("Bu siparişi üretim akışından kaldırıp (yüklendi olarak) arşivlemek istiyor musunuz?")) {
-      try {
-        await archiveOrder(id);
-        await load();
-      } catch (error) {
-        alert("Arşivleme sırasında bir hata oluştu.");
-      }
-    }
+  // 🛠️ ARŞİVLEME: Artık direkt onay istemiyor, modalı açıyor
+  const handleArchive = (order) => {
+    setShipmentModalOrder(order);
   };
 
   return (
@@ -85,7 +84,7 @@ export default function ProductionTrack() {
           </div>
         </div>
         
-        {/* İstatistik Özeti (Opsiyonel) */}
+        {/* İstatistik Özeti */}
         <div className="flex gap-2">
             <div className="bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-2">
                 <PackageCheck size={14} className="text-emerald-500"/>
@@ -122,7 +121,6 @@ export default function ProductionTrack() {
                 .filter(o => {
                   const hasCutting = o.cutting_qty && Object.values(o.cutting_qty).some(v => Number(v) > 0);
                   const inThisStage = (o.current_stage || 'kesimhanede') === stage.key;
-                  // 🛠️ FİLTRE: Sadece kesimi olan ve ARŞİVLENMEMİŞ işleri göster
                   return hasCutting && inThisStage && !o.is_archived && o.status !== 'archived';
                 })
                 .map(order => {
@@ -147,7 +145,6 @@ export default function ProductionTrack() {
                           </div>
                         </div>
 
-                        {/* Tarih Rozeti */}
                         <div className="flex flex-col items-end shrink-0">
                            <div className={`flex items-center gap-1 text-[9px] font-black px-2 py-1 rounded-xl border uppercase ${
                              stage.key === 'yuklendi' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'
@@ -185,7 +182,7 @@ export default function ProductionTrack() {
                         
                         {stage.key === 'yuklendi' ? (
                           <button 
-                            onClick={() => handleArchive(order.id)}
+                            onClick={() => handleArchive(order)} // 🛠️ ARŞİVLEME: Tüm order objesini gönderiyoruz
                             className="flex-1 py-2.5 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-slate-900 transition-all shadow-lg active:scale-95 tracking-widest"
                           >
                             ARŞİVLE <Archive size={14} />
@@ -202,17 +199,19 @@ export default function ProductionTrack() {
                     </div>
                   );
                 })}
-              
-              {!loading && orders.filter(o => (o.current_stage || 'kesimhanede') === stage.key && !o.is_archived && o.status !== 'archived').length === 0 && (
-                 <div className="m-auto opacity-20 flex flex-col items-center">
-                    <Hash size={32} />
-                    <span className="text-[8px] font-black uppercase mt-2 tracking-widest">Boş</span>
-                 </div>
-              )}
             </div>
           </div>
         ))}
       </div>
+
+      {/* 🛠️ SEVKİYAT SONUÇ MODALI: Sadece Arşivle'ye basıldığında görünür */}
+      {shipmentModalOrder && (
+        <ShipmentResultModal 
+          order={shipmentModalOrder} 
+          onClose={() => setShipmentModalOrder(null)} 
+          onSuccess={load} 
+        />
+      )}
     </div>
   );
 }

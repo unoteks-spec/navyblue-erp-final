@@ -1,17 +1,23 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getAllOrders } from '../api/orderService';
-import { MapPin, CheckCircle2, FileBarChart, Download, Search } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { 
+  MapPin, CheckCircle2, FileBarChart, Printer, Truck, 
+  ChevronDown, ChevronUp, PackageCheck, Clock
+} from 'lucide-react';
 
 export default function ProductionReport() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
   const [filter, setFilter] = useState('all');
   const [customerFilter, setCustomerFilter] = useState('');
   const [orderFilter, setOrderFilter] = useState('');
-  const reportRef = useRef(null);
+  const [expandedId, setExpandedId] = useState(null);
+
+  const sizeOrder = [
+    'XXS', 'XS', 'S', 'M', 'L', 'XL', 
+    'XXL', '2XL', '3XL', '4XL', '5XL', 
+    '36', '38', '40', '42', '44', '46', '48', '50', '52'
+  ];
 
   useEffect(() => {
     getAllOrders().then(data => {
@@ -34,65 +40,18 @@ export default function ProductionReport() {
     return stageMap[key] || 'KESİM BEKLİYOR';
   };
 
-  // 🛠️ OKLCH RENKLERİNİ RGB'YE ÇEVİREN VE PDF'İ KURTARAN MOTOR
-  const downloadPDF = async () => {
-    if (!reportRef.current) return;
-    try {
-      setExporting(true);
-      const element = reportRef.current;
-      
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        onclone: (clonedDoc) => {
-          // 🚀 KRİTİK: Tüm oklch renklerini ve Tailwind değişkenlerini temizleyen stil enjeksiyonu
-          const style = clonedDoc.createElement('style');
-          style.innerHTML = `
-            * { 
-              color-scheme: light !important; 
-              --tw-ring-color: rgba(0,0,0,0) !important;
-              --tw-shadow: 0 0 #0000 !important;
-            }
-            /* Tüm oklch içeren computed style'ları manuel olarak HEX/RGB ile eziyoruz */
-            [data-report-container] * {
-              border-color: #e2e8f0 !important;
-            }
-          `;
-          clonedDoc.head.appendChild(style);
-
-          // 🚀 AGRESİF TEMİZLİK: Her bir elementi tara ve oklch varsa sil
-          const allElements = clonedDoc.getElementsByTagName("*");
-          for (let i = 0; i < allElements.length; i++) {
-            const el = allElements[i];
-            const computedStyle = window.getComputedStyle(el);
-            if (computedStyle.color.includes("oklch") || computedStyle.backgroundColor.includes("oklch")) {
-               el.style.color = "#1e293b"; // varsayılan koyu gri
-               if (el.tagName === "TH") el.style.color = "#64748b"; // tablo başlıkları
-            }
-          }
-        }
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`NavyBlue_Rapor_${new Date().toISOString().split('T')[0]}.pdf`);
-    } catch (error) {
-      console.error("PDF Hatası:", error);
-      alert("Hata: Tarayıcıdaki renk uyumsuzluğu nedeniyle PDF oluşturulamadı. Lütfen sayfayı yenileyip tekrar deneyin.");
-    } finally {
-      setExporting(false);
-    }
+  // 🚀 YENİ YAKLAŞIM: Tarayıcı Yazdırma Menüsü
+  const handlePrint = () => {
+    window.print();
   };
 
   const filteredOrders = orders.filter(o => {
-    const statusMatch = filter === 'all' || 
-                       (filter === 'pending' && o.status !== 'cut_completed') || 
-                       (filter === 'completed' && o.status === 'cut_completed');
+    const isArchived = o.status === 'archived' || o.is_archived === true;
+    let statusMatch = true;
+    if (filter === 'pending') statusMatch = !isArchived && o.status !== 'cut_completed';
+    else if (filter === 'completed') statusMatch = o.status === 'cut_completed' && !isArchived;
+    else if (filter === 'archived') statusMatch = isArchived;
+
     const customerMatch = !customerFilter || o.customer?.toLowerCase().includes(customerFilter.toLowerCase());
     const orderMatch = !orderFilter || o.order_no?.toLowerCase().includes(orderFilter.toLowerCase());
     return statusMatch && customerMatch && orderMatch;
@@ -100,121 +59,164 @@ export default function ProductionReport() {
 
   const totalPlanned = filteredOrders.reduce((sum, o) => sum + Object.values(o.qty_by_size || {}).reduce((a, b) => a + Number(b || 0), 0), 0);
   const totalCut = filteredOrders.reduce((sum, o) => sum + Object.values(o.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0), 0);
+  const totalShipped = filteredOrders.reduce((sum, o) => sum + Object.values(o.shipped_qty || {}).reduce((a, b) => a + Number(b || 0), 0), 0);
 
-  if (loading) return <div className="p-20 text-center font-black animate-pulse text-slate-400 uppercase tracking-[0.3em] text-[10px]">Veriler Alınıyor...</div>;
+  if (loading) return <div className="p-20 text-center font-black animate-pulse text-slate-400 uppercase tracking-[0.3em] text-[10px]">Veriler Hazırlanıyor...</div>;
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32">
       
-      {/* KONTROL PANELİ */}
+      {/* 🛠️ BROWSER PRINT CSS (Sadece Yazdırma Anında Çalışır) */}
+      <style>{`
+        @media print {
+          body { background: white !important; padding: 0 !important; margin: 0 !important; }
+          .no-print { display: none !important; }
+          .print-area { border: none !important; box-shadow: none !important; width: 100% !important; margin: 0 !important; }
+          table { width: 100% !important; border-collapse: collapse !important; }
+          th, td { border-bottom: 1px solid #eee !important; padding: 10px 5px !important; }
+          @page { size: A4 landscape; margin: 10mm; }
+        }
+      `}</style>
+      
+      {/* KONTROL PANELİ (no-print sınıfı eklendi) */}
       <div className="bg-white p-5 rounded-4xl border border-slate-100 shadow-sm space-y-4 no-print">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-[#0f172a] rounded-xl text-white shadow-lg">
-              <FileBarChart size={20} />
-            </div>
+            <div className="p-2.5 bg-[#0f172a] rounded-xl text-white shadow-lg"><FileBarChart size={20} /></div>
             <div>
               <h1 className="text-xl md:text-2xl font-black text-[#0f172a] tracking-tighter uppercase leading-none">Üretim Raporu</h1>
-              <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase mt-1">Navy Blue ERP</p>
+              <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase mt-1">Navy Blue ERP Systems</p>
             </div>
           </div>
           <button 
-            onClick={downloadPDF} 
-            disabled={exporting}
-            style={{ backgroundColor: exporting ? '#cbd5e1' : '#2563eb' }}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-black text-[10px] text-white transition-all uppercase tracking-widest shadow-lg"
+            onClick={handlePrint} 
+            className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-slate-900 rounded-xl font-black text-[10px] text-white transition-all uppercase tracking-widest shadow-lg"
           >
-            {exporting ? 'Hazırlanıyor...' : <><Download size={16} /> PDF İndir</>}
+            <Printer size={16} /> Yazdır / PDF Kaydet
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <input type="text" placeholder="Müşteri Filtresi..." value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-[10px] font-bold outline-none" />
-          <input type="text" placeholder="Grup (Order) No..." value={orderFilter} onChange={(e) => setOrderFilter(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-[10px] font-bold outline-none" />
-          <select value={filter} onChange={(e) => setFilter(e.target.value)} className="bg-slate-50 border-none rounded-xl px-4 py-2.5 text-[10px] font-black uppercase outline-none cursor-pointer">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <input type="text" placeholder="Müşteri..." value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-[10px] font-bold outline-none" />
+          <input type="text" placeholder="Grup No..." value={orderFilter} onChange={(e) => setOrderFilter(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-[10px] font-bold outline-none" />
+          <select value={filter} onChange={(e) => setFilter(e.target.value)} className="bg-slate-50 border-none rounded-xl px-4 py-2.5 text-[10px] font-black uppercase outline-none cursor-pointer col-span-2">
             <option value="all">Tüm Siparişler</option>
-            <option value="pending">İşlemde</option>
-            <option value="completed">Bitenler</option>
+            <option value="pending">Sadece Üretimde Olanlar</option>
+            <option value="completed">Dikiş / Ütü Pakettekiler</option>
+            <option value="archived">Sevkiyatı Bitenler (Arşiv)</option>
           </select>
         </div>
       </div>
 
-      {/* --- RAPOR KONTEYNERI --- */}
-      <div ref={reportRef} data-report-container className="bg-white rounded-4xl border border-[#0f172a] overflow-hidden shadow-none">
+      {/* RAPOR KONTEYNERI (print-area sınıfı eklendi) */}
+      <div className="bg-white rounded-4xl border border-[#0f172a] overflow-hidden shadow-none print-area">
         
-        {/* Başlık (Mürekkep Dostu) */}
-        <div style={{ backgroundColor: '#ffffff', borderBottom: '4px solid #0f172a' }} className="p-8 text-[#0f172a] flex justify-between items-end">
+        {/* Başlık Kartı */}
+        <div className="p-8 border-b-4 border-[#0f172a] flex justify-between items-end bg-white">
           <div className="space-y-1">
-            <h2 className="text-4xl font-black tracking-tighter uppercase" style={{ color: '#0f172a' }}>NAVY BLUE</h2>
-            <p className="text-[10px] font-bold text-[#64748b] uppercase tracking-[0.4em]">Üretim Akış ve Sevkiyat Dökümü</p>
+            <h2 className="text-4xl font-black tracking-tighter uppercase text-[#0f172a]">NAVY BLUE</h2>
+            <p className="text-[10px] font-bold text-[#64748b] uppercase tracking-[0.4em]">Üretim Denge ve Sevkiyat Matrisi</p>
           </div>
-          <div className="text-right space-y-1">
-            <div className="text-[9px] font-black text-[#94a3b8] uppercase tracking-widest">Döküm Tarihi</div>
-            <div className="text-sm font-black" style={{ color: '#0f172a' }}>{new Date().toLocaleDateString('tr-TR')}</div>
-          </div>
-        </div>
-
-        {/* Veriler */}
-        <div className="grid grid-cols-3 border-b border-[#f1f5f9]" style={{ backgroundColor: '#ffffff' }}>
-          <div className="p-6 text-center border-r border-[#f1f5f9]">
-            <div className="text-[9px] font-black text-[#94a3b8] uppercase mb-1 tracking-widest">Sipariş Sayısı</div>
-            <div className="text-2xl font-black text-[#0f172a]" style={{ color: '#0f172a' }}>{filteredOrders.length}</div>
-          </div>
-          <div className="p-6 text-center border-r border-[#f1f5f9]">
-            <div className="text-[9px] font-black text-[#94a3b8] uppercase mb-1 tracking-widest">Planlanan</div>
-            <div className="text-2xl font-black text-[#2563eb]" style={{ color: '#2563eb' }}>{totalPlanned.toLocaleString()}</div>
-          </div>
-          <div className="p-6 text-center">
-            <div className="text-[9px] font-black text-[#94a3b8] uppercase mb-1 tracking-widest">Kesilen</div>
-            <div className="text-2xl font-black text-[#10b981]" style={{ color: '#10b981' }}>{totalCut.toLocaleString()}</div>
+          <div className="text-right">
+            <div className="text-[9px] font-black text-[#94a3b8] uppercase tracking-widest">Rapor Tarihi</div>
+            <div className="text-sm font-black text-[#0f172a]">{new Date().toLocaleDateString('tr-TR')}</div>
           </div>
         </div>
 
-        {/* Kaydırılabilir Tablo */}
-        <div className="p-4 md:p-8 overflow-x-auto">
+        {/* Özet Kartları */}
+        <div className="grid grid-cols-4 border-b border-[#f1f5f9] bg-white">
+          <div className="p-6 text-center border-r border-[#f1f5f9]"><div className="text-[9px] font-black text-[#94a3b8] uppercase mb-1 tracking-widest">İş Adedi</div><div className="text-2xl font-black text-[#0f172a]">{filteredOrders.length}</div></div>
+          <div className="p-6 text-center border-r border-[#f1f5f9]"><div className="text-[9px] font-black text-[#94a3b8] uppercase mb-1 tracking-widest">Planlanan</div><div className="text-2xl font-black text-blue-600">{totalPlanned.toLocaleString()}</div></div>
+          <div className="p-6 text-center border-r border-[#f1f5f9]"><div className="text-[9px] font-black text-[#94a3b8] uppercase mb-1 tracking-widest">Kesilen</div><div className="text-2xl font-black text-emerald-600">{totalCut.toLocaleString()}</div></div>
+          <div className="p-6 text-center"><div className="text-[9px] font-black text-[#94a3b8] uppercase mb-1 tracking-widest">Yüklenen</div><div className="text-2xl font-black text-indigo-600">{totalShipped.toLocaleString()}</div></div>
+        </div>
+
+        <div className="p-4 md:p-8 overflow-x-auto bg-white">
           <table className="w-full border-collapse min-w-250">
             <thead>
               <tr className="text-[9px] font-black text-[#94a3b8] uppercase tracking-widest border-b-2 border-[#0f172a]">
-                <th className="py-4 px-2 text-left" style={{ color: '#64748b' }}>Artikel No</th>
-                <th className="py-4 px-2 text-left" style={{ color: '#64748b' }}>Model</th>
-                <th className="py-4 px-2 text-left" style={{ color: '#64748b' }}>Renk</th>
-                <th className="py-4 px-2 text-left" style={{ color: '#64748b' }}>Müşteri / Grup</th>
-                <th className="py-4 px-2 text-left" style={{ color: '#2563eb' }}>Konum</th>
-                <th className="py-4 px-2 text-center" style={{ color: '#64748b' }}>Termin</th>
-                <th className="py-4 px-2 text-right" style={{ color: '#64748b' }}>Plan</th>
-                <th className="py-4 px-2 text-right" style={{ color: '#64748b' }}>Kesim</th>
-                <th className="py-4 px-2 text-center" style={{ color: '#64748b' }}>Durum</th>
+                <th className="py-4 px-2 no-print"></th>
+                <th className="py-4 px-2 text-left">Artikel No</th>
+                <th className="py-4 px-2 text-left">Model / Renk</th>
+                <th className="py-4 px-2 text-left">Müşteri</th>
+                <th className="py-4 px-2 text-left">Konum</th>
+                <th className="py-4 px-2 text-right text-blue-600">Plan</th>
+                <th className="py-4 px-2 text-right text-emerald-600">Kesim</th>
+                <th className="py-4 px-2 text-right text-indigo-600">Yükleme</th>
+                <th className="py-4 px-2 text-center">Durum</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f1f5f9]">
               {filteredOrders.map((o) => {
-                const planned = Object.values(o.qty_by_size || {}).reduce((a, b) => a + Number(b || 0), 0);
-                const cut = Object.values(o.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
+                const isExpanded = expandedId === o.id;
+                const isArchived = o.status === 'archived' || o.is_archived === true;
+                const pTotal = Object.values(o.qty_by_size || {}).reduce((a, b) => a + Number(b || 0), 0);
+                const cTotal = Object.values(o.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
+                const sTotal = Object.values(o.shipped_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
+
                 return (
-                  <tr key={o.id}>
-                    <td className="py-4 px-2 font-black text-[#0f172a] text-sm uppercase" style={{ color: '#0f172a' }}>{o.article}</td>
-                    <td className="py-4 px-2 text-[11px] font-bold text-[#1e293b] uppercase" style={{ color: '#1e293b' }}>{o.model || '-'}</td>
-                    <td className="py-4 px-2 text-[11px] font-bold text-[#64748b] uppercase" style={{ color: '#64748b' }}>{o.color || '-'}</td>
-                    <td className="py-4 px-2">
-                      <div className="text-[11px] font-black text-[#1e293b] uppercase leading-none" style={{ color: '#1e293b' }}>{o.customer}</div>
-                      <div className="text-[9px] font-bold uppercase mt-1" style={{ color: '#2563eb' }}>Grup: {o.order_no}</div>
-                    </td>
-                    <td className="py-4 px-2">
-                      <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[8px] font-black border uppercase" style={{ backgroundColor: '#ffffff', color: '#2563eb', borderColor: '#2563eb' }}>
-                        <MapPin size={10} /> {getStageLabel(o.current_stage || 'kesimhanede')}
-                      </div>
-                    </td>
-                    <td className="py-4 px-2 text-center font-bold text-[10px] text-[#94a3b8]">{o.due ? new Date(o.due).toLocaleDateString('tr-TR') : '-'}</td>
-                    <td className="py-4 px-2 text-right font-black text-[#94a3b8] text-sm" style={{ color: '#94a3b8' }}>{planned}</td>
-                    <td className="py-4 px-2 text-right font-black text-[#0f172a] text-sm" style={{ color: '#0f172a' }}>{cut || '-'}</td>
-                    <td className="py-4 px-2 text-center">
-                      {o.status === 'cut_completed' ? (
-                        <CheckCircle2 size={16} style={{ color: '#10b981', margin: '0 auto' }} />
-                      ) : (
-                        <span className="text-[8px] font-black uppercase border px-1.5 py-0.5 rounded" style={{ color: '#f59e0b', borderColor: '#f59e0b' }}>İşlemde</span>
-                      )}
-                    </td>
-                  </tr>
+                  <React.Fragment key={o.id}>
+                    <tr 
+                      onClick={() => setExpandedId(isExpanded ? null : o.id)} 
+                      className={`group cursor-pointer transition-all ${isExpanded ? 'bg-slate-50' : 'hover:bg-slate-50/50'}`}
+                    >
+                      <td className="py-4 px-2 text-slate-300 no-print">
+                        {isExpanded ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+                      </td>
+                      <td className="py-4 px-2 font-black text-[#0f172a] text-sm uppercase">{o.article}</td>
+                      <td className="py-4 px-2">
+                        <div className="text-[11px] font-bold text-[#1e293b] uppercase leading-none">{o.model}</div>
+                        <div className="text-[9px] font-bold text-[#64748b] uppercase mt-1">{o.color}</div>
+                      </td>
+                      <td className="py-4 px-2 text-[10px] font-black text-[#1e293b] uppercase">{o.customer}</td>
+                      <td className="py-4 px-2">
+                        <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[8px] font-black border uppercase ${isArchived ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-[#2563eb] border-[#2563eb]'}`}>
+                           {isArchived ? <Truck size={10}/> : <MapPin size={10}/>} {isArchived ? 'SEVK EDİLDİ' : getStageLabel(o.current_stage)}
+                        </div>
+                      </td>
+                      <td className="py-4 px-2 text-right font-black text-slate-400 text-sm">{pTotal}</td>
+                      <td className="py-4 px-2 text-right font-black text-emerald-600 text-sm">{cTotal || '-'}</td>
+                      <td className="py-4 px-2 text-right font-black text-indigo-600 text-sm">{sTotal || '-'}</td>
+                      <td className="py-4 px-2 text-center">
+                        {isArchived ? (
+                          <Truck size={16} className="text-indigo-600 mx-auto" />
+                        ) : (
+                          <CheckCircle2 size={16} className={cTotal >= pTotal ? "text-emerald-500 mx-auto" : "text-slate-200 mx-auto"} />
+                        )}
+                      </td>
+                    </tr>
+
+                    {/* BEDEN DENGE MATRİSİ (Eğer açıksa PDF'de de görünür) */}
+                    {isExpanded && (
+                      <tr className="bg-slate-50/50">
+                        <td colSpan="9" className="p-8">
+                          <div className="bg-white rounded-4xl border border-slate-200 p-8 shadow-inner">
+                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2 mb-6">
+                              <PackageCheck size={14}/> Beden Denge ve Sevkiyat Analizi
+                            </h3>
+                            <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
+                              {Object.keys(o.qty_by_size || {}).sort((a,b) => sizeOrder.indexOf(a.toUpperCase()) - sizeOrder.indexOf(b.toUpperCase())).map(size => {
+                                const p = Number(o.qty_by_size?.[size] || 0);
+                                const c = Number(o.cutting_qty?.[size] || 0);
+                                const s = Number(o.shipped_qty?.[size] || 0);
+                                return (
+                                  <div key={size} className="min-w-25 flex flex-col border border-slate-100 rounded-3xl overflow-hidden bg-white shadow-sm">
+                                    <div className="bg-[#0f172a] text-white text-[10px] font-black py-2 text-center uppercase">{size}</div>
+                                    <div className="p-4 space-y-3 text-nowrap">
+                                      <div className="flex justify-between items-center"><span className="text-[7px] font-bold text-slate-400 uppercase">Plan</span><span className="text-[11px] font-black text-slate-400">{p}</span></div>
+                                      <div className="flex justify-between items-center"><span className="text-[7px] font-bold text-emerald-400 uppercase">Kesim</span><span className="text-[11px] font-black text-emerald-600">{c}</span></div>
+                                      <div className="flex justify-between items-center pt-2 border-t border-slate-50"><span className="text-[7px] font-black text-indigo-400 uppercase">Sevk</span><span className="text-xs font-black text-indigo-600">{s}</span></div>
+                                      <div className={`text-center pt-1 text-[8px] font-black uppercase ${s-p >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{s-p > 0 ? `+${s-p}` : s-p} FARK</div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
@@ -222,11 +224,11 @@ export default function ProductionReport() {
         </div>
 
         {/* Alt Bilgi */}
-        <div className="p-8 border-t-2 border-[#0f172a] flex justify-between items-center text-[9px] font-black text-[#94a3b8] uppercase tracking-widest" style={{ backgroundColor: '#ffffff' }}>
-          <div style={{ color: '#94a3b8' }}>© NAVY BLUE ERP - MADE FOR SEABORNS</div>
+        <div className="p-8 border-t-2 border-[#0f172a] flex justify-between items-center text-[9px] font-black text-[#94a3b8] uppercase tracking-widest bg-white">
+          <div>© NAVY BLUE ERP - PRECISION LOGISTICS</div>
           <div className="flex gap-10">
-            <div style={{ color: '#94a3b8' }}>TOPLAM FARK: <span style={{ color: (totalPlanned - totalCut > 0) ? '#ef4444' : '#10b981' }}>{totalPlanned - totalCut} ADET</span></div>
-            <div className="text-[#0f172a] font-black" style={{ color: '#0f172a' }}>NAVY BLUE PRODUCTION</div>
+            <div>FİLTRE TOPLAM SEVKİYAT: <span className="text-indigo-600">{totalShipped.toLocaleString()} ADET</span></div>
+            <div className="font-black text-[#0f172a]">ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.</div>
           </div>
         </div>
       </div>

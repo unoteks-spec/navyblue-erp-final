@@ -77,11 +77,20 @@ export default function OrderList({ onEditOrder }) {
     return stageMap[key] || 'KESİM BEKLİYOR';
   };
 
-  const filteredOrders = orders.filter(o => 
-    o.order_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    o.customer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    o.article?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // 🛠️ FİLTRELEME MANTIĞI GÜNCELLENDİ
+  const filteredOrders = orders.filter(o => {
+    // 1. Arşivlenmiş (Yüklenmiş) olanları tamamen gizle
+    const isArchived = o.status === 'archived' || o.is_archived === true;
+    if (isArchived) return false;
+
+    // 2. Arama terimine göre süz
+    const matchesSearch = 
+      o.order_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      o.customer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      o.article?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return matchesSearch;
+  });
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32">
@@ -113,16 +122,18 @@ export default function OrderList({ onEditOrder }) {
 
       {/* LİSTE */}
       <div className="grid gap-6">
-        {filteredOrders.map(order => {
+        {filteredOrders.length === 0 ? (
+          <div className="py-20 text-center bg-white rounded-[2.5rem] border border-dashed border-slate-200 text-slate-300 font-black uppercase tracking-widest text-xs">
+            Görüntülenecek aktif iş emri bulunamadı
+          </div>
+        ) : filteredOrders.map(order => {
           const stats = calculateProgress(order);
           const totalCut = Object.values(order.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
           
-          // 🛠️ ISCUT & ISSHIPPED MANTIĞI
           const isCut = order.status === 'cut_completed' || totalCut > 0;
-          const isShipped = order.status === 'archived' || order.is_archived;
 
           return (
-            <div key={order.id} className={`bg-white p-5 md:p-6 rounded-[2.5rem] border transition-all group relative ${isShipped ? 'border-blue-500/20 bg-blue-50/5' : isCut ? 'border-emerald-500/30 bg-emerald-50/5' : 'border-slate-100'} hover:shadow-xl`}>
+            <div key={order.id} className={`bg-white p-5 md:p-6 rounded-[2.5rem] border transition-all group relative ${isCut ? 'border-emerald-500/30 bg-emerald-50/5' : 'border-slate-100'} hover:shadow-xl`}>
               <div className="absolute -top-3 -right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all z-30">
                 <button onClick={(e) => { e.stopPropagation(); onEditOrder(order); }} className="w-9 h-9 bg-white text-slate-400 hover:text-blue-600 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110"><Edit3 size={14} /></button>
                 <button onClick={(e) => { e.stopPropagation(); if(window.confirm('Emin misiniz?')) { deleteOrder(order.id); loadData(); } }} className="w-9 h-9 bg-white text-slate-400 hover:text-red-600 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110"><Trash2 size={14} /></button>
@@ -130,7 +141,7 @@ export default function OrderList({ onEditOrder }) {
 
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div onClick={() => setSelectedOrderDetail(order)} className="flex items-start gap-4 flex-1 cursor-pointer hover:opacity-80">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 ${isShipped ? 'bg-blue-600' : isCut ? 'bg-emerald-600' : 'bg-slate-900'} text-white`}>
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 ${isCut ? 'bg-emerald-600' : 'bg-slate-900'} text-white`}>
                     {order.model_image ? <img src={order.model_image} className="w-full h-full object-cover" /> : <Hash size={20} />}
                   </div>
                   <div>
@@ -162,19 +173,16 @@ export default function OrderList({ onEditOrder }) {
                   <button onClick={() => setIntakeOrder(order)} className="bg-blue-50 text-blue-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border">Giriş Yap</button>
                   <button onClick={() => setPreparingOrder(order)} className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg">Kesim Emri</button>
                   
-                  {/* 🛠️ ARŞİVLEME ENTEGRELİ BUTON MANTIĞI */}
                   <button 
                     onClick={() => setCuttingResultOrder(order)} 
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter transition-all ${
-                      isShipped 
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-100' 
-                        : isCut 
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-100' 
-                          : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white'
+                      isCut 
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-100' 
+                        : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white'
                     }`}
                   >
-                    {isShipped ? <Truck size={14} /> : (isCut ? <CheckCircle size={14} /> : <Scissors size={14} />)}
-                    {isShipped ? 'Yüklendi' : (isCut ? 'Kesildi' : 'Sonuç Gir')}
+                    {isCut ? <CheckCircle size={14} /> : <Scissors size={14} />}
+                    {isCut ? 'Kesildi' : 'Sonuç Gir'}
                   </button>
                 </div>
               </div>
@@ -183,7 +191,7 @@ export default function OrderList({ onEditOrder }) {
         })}
       </div>
 
-      {/* MODAL: DETAY KARTI */}
+      {/* MODAL: DETAY KARTI (Aynı kaldı) */}
       {selectedOrderDetail && (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="absolute inset-0" onClick={() => setSelectedOrderDetail(null)}></div>
@@ -255,7 +263,7 @@ export default function OrderList({ onEditOrder }) {
         </div>
       )}
 
-      {/* MODALLAR */}
+      {/* MODALLAR (Aynı kaldı) */}
       {printOrder && <FabricOrderPrint order={printOrder} onClose={() => setPrintOrder(null)} onSuccess={loadData} />}
       {intakeOrder && <FabricIntakeModal order={intakeOrder} allOrders={orders} onClose={() => setIntakeOrder(null)} onSuccess={loadData} />}
       {preparingOrder && <CuttingOrderModal order={preparingOrder} onClose={() => setPreparingOrder(null)} onConfirm={(upd) => { setPreparingOrder(null); setPrintCuttingOrder(upd); loadData(); }} />}
