@@ -40,7 +40,6 @@ export default function ProductionReport() {
     return stageMap[key] || 'KESİM BEKLİYOR';
   };
 
-  // 🚀 YENİ YAKLAŞIM: Tarayıcı Yazdırma Menüsü
   const handlePrint = () => {
     window.print();
   };
@@ -66,7 +65,6 @@ export default function ProductionReport() {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32">
       
-      {/* 🛠️ BROWSER PRINT CSS (Sadece Yazdırma Anında Çalışır) */}
       <style>{`
         @media print {
           body { background: white !important; padding: 0 !important; margin: 0 !important; }
@@ -78,7 +76,7 @@ export default function ProductionReport() {
         }
       `}</style>
       
-      {/* KONTROL PANELİ (no-print sınıfı eklendi) */}
+      {/* KONTROL PANELİ */}
       <div className="bg-white p-5 rounded-4xl border border-slate-100 shadow-sm space-y-4 no-print">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -88,10 +86,7 @@ export default function ProductionReport() {
               <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase mt-1">Navy Blue ERP Systems</p>
             </div>
           </div>
-          <button 
-            onClick={handlePrint} 
-            className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-slate-900 rounded-xl font-black text-[10px] text-white transition-all uppercase tracking-widest shadow-lg"
-          >
+          <button onClick={handlePrint} className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-slate-900 rounded-xl font-black text-[10px] text-white transition-all uppercase tracking-widest shadow-lg">
             <Printer size={16} /> Yazdır / PDF Kaydet
           </button>
         </div>
@@ -108,9 +103,7 @@ export default function ProductionReport() {
         </div>
       </div>
 
-      {/* RAPOR KONTEYNERI (print-area sınıfı eklendi) */}
       <div className="bg-white rounded-4xl border border-[#0f172a] overflow-hidden shadow-none print-area">
-        
         {/* Başlık Kartı */}
         <div className="p-8 border-b-4 border-[#0f172a] flex justify-between items-end bg-white">
           <div className="space-y-1">
@@ -156,13 +149,8 @@ export default function ProductionReport() {
 
                 return (
                   <React.Fragment key={o.id}>
-                    <tr 
-                      onClick={() => setExpandedId(isExpanded ? null : o.id)} 
-                      className={`group cursor-pointer transition-all ${isExpanded ? 'bg-slate-50' : 'hover:bg-slate-50/50'}`}
-                    >
-                      <td className="py-4 px-2 text-slate-300 no-print">
-                        {isExpanded ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
-                      </td>
+                    <tr onClick={() => setExpandedId(isExpanded ? null : o.id)} className={`group cursor-pointer transition-all ${isExpanded ? 'bg-slate-50' : 'hover:bg-slate-50/50'}`}>
+                      <td className="py-4 px-2 text-slate-300 no-print">{isExpanded ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}</td>
                       <td className="py-4 px-2 font-black text-[#0f172a] text-sm uppercase">{o.article}</td>
                       <td className="py-4 px-2">
                         <div className="text-[11px] font-bold text-[#1e293b] uppercase leading-none">{o.model}</div>
@@ -177,36 +165,31 @@ export default function ProductionReport() {
                       <td className="py-4 px-2 text-right font-black text-slate-400 text-sm">{pTotal}</td>
                       <td className="py-4 px-2 text-right font-black text-emerald-600 text-sm">{cTotal || '-'}</td>
                       <td className="py-4 px-2 text-right font-black text-indigo-600 text-sm">{sTotal || '-'}</td>
-                      <td className="py-4 px-2 text-center">
-                        {isArchived ? (
-                          <Truck size={16} className="text-indigo-600 mx-auto" />
-                        ) : (
-                          <CheckCircle2 size={16} className={cTotal >= pTotal ? "text-emerald-500 mx-auto" : "text-slate-200 mx-auto"} />
-                        )}
-                      </td>
+                      <td className="py-4 px-2 text-center">{isArchived ? <Truck size={16} className="text-indigo-600 mx-auto" /> : <CheckCircle2 size={16} className={cTotal >= pTotal ? "text-emerald-500 mx-auto" : "text-slate-200 mx-auto"} />}</td>
                     </tr>
 
-                    {/* BEDEN DENGE MATRİSİ (Eğer açıksa PDF'de de görünür) */}
                     {isExpanded && (
                       <tr className="bg-slate-50/50">
                         <td colSpan="9" className="p-8">
                           <div className="bg-white rounded-4xl border border-slate-200 p-8 shadow-inner">
                             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2 mb-6">
-                              <PackageCheck size={14}/> Beden Denge ve Sevkiyat Analizi
+                              <PackageCheck size={14}/> Beden Kesim/Sevk Analizi
                             </h3>
                             <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
                               {Object.keys(o.qty_by_size || {}).sort((a,b) => sizeOrder.indexOf(a.toUpperCase()) - sizeOrder.indexOf(b.toUpperCase())).map(size => {
-                                const p = Number(o.qty_by_size?.[size] || 0);
                                 const c = Number(o.cutting_qty?.[size] || 0);
                                 const s = Number(o.shipped_qty?.[size] || 0);
+                                const diff = s - c; // 🛠️ HESAPLAMA GÜNCELLENDİ: SEVK - KESİM
+                                
                                 return (
                                   <div key={size} className="min-w-25 flex flex-col border border-slate-100 rounded-3xl overflow-hidden bg-white shadow-sm">
                                     <div className="bg-[#0f172a] text-white text-[10px] font-black py-2 text-center uppercase">{size}</div>
                                     <div className="p-4 space-y-3 text-nowrap">
-                                      <div className="flex justify-between items-center"><span className="text-[7px] font-bold text-slate-400 uppercase">Plan</span><span className="text-[11px] font-black text-slate-400">{p}</span></div>
                                       <div className="flex justify-between items-center"><span className="text-[7px] font-bold text-emerald-400 uppercase">Kesim</span><span className="text-[11px] font-black text-emerald-600">{c}</span></div>
                                       <div className="flex justify-between items-center pt-2 border-t border-slate-50"><span className="text-[7px] font-black text-indigo-400 uppercase">Sevk</span><span className="text-xs font-black text-indigo-600">{s}</span></div>
-                                      <div className={`text-center pt-1 text-[8px] font-black uppercase ${s-p >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{s-p > 0 ? `+${s-p}` : s-p} FARK</div>
+                                      <div className={`text-center pt-1 text-[8px] font-black uppercase ${diff === 0 ? 'text-slate-400' : diff > 0 ? 'text-blue-500' : 'text-red-500'}`}>
+                                        {diff > 0 ? `+${diff}` : diff} FİRE/FARK
+                                      </div>
                                     </div>
                                   </div>
                                 );
@@ -227,7 +210,8 @@ export default function ProductionReport() {
         <div className="p-8 border-t-2 border-[#0f172a] flex justify-between items-center text-[9px] font-black text-[#94a3b8] uppercase tracking-widest bg-white">
           <div>© NAVY BLUE ERP - PRECISION LOGISTICS</div>
           <div className="flex gap-10">
-            <div>FİLTRE TOPLAM SEVKİYAT: <span className="text-indigo-600">{totalShipped.toLocaleString()} ADET</span></div>
+             {/* 🛠️ FOOTER FARK HESABI DA KESİM VS SEVK OLARAK GÜNCELLENDİ */}
+            <div>KESİM/SEVK FARKI: <span className={totalShipped - totalCut >= 0 ? 'text-emerald-600' : 'text-red-500'}>{totalShipped - totalCut} ADET</span></div>
             <div className="font-black text-[#0f172a]">ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.</div>
           </div>
         </div>
