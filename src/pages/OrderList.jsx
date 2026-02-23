@@ -96,7 +96,6 @@ export default function OrderList({ onEditOrder }) {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32">
       
-      {/* ÜST PANEL */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-slate-900 rounded-xl text-white shadow-lg"><LayoutGrid size={20} /></div>
@@ -108,7 +107,6 @@ export default function OrderList({ onEditOrder }) {
         <button onClick={loadData} className="p-2.5 bg-white border border-slate-100 rounded-xl hover:bg-slate-50"><RefreshCcw size={18} className={loading ? 'animate-spin' : ''} /></button>
       </div>
 
-      {/* ARAMA */}
       <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -121,7 +119,6 @@ export default function OrderList({ onEditOrder }) {
         </div>
       </div>
 
-      {/* LİSTE */}
       <div className="grid gap-6">
         {filteredOrders.length === 0 ? (
           <div className="py-20 text-center bg-white rounded-[2.5rem] border border-dashed border-slate-200 text-slate-300 font-black uppercase tracking-widest text-xs">
@@ -141,27 +138,28 @@ export default function OrderList({ onEditOrder }) {
 
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div onClick={() => setSelectedOrderDetail(order)} className="flex items-start gap-4 flex-1 cursor-pointer hover:opacity-80">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 ${isCut ? 'bg-emerald-600' : 'bg-slate-900'} text-white`}>
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 ${isCut ? 'bg-emerald-600' : 'bg-slate-900'} text-white shadow-inner`}>
                     {order.model_image ? <img src={order.model_image} className="w-full h-full object-cover" /> : <Hash size={20} />}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
+                    {/* 🛠️ ARTIKEL + MÜŞTERİ + TERMİN TEK SATIRDA */}
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
                       <span className="font-black text-slate-900 tracking-tighter text-lg md:text-xl uppercase leading-none">{order.article}</span>
-                      <span className="bg-blue-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase">{order.customer}</span>
+                      <span className="bg-blue-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase shrink-0">{order.customer}</span>
+                      
+                      {/* ROZET OLARAK TERMİN BİLGİSİ */}
+                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[9px] font-black uppercase shrink-0 ${new Date(order.due) < new Date() ? 'bg-red-50 text-red-500 border-red-100' : 'bg-slate-50 text-slate-600 border-slate-100'}`}>
+                        <Calendar size={10} />
+                        {order.due ? new Date(order.due).toLocaleDateString('tr-TR') : 'BELİRSİZ'}
+                      </div>
                     </div>
                     
-                    {/* 🛠️ TERMİN BİLGİSİ (LİSTEYE EKLENDİ) */}
-                    <div className="flex items-center gap-4 mt-2">
-                       <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase">
-                          <span className="text-blue-600">{order.order_no}</span>
-                          <span className="text-slate-200">/</span>
-                          <span>{order.model}</span>
-                          <span className="text-indigo-500">{order.color}</span>
-                       </div>
-                       <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[9px] font-black uppercase ${new Date(order.due) < new Date() ? 'bg-red-50 text-red-500 border-red-100' : 'bg-slate-50 text-slate-600 border-slate-100'}`}>
-                          <Calendar size={10} />
-                          {order.due ? new Date(order.due).toLocaleDateString('tr-TR') : 'BELİRSİZ'}
-                       </div>
+                    {/* MODEL BİLGİLERİ ALTTA DAHA SADE */}
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase">
+                      <span className="text-blue-600">{order.order_no}</span>
+                      <span className="text-slate-200">/</span>
+                      <span className="truncate">{order.model}</span>
+                      <span className="text-indigo-500 shrink-0">{order.color}</span>
                     </div>
                   </div>
                 </div>
@@ -177,7 +175,6 @@ export default function OrderList({ onEditOrder }) {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {/* 🛠️ BUTON İSİMLERİ GÜNCELLENDİ */}
                   <button onClick={() => setPrintOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter ${order.fabric_ordered ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>Kumaş Sip. Formu</button>
                   <button onClick={() => setIntakeOrder(order)} className="bg-blue-50 text-blue-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border">Gelen Kumaş Bilgisi</button>
                   <button onClick={() => setPreparingOrder(order)} className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg">Kesim Emri</button>
@@ -235,7 +232,7 @@ export default function OrderList({ onEditOrder }) {
                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2"><Scissors size={14}/> Beden Denge Matrisi</h3>
                    <div className="flex gap-2">
                       <div className="text-[9px] font-black text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">SIP: {Object.values(selectedOrderDetail.qty_by_size || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
-                      <div className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">KES: {Object.values(selectedOrderDetail.cutting_qty || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
+                      <div className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">KES: {Object.values(selectedOrderDetail.qty_by_size || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
                    </div>
                 </div>
 

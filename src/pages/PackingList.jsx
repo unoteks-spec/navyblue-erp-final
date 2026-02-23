@@ -170,7 +170,7 @@ export default function PackingList() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 border-2 border-slate-50 rounded-[2.5rem] print:border-none print:p-0">
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-blue-600 mb-1"><Building2 size={18}/> <span className="text-[10px] font-black uppercase tracking-[0.2em]">Exporter</span></div>
-          <p className="font-black text-slate-900 text-sm italic uppercase">ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.</p>
+          <p className="font-black text-slate-900 text-sm italic uppercase">Alfa Spor Giyim San. Tic. Ltd. Şti.</p>
           <p className="text-[10px] text-slate-500 font-bold max-w-xs leading-relaxed">Meriç Mh. 5746/3 Sk. N.21 Mtk Sit. 35090 Bornova İzmir Turkey</p>
         </div>
         <div className="space-y-4">
