@@ -77,24 +77,17 @@ export default function OrderList({ onEditOrder }) {
     return stageMap[key] || 'KESİM BEKLİYOR';
   };
 
-  // 🛠️ FİLTRELEME & SIRALAMA MANTIĞI
   const filteredOrders = orders
     .filter(o => {
-      // 1. Arşivlenmiş (Yüklenmiş) olanları tamamen gizle
       const isArchived = o.status === 'archived' || o.is_archived === true;
       if (isArchived) return false;
-
-      // 2. Arama terimine göre süz
       const matchesSearch = 
         o.order_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         o.customer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         o.article?.toLowerCase().includes(searchTerm.toLowerCase());
-      
       return matchesSearch;
     })
     .sort((a, b) => {
-      // 3. 🚀 TERMİN SIRALAMASI: En yakın tarih en üstte
-      // Tarihi olmayanları listenin en sonuna atmak için uzak bir gelecek tarihi (9999) kullanıyoruz
       const dateA = a.due ? new Date(a.due) : new Date('9999-12-31');
       const dateB = b.due ? new Date(b.due) : new Date('9999-12-31');
       return dateA - dateB;
@@ -137,7 +130,6 @@ export default function OrderList({ onEditOrder }) {
         ) : filteredOrders.map(order => {
           const stats = calculateProgress(order);
           const totalCut = Object.values(order.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
-          
           const isCut = order.status === 'cut_completed' || totalCut > 0;
 
           return (
@@ -152,16 +144,24 @@ export default function OrderList({ onEditOrder }) {
                   <div className={`w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 ${isCut ? 'bg-emerald-600' : 'bg-slate-900'} text-white`}>
                     {order.model_image ? <img src={order.model_image} className="w-full h-full object-cover" /> : <Hash size={20} />}
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-black text-slate-900 tracking-tighter text-lg md:text-xl uppercase leading-none">{order.article}</span>
                       <span className="bg-blue-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase">{order.customer}</span>
                     </div>
-                    <div className="text-[10px] text-slate-400 font-bold mt-1.5 uppercase flex items-center gap-2">
-                      <span className="text-blue-600">{order.order_no}</span>
-                      <span className="text-slate-200">/</span>
-                      <span>{order.model}</span>
-                      <span className="text-indigo-500">{order.color}</span>
+                    
+                    {/* 🛠️ TERMİN BİLGİSİ (LİSTEYE EKLENDİ) */}
+                    <div className="flex items-center gap-4 mt-2">
+                       <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase">
+                          <span className="text-blue-600">{order.order_no}</span>
+                          <span className="text-slate-200">/</span>
+                          <span>{order.model}</span>
+                          <span className="text-indigo-500">{order.color}</span>
+                       </div>
+                       <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[9px] font-black uppercase ${new Date(order.due) < new Date() ? 'bg-red-50 text-red-500 border-red-100' : 'bg-slate-50 text-slate-600 border-slate-100'}`}>
+                          <Calendar size={10} />
+                          {order.due ? new Date(order.due).toLocaleDateString('tr-TR') : 'BELİRSİZ'}
+                       </div>
                     </div>
                   </div>
                 </div>
@@ -177,8 +177,9 @@ export default function OrderList({ onEditOrder }) {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <button onClick={() => setPrintOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter ${order.fabric_ordered ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>Sipariş Formu</button>
-                  <button onClick={() => setIntakeOrder(order)} className="bg-blue-50 text-blue-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border">Giriş Yap</button>
+                  {/* 🛠️ BUTON İSİMLERİ GÜNCELLENDİ */}
+                  <button onClick={() => setPrintOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter ${order.fabric_ordered ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>Kumaş Sip. Formu</button>
+                  <button onClick={() => setIntakeOrder(order)} className="bg-blue-50 text-blue-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border">Gelen Kumaş Bilgisi</button>
                   <button onClick={() => setPreparingOrder(order)} className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg">Kesim Emri</button>
                   
                   <button 
