@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Trash2, Building2, User, FileSpreadsheet, Tag, Printer, Info } from 'lucide-react';
+import { Plus, Trash2, Building2, User, FileSpreadsheet, Tag, Info } from 'lucide-react';
 import { supabase } from '../api/orderService';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -20,7 +20,6 @@ export default function PackingList() {
 
   useEffect(() => {
     const fetchOrders = async () => {
-      // 🛠️ Sadece aktif olan (arşivlenmemiş) siparişleri çekiyoruz
       const { data } = await supabase
         .from('orders')
         .select('*')
@@ -34,7 +33,6 @@ export default function PackingList() {
 
   const activeOrder = useMemo(() => orders.find(o => o.id === activeRefOrderId), [activeRefOrderId, orders]);
 
-  // 🛠️ DİNAMİK BEDENLER: Seçilen siparişe göre butonları günceller
   const activeOrderSizes = useMemo(() => {
     if (!activeOrder) return [];
     return Object.keys(activeOrder.qty_by_size || {}).sort((a, b) => {
@@ -44,10 +42,11 @@ export default function PackingList() {
     });
   }, [activeOrder]);
 
-  // 🛠️ ZEKİ KOLİ SAYACI: Karma kolileri (aynı no) tek koli sayar
   const totals = useMemo(() => {
     const uniqueBoxNumbers = new Set();
-    let tQty = 0; let tNet = 0; let tGross = 0;
+    let tQty = 0; 
+    let tNet = 0; 
+
     boxes.forEach(b => {
       const rangeParts = b.range.split('-').map(Number);
       const start = rangeParts[0];
@@ -57,25 +56,29 @@ export default function PackingList() {
         for (let i = start; i <= end; i++) { uniqueBoxNumbers.add(i); }
         tQty += (Number(b.qtyPerBox) * boxCountInRow);
         tNet += (Number(b.net) * boxCountInRow);
-        tGross += (Number(b.gross) * boxCountInRow);
       }
     });
+
+    const tGross = tNet + (uniqueBoxNumbers.size * Number(boxTare));
+
     return { 
       totalQty: tQty, 
       totalNet: Number(tNet).toFixed(2), 
       totalGross: Number(tGross).toFixed(2), 
       totalBoxes: uniqueBoxNumbers.size 
     };
-  }, [boxes]);
+  }, [boxes, boxTare]);
 
-  // 🛠️ OTOMATİK AĞIRLIK HESAPLAMA
   useEffect(() => {
-    const updatedBoxes = boxes.map(box => {
+    const updatedBoxes = boxes.map((box, index) => {
       const orderWeights = unitWeights[box.orderId];
       const unitWeight = orderWeights ? (orderWeights[box.size.toUpperCase()] || 0) : 0;
+      
       if (unitWeight > 0 && box.qtyPerBox > 0) {
         const n = (Number(box.qtyPerBox) * Number(unitWeight)).toFixed(2);
-        const g = (Number(n) + Number(boxTare)).toFixed(2);
+        const isAlreadyUsed = boxes.slice(0, index).some(prevBox => prevBox.range === box.range);
+        const g = isAlreadyUsed ? n : (Number(n) + Number(boxTare)).toFixed(2);
+        
         if (box.net !== n || box.gross !== g) return { ...box, net: n, gross: g };
       }
       return box;
@@ -83,44 +86,38 @@ export default function PackingList() {
     if (JSON.stringify(updatedBoxes) !== JSON.stringify(boxes)) setBoxes(updatedBoxes);
   }, [unitWeights, boxTare, boxes]);
 
-  // 🚀 PROFESYONEL EXCEL EXPORT (ExcelJS - Tam Düzeltilmiş)
   const exportToExcel = async () => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Packing List');
     
-    // 🛠️ DÜZELTME: Sütun Genişlikleri (Model sütunu genişletildi)
+    // 🛠️ DÜZELTME: İlk sütun (Box No / Labels) 25 birime çıkarıldı
     worksheet.columns = [
-      { width: 12 }, // Box No
-      { width: 50 }, // Model / Article / Color (GENİŞ)
+      { width: 25 }, // Box No / Delivery Address Labels (GENİŞLETİLDİ)
+      { width: 50 }, // Model / Article / Color
       { width: 18 }, // Dimensions
       { width: 10 }, // Size
       { width: 12 }, // Qty
       { width: 12 }, // Net
       { width: 12 }, // Gross
-      { width: 15 }  // Unit Weight (Bilgi amaçlı)
+      { width: 15 }  // Unit Weight
     ];
 
-    // 1. Başlık Alanı (Merge A1:H1)
     const titleRow = worksheet.addRow(['PACKING LIST']);
-    worksheet.mergeCells('A1:H1'); // 🛠️ DÜZELTME: Tablo genişliğine göre birleştirildi
+    worksheet.mergeCells('A1:H1');
     titleRow.getCell(1).font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
     titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
     titleRow.getCell(1).alignment = { horizontal: 'center' };
 
-    // 2. Bilgi Alanları
     worksheet.addRow([]);
     worksheet.addRow(['DATE', today]);
-    worksheet.addRow(['EXPORTER', 'ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.']).font = { bold: true };
+    worksheet.addRow(['EXPORTER', 'Alfa Spor Giyim San. Tic. Ltd. Sti.']).font = { bold: true };
     worksheet.addRow(['ADDRESS', 'Meriç Mh. 5746/3 Sk. N.21 Mtk Sit. 35090 Bornova İzmir Turkey']);
     worksheet.addRow([]);
-    
-    // 🛠️ DÜZELTME: Consignee & Address (Genişletilmiş Satırlar)
     worksheet.addRow(['CONSIGNEE', consignee.name || '-']).font = { bold: true };
     const addrRow = worksheet.addRow(['DELIVERY ADDRESS', consignee.address || '-']);
-    addrRow.height = 30; // Adres sığsın diye yükseklik verildi
+    addrRow.height = 30; // 🛠️ Adres yüksekliği korundu
     worksheet.addRow([]);
 
-    // 3. Tablo Başlıkları
     const headerRow = worksheet.addRow(["Box No", "Model / Article / Color", "Dimensions", "Size", "Quantity", "Net (KG)", "Gross (KG)", "Unit Weight"]);
     headerRow.eachCell((cell) => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } };
@@ -129,7 +126,6 @@ export default function PackingList() {
       cell.alignment = { horizontal: 'center' };
     });
 
-    // 4. Veri Satırları
     boxes.forEach(b => {
       const ord = orders.find(o => o.id === b.orderId);
       const rowData = [
@@ -145,18 +141,17 @@ export default function PackingList() {
       const row = worksheet.addRow(rowData);
       row.eachCell((c, colNumber) => {
         c.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
-        // Model sütunu hariç hepsini ortala
+        // Model sütunu (B) sola dayalı, diğerleri ortalı
         c.alignment = { horizontal: colNumber === 2 ? 'left' : 'center', vertical: 'middle' };
       });
     });
 
-    // 5. 🛠️ DÜZELTME: Grand Totals (Hizalanmış & Ortalı)
     worksheet.addRow([]);
     const footerRow = worksheet.addRow(['GRAND TOTALS', `${totals.totalBoxes} BOXES`, '', '', totals.totalQty, totals.totalNet, totals.totalGross, '']);
     footerRow.font = { bold: true };
     footerRow.eachCell((c) => {
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-      c.alignment = { horizontal: 'center' }; // 🛠️ ORTALAMA
+      c.alignment = { horizontal: 'center' };
       c.border = { top: {style:'medium'} };
     });
 
@@ -298,9 +293,6 @@ export default function PackingList() {
         <div className="flex gap-3">
           <button onClick={exportToExcel} className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-6 py-3 rounded-xl font-black text-[10px] border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all uppercase shadow-sm">
             <FileSpreadsheet size={16}/> Excel Export
-          </button>
-          <button onClick={() => window.print()} className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-xl font-black text-[10px] shadow-lg hover:bg-blue-600 transition-all uppercase">
-            <Printer size={16}/> Print PDF
           </button>
         </div>
       </div>

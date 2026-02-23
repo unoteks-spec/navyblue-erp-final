@@ -77,20 +77,28 @@ export default function OrderList({ onEditOrder }) {
     return stageMap[key] || 'KESİM BEKLİYOR';
   };
 
-  // 🛠️ FİLTRELEME MANTIĞI GÜNCELLENDİ
-  const filteredOrders = orders.filter(o => {
-    // 1. Arşivlenmiş (Yüklenmiş) olanları tamamen gizle
-    const isArchived = o.status === 'archived' || o.is_archived === true;
-    if (isArchived) return false;
+  // 🛠️ FİLTRELEME & SIRALAMA MANTIĞI
+  const filteredOrders = orders
+    .filter(o => {
+      // 1. Arşivlenmiş (Yüklenmiş) olanları tamamen gizle
+      const isArchived = o.status === 'archived' || o.is_archived === true;
+      if (isArchived) return false;
 
-    // 2. Arama terimine göre süz
-    const matchesSearch = 
-      o.order_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.customer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.article?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesSearch;
-  });
+      // 2. Arama terimine göre süz
+      const matchesSearch = 
+        o.order_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        o.customer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        o.article?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      return matchesSearch;
+    })
+    .sort((a, b) => {
+      // 3. 🚀 TERMİN SIRALAMASI: En yakın tarih en üstte
+      // Tarihi olmayanları listenin en sonuna atmak için uzak bir gelecek tarihi (9999) kullanıyoruz
+      const dateA = a.due ? new Date(a.due) : new Date('9999-12-31');
+      const dateB = b.due ? new Date(b.due) : new Date('9999-12-31');
+      return dateA - dateB;
+    });
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32">
@@ -191,7 +199,7 @@ export default function OrderList({ onEditOrder }) {
         })}
       </div>
 
-      {/* MODAL: DETAY KARTI (Aynı kaldı) */}
+      {/* MODAL: DETAY KARTI */}
       {selectedOrderDetail && (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="absolute inset-0" onClick={() => setSelectedOrderDetail(null)}></div>
@@ -263,7 +271,7 @@ export default function OrderList({ onEditOrder }) {
         </div>
       )}
 
-      {/* MODALLAR (Aynı kaldı) */}
+      {/* MODALLAR */}
       {printOrder && <FabricOrderPrint order={printOrder} onClose={() => setPrintOrder(null)} onSuccess={loadData} />}
       {intakeOrder && <FabricIntakeModal order={intakeOrder} allOrders={orders} onClose={() => setIntakeOrder(null)} onSuccess={loadData} />}
       {preparingOrder && <CuttingOrderModal order={preparingOrder} onClose={() => setPreparingOrder(null)} onConfirm={(upd) => { setPreparingOrder(null); setPrintCuttingOrder(upd); loadData(); }} />}
