@@ -142,19 +142,15 @@ export default function OrderList({ onEditOrder }) {
                     {order.model_image ? <img src={order.model_image} className="w-full h-full object-cover" /> : <Hash size={20} />}
                   </div>
                   <div className="min-w-0 flex-1">
-                    {/* 🛠️ ARTIKEL + MÜŞTERİ + TERMİN TEK SATIRDA */}
                     <div className="flex items-center gap-2 flex-wrap mb-2">
                       <span className="font-black text-slate-900 tracking-tighter text-lg md:text-xl uppercase leading-none">{order.article}</span>
                       <span className="bg-blue-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md uppercase shrink-0">{order.customer}</span>
-                      
-                      {/* ROZET OLARAK TERMİN BİLGİSİ */}
                       <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[9px] font-black uppercase shrink-0 ${new Date(order.due) < new Date() ? 'bg-red-50 text-red-500 border-red-100' : 'bg-slate-50 text-slate-600 border-slate-100'}`}>
                         <Calendar size={10} />
                         {order.due ? new Date(order.due).toLocaleDateString('tr-TR') : 'BELİRSİZ'}
                       </div>
                     </div>
                     
-                    {/* MODEL BİLGİLERİ ALTTA DAHA SADE */}
                     <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase">
                       <span className="text-blue-600">{order.order_no}</span>
                       <span className="text-slate-200">/</span>
@@ -231,8 +227,10 @@ export default function OrderList({ onEditOrder }) {
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2"><Scissors size={14}/> Beden Denge Matrisi</h3>
                    <div className="flex gap-2">
+                      {/* 🛠️ SIP TOPLAMI HESABI */}
                       <div className="text-[9px] font-black text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">SIP: {Object.values(selectedOrderDetail.qty_by_size || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
-                      <div className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">KES: {Object.values(selectedOrderDetail.qty_by_size || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
+                      {/* 🛠️ DÜZELTME: KES TOPLAMI ARTIK cutting_qty ÜZERİNDEN HESAPLANIYOR */}
+                      <div className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">KES: {Object.values(selectedOrderDetail.cutting_qty || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
                    </div>
                 </div>
 
