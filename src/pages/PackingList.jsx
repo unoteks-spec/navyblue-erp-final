@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Trash2, Building2, User, FileSpreadsheet, Tag, Info } from 'lucide-react';
+import { Plus, Trash2, Building2, User, FileSpreadsheet, Tag, Box, ListFilter, Info } from 'lucide-react';
 import { supabase } from '../api/orderService';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import ShippingLabelModal from '../components/orders/ShippingLabelModal';
 
 export default function PackingList() {
   const [orders, setOrders] = useState([]);
@@ -11,8 +12,19 @@ export default function PackingList() {
   const [boxTare, setBoxTare] = useState(0.5); 
   const [defaultDims, setDefaultDims] = useState('60x40x40');
   const [activeRefOrderId, setActiveRefOrderId] = useState(''); 
+  const [showLabels, setShowLabels] = useState(false);
   const [boxes, setBoxes] = useState([
-    { id: Date.now(), orderId: '', range: '1-1', size: '', qtyPerBox: '', net: '', gross: '', dimensions: '60x40x40' }
+    { 
+      id: Date.now(), 
+      orderId: '', 
+      range: '1-1', 
+      type: 'SINGLE', 
+      size: '', 
+      lotRatio: '', 
+      lotSizes: 'S-M-L-XL', 
+      qtyPerBox: '', 
+      dimensions: '60x40x40' 
+    }
   ]);
 
   const sizeOrder = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', '36', '38', '40', '42', '44', '46', '48', '50', '52'];
@@ -33,140 +45,161 @@ export default function PackingList() {
 
   const activeOrder = useMemo(() => orders.find(o => o.id === activeRefOrderId), [activeRefOrderId, orders]);
 
+  // 🛠️ BEDEN FİLTRESİ: Sadece sipariş adedi > 0 olan bedenleri getirir
   const activeOrderSizes = useMemo(() => {
     if (!activeOrder) return [];
-    return Object.keys(activeOrder.qty_by_size || {}).sort((a, b) => {
-      const indexA = sizeOrder.indexOf(a.toUpperCase());
-      const indexB = sizeOrder.indexOf(b.toUpperCase());
-      return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
-    });
+    return Object.entries(activeOrder.qty_by_size || {})
+      .filter(([size, qty]) => Number(qty) > 0) // Sadece siparişi olanlar
+      .map(([size]) => size)
+      .sort((a, b) => {
+        const indexA = sizeOrder.indexOf(a.toUpperCase());
+        const indexB = sizeOrder.indexOf(b.toUpperCase());
+        return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+      });
   }, [activeOrder]);
+
+  const getBoxData = (box, index, allBoxes) => {
+    const orderWeights = unitWeights[box.orderId] || {};
+    let calcNet = 0;
+    let calcQty = 0;
+
+    if (box.type === 'LOT' && box.lotRatio) {
+      const ratios = box.lotRatio.split('-').map(Number);
+      const sizes = box.lotSizes.split('-').map(s => s.trim().toUpperCase());
+      const ratioSum = ratios.reduce((a, b) => a + (isNaN(b) ? 0 : b), 0);
+      calcQty = ratioSum * Number(box.qtyPerBox || 0);
+      ratios.forEach((r, i) => {
+        const sz = sizes[i];
+        const uw = Number(orderWeights[sz] || 0);
+        calcNet += (r * uw * Number(box.qtyPerBox || 0));
+      });
+    } else {
+      calcQty = Number(box.qtyPerBox || 0);
+      const uw = Number(orderWeights[box.size?.toUpperCase()] || 0);
+      calcNet = calcQty * uw;
+    }
+
+    const isShared = allBoxes.slice(0, index).some(prev => prev.range === box.range && box.range !== "");
+    const calcGross = isShared ? calcNet : (calcNet + Number(boxTare));
+
+    return { net: calcNet.toFixed(2), gross: calcGross.toFixed(2), totalPcs: calcQty };
+  };
 
   const totals = useMemo(() => {
     const uniqueBoxNumbers = new Set();
     let tQty = 0; 
     let tNet = 0; 
 
-    boxes.forEach(b => {
+    boxes.forEach((b, idx) => {
+      const { net, totalPcs } = getBoxData(b, idx, boxes);
       const rangeParts = b.range.split('-').map(Number);
       const start = rangeParts[0];
       const end = rangeParts[1] || start;
       if (!isNaN(start)) {
         const boxCountInRow = (end - start + 1) || 1;
         for (let i = start; i <= end; i++) { uniqueBoxNumbers.add(i); }
-        tQty += (Number(b.qtyPerBox) * boxCountInRow);
-        tNet += (Number(b.net) * boxCountInRow);
+        tQty += (totalPcs * boxCountInRow);
+        tNet += (Number(net) * boxCountInRow);
       }
     });
 
     const tGross = tNet + (uniqueBoxNumbers.size * Number(boxTare));
-
-    return { 
-      totalQty: tQty, 
-      totalNet: Number(tNet).toFixed(2), 
-      totalGross: Number(tGross).toFixed(2), 
-      totalBoxes: uniqueBoxNumbers.size 
-    };
-  }, [boxes, boxTare]);
-
-  useEffect(() => {
-    const updatedBoxes = boxes.map((box, index) => {
-      const orderWeights = unitWeights[box.orderId];
-      const unitWeight = orderWeights ? (orderWeights[box.size.toUpperCase()] || 0) : 0;
-      
-      if (unitWeight > 0 && box.qtyPerBox > 0) {
-        const n = (Number(box.qtyPerBox) * Number(unitWeight)).toFixed(2);
-        const isAlreadyUsed = boxes.slice(0, index).some(prevBox => prevBox.range === box.range);
-        const g = isAlreadyUsed ? n : (Number(n) + Number(boxTare)).toFixed(2);
-        
-        if (box.net !== n || box.gross !== g) return { ...box, net: n, gross: g };
-      }
-      return box;
-    });
-    if (JSON.stringify(updatedBoxes) !== JSON.stringify(boxes)) setBoxes(updatedBoxes);
-  }, [unitWeights, boxTare, boxes]);
+    return { totalQty: tQty, totalNet: Number(tNet).toFixed(2), totalGross: Number(tGross).toFixed(2), totalBoxes: uniqueBoxNumbers.size };
+  }, [boxes, boxTare, unitWeights]);
 
   const exportToExcel = async () => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Packing List');
     
-    // 🛠️ DÜZELTME: İlk sütun (Box No / Labels) 25 birime çıkarıldı
     worksheet.columns = [
-      { width: 25 }, // Box No / Delivery Address Labels (GENİŞLETİLDİ)
-      { width: 50 }, // Model / Article / Color
-      { width: 18 }, // Dimensions
-      { width: 10 }, // Size
-      { width: 12 }, // Qty
-      { width: 12 }, // Net
-      { width: 12 }, // Gross
-      { width: 15 }  // Unit Weight
+      { width: 12 }, { width: 35 }, { width: 10 }, { width: 22 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 15 }
     ];
 
-    const titleRow = worksheet.addRow(['PACKING LIST']);
-    worksheet.mergeCells('A1:H1');
-    titleRow.getCell(1).font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
-    titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
-    titleRow.getCell(1).alignment = { horizontal: 'center' };
+    worksheet.mergeCells('A1:H2');
+    const mainTitle = worksheet.getCell('A1');
+    mainTitle.value = 'PACKING LIST';
+    mainTitle.font = { size: 20, bold: true, color: { argb: 'FFFFFFFF' } };
+    mainTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    mainTitle.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    worksheet.mergeCells('A4:D4');
+    worksheet.getCell('A4').value = 'EXPORTER / GÖNDEREN:';
+    worksheet.getCell('A4').font = { bold: true, size: 10, color: { argb: 'FF3B82F6' } };
+    worksheet.mergeCells('A5:D5');
+    worksheet.getCell('A5').value = 'Alfa Spor Giyim San. Tic. Ltd. Şti.';
+    worksheet.mergeCells('A6:D7');
+    worksheet.getCell('A6').value = 'Meriç Mh. 5746/3 Sk. N.21 Mtk Sit. 35090 Bornova İzmir Turkey';
+    worksheet.getCell('A6').alignment = { wrapText: true, vertical: 'top' };
+    worksheet.getCell('A6').font = { size: 9, color: { argb: 'FF64748B' } };
+
+    worksheet.getCell('G4').value = 'DATE:';
+    worksheet.getCell('H4').value = today;
+    worksheet.getCell('G5').value = 'ORIGIN:';
+    worksheet.getCell('H5').value = 'TURKEY';
+
+    worksheet.mergeCells('A9:D9');
+    worksheet.getCell('A9').value = 'CONSIGNEE / ALICI:';
+    worksheet.getCell('A9').font = { bold: true, size: 10, color: { argb: 'FF6366F1' } };
+    worksheet.mergeCells('A10:D10');
+    worksheet.getCell('A10').value = consignee.name || '---';
+    worksheet.mergeCells('A11:D12');
+    worksheet.getCell('A11').value = consignee.address || '---';
+    worksheet.getCell('A11').alignment = { wrapText: true, vertical: 'top' };
+    worksheet.getCell('A11').font = { size: 9, color: { argb: 'FF64748B' } };
 
     worksheet.addRow([]);
-    worksheet.addRow(['DATE', today]);
-    worksheet.addRow(['EXPORTER', 'Alfa Spor Giyim San. Tic. Ltd. Sti.']).font = { bold: true };
-    worksheet.addRow(['ADDRESS', 'Meriç Mh. 5746/3 Sk. N.21 Mtk Sit. 35090 Bornova İzmir Turkey']);
-    worksheet.addRow([]);
-    worksheet.addRow(['CONSIGNEE', consignee.name || '-']).font = { bold: true };
-    const addrRow = worksheet.addRow(['DELIVERY ADDRESS', consignee.address || '-']);
-    addrRow.height = 30; // 🛠️ Adres yüksekliği korundu
-    worksheet.addRow([]);
 
-    const headerRow = worksheet.addRow(["Box No", "Model / Article / Color", "Dimensions", "Size", "Quantity", "Net (KG)", "Gross (KG)", "Unit Weight"]);
+    const headerRow = worksheet.addRow(["Box No", "Description", "Type", "Details", "Qty (Pcs)", "Net (KG)", "Gross (KG)", "Dimensions"]);
+    headerRow.height = 25;
     headerRow.eachCell((cell) => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } };
       cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
       cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
-      cell.alignment = { horizontal: 'center' };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
-    boxes.forEach(b => {
+    boxes.forEach((b, idx) => {
       const ord = orders.find(o => o.id === b.orderId);
-      const rowData = [
+      const { net, gross, totalPcs } = getBoxData(b, idx, boxes);
+      const row = worksheet.addRow([
         b.range, 
         ord ? `${ord.model} / ${ord.article} / ${ord.color}` : '-',
-        b.dimensions,
-        b.size,
-        Number(b.qtyPerBox) || 0,
-        Number(b.net) || 0,
-        Number(b.gross) || 0,
-        unitWeights[b.orderId]?.[b.size] || '-'
-      ];
-      const row = worksheet.addRow(rowData);
-      row.eachCell((c, colNumber) => {
+        b.type,
+        b.type === 'LOT' ? `${b.lotSizes} (${b.lotRatio})` : b.size,
+        totalPcs,
+        Number(net),
+        Number(gross),
+        b.dimensions
+      ]);
+      row.eachCell((c) => {
         c.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
-        // Model sütunu (B) sola dayalı, diğerleri ortalı
-        c.alignment = { horizontal: colNumber === 2 ? 'left' : 'center', vertical: 'middle' };
+        c.alignment = { horizontal: 'center', vertical: 'middle' };
+        c.font = { size: 9 };
       });
     });
 
     worksheet.addRow([]);
-    const footerRow = worksheet.addRow(['GRAND TOTALS', `${totals.totalBoxes} BOXES`, '', '', totals.totalQty, totals.totalNet, totals.totalGross, '']);
+    const footerRow = worksheet.addRow(['GRAND TOTALS', `${totals.totalBoxes} BOXES`, '', '', totals.totalQty, Number(totals.totalNet), Number(totals.totalGross), '']);
+    footerRow.height = 25;
     footerRow.font = { bold: true };
     footerRow.eachCell((c) => {
       c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-      c.alignment = { horizontal: 'center' };
-      c.border = { top: {style:'medium'} };
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
+      c.border = { top: {style:'medium'}, bottom: {style:'medium'} };
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `PackingList_Alfa_${new Date().getTime()}.xlsx`);
+    saveAs(new Blob([buffer]), `PackingList_Alfa_${Date.now()}.xlsx`);
   };
 
-  const addRow = () => setBoxes([...boxes, { id: Date.now(), orderId: '', range: '', size: '', qtyPerBox: '', net: '', gross: '', dimensions: defaultDims }]);
+  const addRow = () => setBoxes([...boxes, { id: Date.now(), orderId: '', range: '', type: 'SINGLE', size: '', lotRatio: '', lotSizes: 'S-M-L-XL', qtyPerBox: '', dimensions: defaultDims }]);
   const updateRow = (id, field, value) => setBoxes(boxes.map(b => b.id === id ? { ...b, [field]: value } : b));
   const removeRow = (id) => setBoxes(boxes.filter(b => b.id !== id));
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32 bg-white print:p-0">
       
-      {/* 1. EXPORTER & CONSIGNEE SECTION */}
+      {/* EXPORTER & CONSIGNEE */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8 border-2 border-slate-50 rounded-[2.5rem] print:border-none print:p-0">
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-blue-600 mb-1"><Building2 size={18}/> <span className="text-[10px] font-black uppercase tracking-[0.2em]">Exporter</span></div>
@@ -178,38 +211,39 @@ export default function PackingList() {
             <div className="flex items-center gap-2 text-indigo-600"><User size={18}/> <span className="text-[10px] font-black uppercase tracking-[0.2em]">Consignee</span></div>
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Date: {today}</span>
           </div>
-          <input type="text" placeholder="Buyer Name..." className="w-full font-black text-slate-900 border-b border-slate-100 outline-none print:border-none" value={consignee.name} onChange={(e) => setConsignee({...consignee, name: e.target.value})} />
-          <textarea placeholder="Address..." className="w-full text-[11px] font-bold text-slate-500 border-none outline-none resize-none h-12 print:h-auto" value={consignee.address} onChange={(e) => setConsignee({...consignee, address: e.target.value})} />
+          <input type="text" placeholder="Buyer Name..." className="w-full font-black text-slate-900 border-b border-slate-100 outline-none" value={consignee.name} onChange={(e) => setConsignee({...consignee, name: e.target.value})} />
+          <textarea placeholder="Address..." className="w-full text-[11px] font-bold text-slate-500 border-none outline-none resize-none h-12" value={consignee.address} onChange={(e) => setConsignee({...consignee, address: e.target.value})} />
         </div>
       </div>
 
-      {/* 2. WEIGHT REFERENCE (BLUE AREA) */}
-      <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-xl space-y-6 print:hidden">
+      {/* REFERANS AĞIRLIKLAR (MAVİ ALAN - BEDEN FİLTRELİ) */}
+      <div className="bg-blue-600 p-8 rounded-[3rem] text-white shadow-xl space-y-6 print:hidden">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-2">
-            <span className="text-[9px] font-black uppercase opacity-60">1. Select Article & Color</span>
-            <select className="w-full bg-white/10 border border-white/20 rounded-xl p-3 text-xs font-bold outline-none cursor-pointer" value={activeRefOrderId} onChange={(e) => setActiveRefOrderId(e.target.value)}>
+            <span className="text-[9px] font-black uppercase opacity-60 italic">1. Select Reference Order</span>
+            <select className="w-full bg-white/10 border border-white/20 rounded-2xl p-3 text-xs font-black outline-none" value={activeRefOrderId} onChange={(e) => setActiveRefOrderId(e.target.value)}>
               <option value="" className="text-slate-900">Choose Order...</option>
               {orders.map(o => <option key={o.id} value={o.id} className="text-slate-900">{o.article} - {o.color}</option>)}
             </select>
           </div>
           <div className="space-y-2">
-            <span className="text-[9px] font-black uppercase opacity-60">2. Box Tare (Empty KG)</span>
-            <input type="number" step="0.01" className="w-full bg-white/10 border border-white/20 rounded-xl p-3 text-xs font-bold outline-none text-center" value={boxTare} onChange={(e) => setBoxTare(e.target.value)} />
+            <span className="text-[9px] font-black uppercase opacity-60 italic">2. Box Tare (Empty KG)</span>
+            <input type="number" step="0.01" className="w-full bg-white/10 border border-white/20 rounded-2xl p-3 text-xs font-black text-center outline-none" value={boxTare} onChange={(e) => setBoxTare(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <span className="text-[9px] font-black uppercase opacity-60">3. Default Dims (cm)</span>
-            <input type="text" className="w-full bg-white/10 border border-white/20 rounded-xl p-3 text-xs font-bold outline-none text-center" value={defaultDims} onChange={(e) => setDefaultDims(e.target.value)} />
+            <span className="text-[9px] font-black uppercase opacity-60 italic">3. Default Dims</span>
+            <input type="text" className="w-full bg-white/10 border border-white/20 rounded-2xl p-3 text-xs font-black text-center outline-none" value={defaultDims} onChange={(e) => setDefaultDims(e.target.value)} />
           </div>
         </div>
+
         {activeOrder && (
-          <div className="pt-4 border-t border-white/10 animate-in slide-in-from-top duration-300">
-            <div className="flex items-center gap-2 mb-3"><Tag size={12}/> <span className="text-[10px] font-black uppercase tracking-widest">Weights for {activeOrder.article} ({activeOrder.color})</span></div>
+          <div className="pt-4 border-t border-white/10 animate-in fade-in duration-500">
+            <div className="flex items-center gap-2 mb-3"><Tag size={12}/> <span className="text-[10px] font-black uppercase tracking-widest">Active Order Weights ({activeOrder.article})</span></div>
             <div className="flex flex-wrap gap-3">
               {activeOrderSizes.map(sz => (
-                <div key={sz} className="flex-1 min-w-17.5 space-y-1">
+                <div key={sz} className="flex-1 min-w-16 space-y-1">
                   <span className="text-[8px] font-black uppercase block text-center opacity-60">{sz}</span>
-                  <input type="number" step="0.001" className="w-full bg-white text-slate-900 rounded-xl p-3 text-xs font-black text-center outline-none focus:ring-2 focus:ring-blue-400"
+                  <input type="number" step="0.001" className="w-full bg-white text-slate-900 rounded-xl p-2.5 text-xs font-black text-center outline-none focus:ring-2 focus:ring-blue-400"
                     value={unitWeights[activeRefOrderId]?.[sz] || ''} 
                     onChange={(e) => setUnitWeights({...unitWeights, [activeRefOrderId]: {...unitWeights[activeRefOrderId], [sz]: e.target.value}})} 
                   />
@@ -220,47 +254,56 @@ export default function PackingList() {
         )}
       </div>
 
-      {/* 3. MAIN PACKING TABLE */}
-      <div className="overflow-hidden rounded-[2.5rem] border border-slate-100 shadow-sm print:border-none print:shadow-none">
+      {/* ANA TABLO */}
+      <div className="overflow-x-auto rounded-[2.5rem] border border-slate-100 shadow-sm">
         <table className="w-full text-left border-collapse">
           <thead className="bg-slate-50 text-[8px] font-black text-slate-400 uppercase tracking-widest border-b">
             <tr>
-              <th className="py-5 px-6">Model / Article / Color</th>
+              <th className="py-5 px-6">Model / Article</th>
+              <th className="py-5 px-4 text-center">Type</th>
               <th className="py-5 px-4 text-center">Box No</th>
-              <th className="py-5 px-4 text-center">Dims</th>
-              <th className="py-5 px-4 text-center">Size</th>
-              <th className="py-5 px-4 text-center">Qty</th>
+              <th className="py-5 px-4">Size / Lot Ratio</th>
+              <th className="py-5 px-4 text-center">Qty / Lots</th>
               <th className="py-5 px-4 text-center text-blue-600">Net</th>
               <th className="py-5 px-4 text-center text-blue-600">Gross</th>
               <th className="py-5 px-6 print:hidden"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50 text-[10px] font-bold">
-            {boxes.map((box) => {
-              const ord = orders.find(o => o.id === box.orderId);
+            {boxes.map((box, index) => {
+              const { net, gross, totalPcs } = getBoxData(box, index, boxes);
               return (
                 <tr key={box.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-3 px-6">
-                    <div className="print:hidden">
-                      <select value={box.orderId} onChange={(e) => updateRow(box.id, 'orderId', e.target.value)} className="w-full bg-slate-50/50 border-none rounded-lg p-1 text-[10px] font-black outline-none focus:ring-1 focus:ring-blue-200">
-                        <option value="">Select Order...</option>
-                        {orders.map(o => <option key={o.id} value={o.id}>{o.article} - {o.color}</option>)}
-                      </select>
-                    </div>
-                    <div className="hidden print:block font-black uppercase">
-                      {ord?.model} / {ord?.article} / <span className="text-blue-600">{ord?.color}</span>
-                    </div>
+                    <select value={box.orderId} onChange={(e) => updateRow(box.id, 'orderId', e.target.value)} className="w-full bg-slate-50/50 border-none rounded-lg p-1 text-[10px] font-black outline-none">
+                      <option value="">Select Order...</option>
+                      {orders.map(o => <option key={o.id} value={o.id}>{o.article} - {o.color}</option>)}
+                    </select>
+                  </td>
+                  <td className="text-center">
+                    <select value={box.type} onChange={(e) => updateRow(box.id, 'type', e.target.value)} className={`px-2 py-1 rounded-md text-[8px] font-black uppercase ${box.type === 'LOT' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
+                      <option value="SINGLE">Single</option>
+                      <option value="LOT">Lot</option>
+                    </select>
                   </td>
                   <td className="text-center"><input type="text" value={box.range} onChange={(e) => updateRow(box.id, 'range', e.target.value)} className="w-16 bg-transparent text-center outline-none font-black" /></td>
-                  <td className="text-center"><input type="text" value={box.dimensions} onChange={(e) => updateRow(box.id, 'dimensions', e.target.value)} className="w-20 bg-transparent text-center text-slate-400 outline-none" /></td>
-                  <td className="text-center uppercase"><input type="text" value={box.size} onChange={(e) => updateRow(box.id, 'size', e.target.value.toUpperCase())} className="w-12 bg-transparent text-center outline-none font-black" /></td>
-                  <td className="text-center"><input type="number" value={box.qtyPerBox} onChange={(e) => updateRow(box.id, 'qtyPerBox', e.target.value)} className="w-12 bg-transparent text-center outline-none font-black" /></td>
-                  <td className="text-center text-slate-500 font-medium">{box.net}</td>
-                  <td className="text-center font-black text-slate-900">{box.gross}</td>
+                  <td className="py-3 px-4">
+                    {box.type === 'LOT' ? (
+                      <div className="flex gap-2 items-center">
+                        <input type="text" value={box.lotSizes} onChange={(e) => updateRow(box.id, 'lotSizes', e.target.value)} className="w-20 bg-slate-50 px-2 py-1 rounded border border-slate-100 text-[9px]" placeholder="S-M-L-XL" />
+                        <input type="text" value={box.lotRatio} onChange={(e) => updateRow(box.id, 'lotRatio', e.target.value)} className="w-20 bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100 text-[9px] font-black" placeholder="1-2-2-1" />
+                      </div>
+                    ) : (
+                      <input type="text" value={box.size} onChange={(e) => updateRow(box.id, 'size', e.target.value.toUpperCase())} className="w-16 bg-transparent outline-none font-black" />
+                    )}
+                  </td>
+                  <td className="text-center">
+                    <input type="number" value={box.qtyPerBox} onChange={(e) => updateRow(box.id, 'qtyPerBox', e.target.value)} className="w-12 bg-transparent text-center outline-none font-black" />
+                  </td>
+                  <td className="text-center text-slate-500">{net}</td>
+                  <td className="text-center font-black text-slate-900">{gross}</td>
                   <td className="px-6 text-right print:hidden">
-                    <button onClick={() => removeRow(box.id)} className="text-slate-200 hover:text-red-500 transition-all">
-                      <Trash2 size={14}/>
-                    </button>
+                    <button onClick={() => removeRow(box.id)} className="text-slate-200 hover:text-red-500"><Trash2 size={14}/></button>
                   </td>
                 </tr>
               );
@@ -280,22 +323,28 @@ export default function PackingList() {
         </table>
       </div>
 
-      {/* 4. FOOTER BRANDING */}
-      <div className="mt-12 text-center border-t border-slate-50 pt-8 print:block hidden">
-        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-900">Navy Blue ERP Systems</p>
-      </div>
-
-      {/* 5. AKSİYON BUTONLARI */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 print:hidden">
+      {/* FOOTER AKSİYONLAR */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 no-print">
         <button onClick={addRow} className="flex items-center gap-2 text-[10px] font-black text-blue-600 bg-blue-50 px-8 py-4 rounded-2xl hover:bg-blue-600 hover:text-white transition-all shadow-sm">
-          + ADD PACKING ROW
+          <Plus size={16}/> ADD PACKING ROW
         </button>
-        <div className="flex gap-3">
-          <button onClick={exportToExcel} className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-6 py-3 rounded-xl font-black text-[10px] border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all uppercase shadow-sm">
-            <FileSpreadsheet size={16}/> Excel Export
+        <div className="flex gap-4">
+          <button onClick={exportToExcel} className="flex items-center gap-2 bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg">
+            <FileSpreadsheet size={16}/> Export Excel
+          </button>
+          <button onClick={() => setShowLabels(true)} className="flex items-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase shadow-lg">
+            <Tag size={16}/> Print Labels
           </button>
         </div>
       </div>
+
+      {showLabels && (
+        <ShippingLabelModal 
+          boxes={boxes.map((b, idx) => ({ ...b, ...getBoxData(b, idx, boxes) }))} 
+          consignee={consignee} 
+          onClose={() => setShowLabels(false)} 
+        />
+      )}
     </div>
   );
 }

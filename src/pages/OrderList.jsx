@@ -13,6 +13,7 @@ import CuttingResultModal from '../components/orders/CuttingResultModal';
 export default function OrderList({ onEditOrder }) {
   const [orders, setOrders] = useState([]);
   const [deliveries, setDeliveries] = useState([]);
+  const [procurements, setProcurements] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [printOrder, setPrintOrder] = useState(null);
@@ -38,16 +39,24 @@ export default function OrderList({ onEditOrder }) {
     return () => { document.body.style.overflow = 'unset'; };
   }, [selectedOrderDetail]);
 
+  // 🔄 VERİLERİ YÜKLE (GÜVENLİ MOD GÜNCELLEMESİ)
   const loadData = useCallback(async () => {
     if (orders.length === 0) setLoading(true);
     try {
+      // 1. Siparişleri çek (Ana veri, her zaman ilk bu gelmeli)
       const ordersData = await getAllOrders();
-      const { data: deliveriesData, error: dError } = await supabase.from('fabric_deliveries').select('*');
-      if (dError) throw dError;
       setOrders(ordersData || []);
-      setDeliveries(deliveriesData || []);
+
+      // 2. Yan verileri hata fırlatmayacak şekilde, sırayla çek
+      // Birinde sorun olsa bile diğeri yüklenmeye devam eder
+      const { data: dData } = await supabase.from('fabric_deliveries').select('*');
+      if (dData) setDeliveries(dData);
+
+      const { data: pData } = await supabase.from('fabric_procurements').select('*');
+      if (pData) setProcurements(pData);
+      
     } catch (error) {
-      console.error("Yükleme hatası:", error.message);
+      console.error("Dashboard yükleme hatası:", error.message);
     } finally {
       setLoading(false);
     }
@@ -55,7 +64,30 @@ export default function OrderList({ onEditOrder }) {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // 🛠️ ZEKİ İLERLEME HESAPLAMA (Batch Odaklı)
   const calculateProgress = (order) => {
+    const orderProcurements = procurements.filter(p => p.order_no === order.order_no);
+
+    if (orderProcurements.length > 0) {
+      const latestProcurement = orderProcurements.sort((a,b) => new Date(b.created_at) - new Date(a.created_at))[0];
+      const latestBatchNo = latestProcurement.batch_no;
+
+      const batchNeeded = orderProcurements
+        .filter(p => p.batch_no === latestBatchNo)
+        .reduce((sum, p) => sum + Number(p.planned_amount || 0), 0);
+
+      const batchReceived = deliveries
+        .filter(d => d.order_no === order.order_no && d.batch_no === latestBatchNo)
+        .reduce((sum, d) => sum + Number(d.amount_received || 0), 0);
+
+      if (batchNeeded === 0) return { percent: 0, batch: latestBatchNo };
+      return { 
+        percent: Math.round(Math.min(100, (batchReceived / batchNeeded) * 100)),
+        batch: latestBatchNo 
+      };
+    }
+
+    // FALLBACK: Eğer batch yoksa klasik hesaplama
     const qtyByOrder = order.qty_by_size || order.qtyBySize || {};
     const baseTotal = Object.values(qtyByOrder).reduce((a, b) => a + (Number(b) || 0), 0);
     const extraFactor = 1 + (Number(order.extra_percent || 5) / 100);
@@ -162,7 +194,9 @@ export default function OrderList({ onEditOrder }) {
 
                 <div className="flex-1 w-full lg:max-w-60">
                   <div className="flex justify-between items-end mb-1.5">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Kumaş Girişi</span>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                      Kumaş Girişi {stats.batch && <span className="text-blue-600 ml-1">({stats.batch})</span>}
+                    </span>
                     <span className={`text-[10px] font-black ${stats.percent === 100 ? 'text-emerald-500' : 'text-blue-600'}`}>%{stats.percent}</span>
                   </div>
                   <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -174,7 +208,6 @@ export default function OrderList({ onEditOrder }) {
                   <button onClick={() => setPrintOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter ${order.fabric_ordered ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>Kumaş Sip. Formu</button>
                   <button onClick={() => setIntakeOrder(order)} className="bg-blue-50 text-blue-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border">Gelen Kumaş Bilgisi</button>
                   <button onClick={() => setPreparingOrder(order)} className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg">Kesim Emri</button>
-                  
                   <button 
                     onClick={() => setCuttingResultOrder(order)} 
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter transition-all ${
@@ -227,15 +260,18 @@ export default function OrderList({ onEditOrder }) {
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2"><Scissors size={14}/> Beden Denge Matrisi</h3>
                    <div className="flex gap-2">
-                      {/* 🛠️ SIP TOPLAMI HESABI */}
                       <div className="text-[9px] font-black text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">SIP: {Object.values(selectedOrderDetail.qty_by_size || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
-                      {/* 🛠️ DÜZELTME: KES TOPLAMI ARTIK cutting_qty ÜZERİNDEN HESAPLANIYOR */}
                       <div className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">KES: {Object.values(selectedOrderDetail.cutting_qty || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
                    </div>
                 </div>
 
                 <div className="flex gap-3 overflow-x-auto pb-6 custom-scrollbar min-w-full">
                   {Object.entries(selectedOrderDetail.qty_by_size || {})
+                    .filter(([size, qty]) => {
+                      const cut = Number(selectedOrderDetail.cutting_qty?.[size] || 0);
+                      const orderQty = Number(qty || 0);
+                      return orderQty > 0 || cut > 0;
+                    })
                     .sort((a, b) => {
                       const indexA = sizeOrder.indexOf(a[0].toUpperCase());
                       const indexB = sizeOrder.indexOf(b[0].toUpperCase());

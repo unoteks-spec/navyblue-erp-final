@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { getDashboardStats } from '../api/orderService';
 import { 
   Package, Ruler, Calendar, ArrowUpRight, Droplet, 
-  CheckCircle2, Scissors, Printer, AlertTriangle,
+  CheckCircle2, Scissors, Printer,
   LayoutGrid, PieChart, RefreshCcw, Bell
 } from 'lucide-react';
 
@@ -43,18 +43,6 @@ export default function Dashboard() {
     ? Math.round((stats.totalActualCut / stats.totalPlanned) * 100) 
     : 0;
 
-  // 🛠️ KUMAŞ TERMİN UYARISI HESAPLAMA (3 Gün Kuralı)
-  const fabricWarnings = stats?.deadlines?.filter(d => {
-    const today = new Date();
-    const isNear = (dateStr) => {
-      if (!dateStr) return false;
-      const target = new Date(dateStr);
-      const diff = (target - today) / (1000 * 60 * 60 * 24);
-      return diff <= 3; // 3 gün veya daha az kaldıysa
-    };
-    return isNear(d.knitted_deadline) || isNear(d.woven_deadline);
-  });
-
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-8 pb-32">
       {/* BAŞLIK */}
@@ -64,8 +52,8 @@ export default function Dashboard() {
             <PieChart size={20} />
           </div>
           <div>
-            <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tighter uppercase">Alfa Spor</h1>
-            <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase">Üretim Kontrol Paneli</p>
+            <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tighter uppercase leading-none">Alfa Spor</h1>
+            <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase mt-1">Üretim Kontrol Paneli</p>
           </div>
         </div>
 
@@ -104,30 +92,10 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* 🛠️ KRİTİK TERMİN UYARI PANOSU */}
-      {fabricWarnings?.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {fabricWarnings.map(w => (
-            <div key={w.id} className="bg-red-600 text-white p-5 rounded-4xl shadow-xl shadow-red-100 flex items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
-              <div className="bg-white/20 p-3 rounded-2xl">
-                <Bell size={24} className="animate-bounce" />
-              </div>
-              <div>
-                <h3 className="text-[10px] font-black uppercase tracking-widest opacity-80">Kritik Kumaş Termini!</h3>
-                <p className="text-sm font-black leading-tight mt-0.5">{w.customer}</p>
-                <div className="text-[9px] font-bold mt-1 bg-black/20 px-2 py-0.5 rounded-full inline-block">
-                  {w.knitted_deadline ? `Örme: ${new Date(w.knitted_deadline).toLocaleDateString('tr-TR')}` : ''}
-                  {w.knitted_deadline && w.woven_deadline ? ' | ' : ''}
-                  {w.woven_deadline ? `Dokuma: ${new Date(w.woven_deadline).toLocaleDateString('tr-TR')}` : ''}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* KRİTİK TERMİN UYARI PANOSU BURADAN KALDIRILDI */}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* KRİTİK TERMİNLER */}
+        {/* GENEL İŞ TERMİNLERİ */}
         <div className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
           <div className="flex items-center justify-between border-b border-slate-50 pb-4">
             <div className="flex items-center gap-3">

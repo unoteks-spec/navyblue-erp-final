@@ -216,3 +216,34 @@ export const archiveOrderWithQty = async (id, shippedQty) => {
   }
   return data;
 };
+/**
+ * 6. ÇEKİ LİSTESİ (PACKING LIST) İŞLEMLERİ
+ */
+
+// Çeki Listesini Kaydet
+export const savePackingList = async (orderNo, boxes, consignee) => {
+  // Önce bu siparişe ait eski listeyi temizleyelim (Update mantığı için)
+  await supabase.from('packing_lists').delete().eq('order_no', orderNo);
+
+  const { data, error } = await supabase.from('packing_lists').insert([
+    {
+      order_no: orderNo,
+      consignee_name: consignee.name,
+      consignee_address: consignee.address,
+      boxes_data: boxes, // Tüm Lot/Single bilgilerini JSON olarak saklar
+      updated_at: new Date().toISOString()
+    }
+  ]);
+  if (error) throw error;
+  return data;
+};
+
+// Çeki Listesini Getir
+export const getPackingList = async (orderNo) => {
+  const { data, error } = await supabase
+    .from('packing_lists')
+    .select('*')
+    .eq('order_no', orderNo)
+    .single();
+  return data;
+};
