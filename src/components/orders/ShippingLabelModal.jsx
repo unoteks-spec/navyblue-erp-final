@@ -69,10 +69,6 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
   };
 
   const renderLabelContent = (label, index) => {
-    // 🛠️ VERİ YAKALAMA GÜVENLİK SİSTEMİ:
-    // Eğer SINGLE ise 'label.size' kullan.
-    // Eğer LOT ise 'label.lotSizes' (S-M-L) ve 'label.lotRatio' (2-1-1) birleştir.
-    
     let sizeRatioText = "";
     
     if (label.type === 'LOT') {
@@ -135,9 +131,10 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
               </h2>
             </div>
           </div>
-          <div style={{ backgroundColor: '#000000', color: '#ffffff', padding: '10px 5px', textAlign: 'center' }}>
+          {/* ✅ Kutu kaldırıldı, zemin beyaz, yazı siyah ve font büyük */}
+          <div style={{ backgroundColor: '#ffffff', color: '#000000', padding: '10px 5px', textAlign: 'center' }}>
             <p style={{ margin: 0, fontSize: '9px', fontWeight: '700', lineHeight: '1' }}>TOTAL PCS</p>
-            <p style={{ margin: '2px 0 0 0', fontSize: '38px', fontWeight: '900', lineHeight: '1' }}>{label.totalPcs}</p>
+            <p style={{ margin: '2px 0 0 0', fontSize: '48px', fontWeight: '900', lineHeight: '1' }}>{label.totalPcs}</p>
           </div>
         </div>
 

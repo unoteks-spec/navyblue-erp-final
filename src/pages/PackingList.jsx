@@ -8,7 +8,6 @@ import {
   Tag, 
   Box, 
   ListFilter, 
-  Info, 
   Package 
 } from 'lucide-react';
 import { supabase } from '../api/orderService';
@@ -137,7 +136,19 @@ export default function PackingList() {
     mainTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
     mainTitle.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    worksheet.addRow(['DATE', today]);
+    // Tarih Sağ Kısım ve Made In Turkey
+    worksheet.mergeCells('G3:H3');
+    const dateCell = worksheet.getCell('G3');
+    dateCell.value = `DATE: ${today}`;
+    dateCell.alignment = { horizontal: 'right' };
+    dateCell.font = { bold: true };
+
+    worksheet.mergeCells('G4:H4');
+    const originCell = worksheet.getCell('G4');
+    originCell.value = 'MADE IN TURKEY';
+    originCell.alignment = { horizontal: 'right' };
+    originCell.font = { bold: true, italic: true };
+
     worksheet.addRow(['EXPORTER', 'ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.']).font = { bold: true };
     worksheet.addRow(['ADDRESS', 'Meriç Mh. 5746/3 Sk. N.21 Mtk Sit. 35090 Bornova İzmir Turkey']);
     worksheet.addRow(['CONSIGNEE', consignee.name || '---']).font = { bold: true };
@@ -170,6 +181,26 @@ export default function PackingList() {
         c.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
         c.alignment = { horizontal: 'center', vertical: 'middle' };
       });
+    });
+
+    // 🛠️ EXCEL TOPLAMLAR SATIRI
+    worksheet.addRow([]);
+    const footerRow = worksheet.addRow([
+      'GRAND TOTALS', 
+      `${totals.totalBoxes} BOXES`, 
+      '', 
+      '', 
+      totals.totalQty, 
+      Number(totals.totalNet), 
+      Number(totals.totalGross), 
+      ''
+    ]);
+    footerRow.height = 25;
+    footerRow.font = { bold: true };
+    footerRow.eachCell((c) => {
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+      c.border = { top: {style:'medium'}, bottom: {style:'medium'} };
+      c.alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
@@ -319,26 +350,25 @@ export default function PackingList() {
       </div>
 
       {showLabels && (
-  <ShippingLabelModal 
-    boxes={boxes.map((b, idx) => {
-      const ord = orders.find(o => o.id === b.orderId);
-      const boxCalc = getBoxData(b, idx, boxes);
-      return { 
-        ...b, 
-        ...boxCalc, 
-        // 🛠️ BURASI KRİTİK: İsimleri açıkça modal'ın anlayacağı şekilde mühürlüyoruz
-        size: b.size,
-        lotSizes: b.lotSizes, 
-        lotRatio: b.lotRatio,
-        type: b.type,
-        article: ord?.article || '---',
-        color: ord?.color || '---' 
-      };
-    })} 
-    consignee={consignee} 
-    onClose={() => setShowLabels(false)} 
-  />
-)}
+        <ShippingLabelModal 
+          boxes={boxes.map((b, idx) => {
+            const ord = orders.find(o => o.id === b.orderId);
+            const boxCalc = getBoxData(b, idx, boxes);
+            return { 
+              ...b, 
+              ...boxCalc, 
+              size: b.size,
+              lotSizes: b.lotSizes, 
+              lotRatio: b.lotRatio,
+              type: b.type,
+              article: ord?.article || '---',
+              color: ord?.color || '---' 
+            };
+          })} 
+          consignee={consignee} 
+          onClose={() => setShowLabels(false)} 
+        />
+      )}
     </div>
   );
 }
