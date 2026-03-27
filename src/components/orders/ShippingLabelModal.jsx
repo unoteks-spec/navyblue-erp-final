@@ -7,7 +7,6 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const labelRefs = useRef([]);
 
-  // 🛠️ Her koliden ikişer adet üretilecek şekilde güncellendi
   const generateLabels = () => {
     let allLabels = [];
     boxes.forEach(box => {
@@ -17,7 +16,6 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
       if (!isNaN(start)) {
         for (let i = start; i <= end; i++) {
           const labelData = { boxNo: i, ...box };
-          // Her koli numarası için listeye 2 etiket ekliyoruz
           allLabels.push(labelData);
           allLabels.push(labelData);
         }
@@ -61,7 +59,7 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
           pdf.addImage(imgData, 'PNG', 0, 0, 200, 100);
         }
       }
-      pdf.save(`Argox_Cift_Etiketler_${Date.now()}.pdf`);
+      pdf.save(`Argox_Final_Etiketler_${Date.now()}.pdf`);
     } catch (err) {
       console.error("PDF Hatası:", err);
       alert("Hata oluştu. Lütfen tekrar deneyin.");
@@ -70,91 +68,106 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
     }
   };
 
-  const renderLabelContent = (label, index) => (
-    <div 
-      data-label-id={index}
-      className="font-sans"
-      style={{
-        width: '200mm',
-        height: '100mm',
-        backgroundColor: '#ffffff',
-        color: '#000000',
-        border: 'none', // ❌ Dış siyah kontür iptal edildi
-        padding: '25px',
-        boxSizing: 'border-box',
-        display: 'flex',
-        flexDirection: 'row',
-        gap: '0px',
-        overflow: 'hidden',
-        fontFamily: 'Arial, sans-serif'
-      }}
-    >
-      {/* SOL: CONSIGNEE */}
-      <div style={{ flex: '2.5', borderRight: '5px solid #000000', paddingRight: '15px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-        <div>
-          <p style={{ fontSize: '10px', fontWeight: '900', borderBottom: '3px solid #000000', display: 'inline-block', marginBottom: '6px' }}>CONSIGNEE / ALICI</p>
-          <h1 style={{ fontSize: '28px', fontWeight: '900', lineHeight: '1', textTransform: 'uppercase', marginBottom: '8px' }}>
-            {consignee.name || '---'}
-          </h1>
-          <p style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', lineHeight: '1.2' }}>
-            {consignee.address || '---'}
-          </p>
-        </div>
-        <div style={{ borderTop: '3px solid #000000', paddingTop: '6px' }}>
-          <p style={{ fontSize: '9px', fontWeight: '900', opacity: '0.6' }}>SENDER / GÖNDEREN</p>
-          <p style={{ fontSize: '10px', fontWeight: '900' }}>ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.</p>
-          <p style={{ fontSize: '9px', fontWeight: '700' }}>Bornova, İzmir, Turkey</p>
-        </div>
-      </div>
+  const renderLabelContent = (label, index) => {
+    // 🛠️ VERİ YAKALAMA GÜVENLİK SİSTEMİ:
+    // Eğer SINGLE ise 'label.size' kullan.
+    // Eğer LOT ise 'label.lotSizes' (S-M-L) ve 'label.lotRatio' (2-1-1) birleştir.
+    
+    let sizeRatioText = "";
+    
+    if (label.type === 'LOT') {
+      const sizes = label.lotSizes || "";
+      const ratios = label.lotRatio || "";
+      sizeRatioText = sizes && ratios ? `${sizes} / ${ratios}` : (sizes || ratios || "---");
+    } else {
+      sizeRatioText = label.size || "---";
+    }
 
-      {/* ORTA: MODEL & RENK */}
-      <div style={{ flex: '1.5', borderRight: '5px solid #000000', paddingLeft: '15px', paddingRight: '15px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div>
-            <p style={{ fontSize: '10px', fontWeight: '900', borderBottom: '3px solid #000000', display: 'inline-block' }}>MODEL</p>
-            <h2 style={{ fontSize: '18px', fontWeight: '900', marginTop: '4px' }}>{label.article || '---'}</h2>
+    return (
+      <div 
+        data-label-id={index}
+        style={{
+          width: '200mm',
+          height: '100mm',
+          backgroundColor: '#ffffff',
+          color: '#000000',
+          padding: '25px',
+          boxSizing: 'border-box',
+          display: 'table',
+          tableLayout: 'fixed',
+          overflow: 'hidden',
+          fontFamily: 'Arial, sans-serif'
+        }}
+      >
+        {/* SOL SÜTUN */}
+        <div style={{ display: 'table-cell', width: '48%', borderRight: '5px solid #000000', paddingRight: '15px', verticalAlign: 'top' }}>
+          <div style={{ height: '185px' }}>
+            <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', marginBottom: '8px', lineHeight: '1' }}>CONSIGNEE / ALICI</p>
+            <h1 style={{ margin: '5px 0', fontSize: '28px', fontWeight: '900', lineHeight: '1.1', textTransform: 'uppercase' }}>
+              {consignee.name || '---'}
+            </h1>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', lineHeight: '1.3' }}>
+              {consignee.address || '---'}
+            </p>
           </div>
-          <div>
-            <p style={{ fontSize: '10px', fontWeight: '900', borderBottom: '3px solid #000000', display: 'inline-block', color: '#0000FF' }}>COLOR / RENK</p>
-            <h2 style={{ fontSize: '16px', fontWeight: '900', fontStyle: 'italic', marginTop: '4px' }}>{label.color || '---'}</h2>
-          </div>
-          <div>
-            <p style={{ fontSize: '10px', fontWeight: '900', borderBottom: '3px solid #000000', display: 'inline-block' }}>SIZE / RATIO</p>
-            <h2 style={{ fontSize: '12px', fontWeight: '900', marginTop: '4px' }}>{label.type === 'LOT' ? `${label.lotSizes}` : label.size}</h2>
+          <div style={{ borderTop: '3px solid #000000', paddingTop: '8px' }}>
+            <p style={{ margin: 0, fontSize: '9px', fontWeight: '900', opacity: '0.6', lineHeight: '1' }}>SENDER / GÖNDEREN</p>
+            <p style={{ margin: '2px 0', fontSize: '10px', fontWeight: '900', lineHeight: '1' }}>ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.</p>
+            <p style={{ margin: 0, fontSize: '9px', fontWeight: '700', lineHeight: '1' }}>Bornova, İzmir, Turkey</p>
           </div>
         </div>
-        <div style={{ backgroundColor: '#000000', color: '#ffffff', padding: '8px', textAlign: 'center' }}>
-          <p style={{ fontSize: '9px', fontWeight: '700' }}>TOTAL PCS</p>
-          <p style={{ fontSize: '38px', fontWeight: '900', lineHeight: '1' }}>{label.totalPcs}</p>
-        </div>
-      </div>
 
-      {/* SAĞ: KOLİ & AĞIRLIK */}
-      <div style={{ flex: '1.2', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', textAlign: 'center', paddingLeft: '10px' }}>
-        <div>
-          <p style={{ fontSize: '10px', fontWeight: '900', borderBottom: '3px solid #000000', display: 'inline-block' }}>BOX NO</p>
-          <h1 style={{ fontSize: '80px', fontWeight: '900', lineHeight: '0.8', margin: '10px 0' }}>{label.boxNo}</h1>
+        {/* ORTA SÜTUN */}
+        <div style={{ display: 'table-cell', width: '30%', borderRight: '5px solid #000000', paddingLeft: '15px', paddingRight: '15px', verticalAlign: 'top' }}>
+          <div style={{ height: '175px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <div>
+              <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', lineHeight: '1' }}>MODEL</p>
+              <h2 style={{ margin: '4px 0 0 0', fontSize: '18px', fontWeight: '900', lineHeight: '1.1' }}>{label.article || '---'}</h2>
+            </div>
+            <div>
+              <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', color: '#0000FF', lineHeight: '1' }}>COLOR / RENK</p>
+              <h2 style={{ margin: '4px 0 0 0', fontSize: '16px', fontWeight: '900', fontStyle: 'italic', lineHeight: '1.1' }}>{label.color || '---'}</h2>
+            </div>
+            <div>
+              <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', lineHeight: '1' }}>SIZE / RATIO</p>
+              <h2 style={{ margin: '4px 0 0 0', fontSize: '12px', fontWeight: '900', lineHeight: '1.2' }}>
+                {sizeRatioText}
+              </h2>
+            </div>
+          </div>
+          <div style={{ backgroundColor: '#000000', color: '#ffffff', padding: '10px 5px', textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: '9px', fontWeight: '700', lineHeight: '1' }}>TOTAL PCS</p>
+            <p style={{ margin: '2px 0 0 0', fontSize: '38px', fontWeight: '900', lineHeight: '1' }}>{label.totalPcs}</p>
+          </div>
         </div>
-        <div style={{ borderTop: '4px solid #000000', borderBottom: '4px solid #000000', padding: '6px 0', textAlign: 'left' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '900' }}><span>NET:</span><span>{label.net} KG</span></div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '900' }}><span>GRS:</span><span>{label.gross} KG</span></div>
-        </div>
-        <div style={{ border: '4px solid #000000', padding: '5px 0', fontSize: '11px', fontWeight: '900', fontStyle: 'italic', backgroundColor: '#ffffff' }}>
-          MADE IN TURKEY
+
+        {/* SAĞ SÜTUN */}
+        <div style={{ display: 'table-cell', width: '22%', textAlign: 'center', paddingLeft: '15px', verticalAlign: 'top' }}>
+          <div style={{ height: '155px' }}>
+            <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', lineHeight: '1' }}>BOX NO</p>
+            <h1 style={{ margin: '15px 0', fontSize: '80px', fontWeight: '900', lineHeight: '0.7' }}>{label.boxNo}</h1>
+          </div>
+          <div style={{ borderTop: '4px solid #000000', borderBottom: '4px solid #000000', padding: '10px 0', textAlign: 'left', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '900', lineHeight: '1' }}><span>NET:</span><span>{label.net} KG</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '900', lineHeight: '1', marginTop: '4px' }}><span>GRS:</span><span>{label.gross} KG</span></div>
+          </div>
+          <div style={{ border: '4px solid #000000', padding: '6px 0', fontSize: '11px', fontWeight: '900', fontStyle: 'italic', backgroundColor: '#ffffff', lineHeight: '1' }}>
+            MADE IN TURKEY
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-9999 bg-slate-900/95 backdrop-blur-2xl overflow-y-auto p-4 md:p-10 no-print">
       <div className="max-w-350 mx-auto">
-        <div className="bg-white p-10 rounded-[4rem] shadow-2xl mb-12 flex justify-between items-center sticky top-0 z-50">
+        <div className="bg-white p-10 rounded-[4rem] shadow-2xl mb-12 flex justify-between items-center sticky top-0 z-50 border border-slate-100">
           <div className="flex items-center gap-8">
             <div className="w-20 h-20 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center shadow-2xl"><Package size={40}/></div>
             <div>
-              <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter italic">Lojistik Baskı Hattı</h2>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Argox 200x100mm • {labels.length} Toplam Etiket</p>
+              <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter italic leading-none">Lojistik Baskı Hattı</h2>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Argox 200x100mm • {labels.length} Toplam Etiket</p>
             </div>
           </div>
           <div className="flex gap-4">
@@ -164,26 +177,19 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
               className="bg-slate-900 text-white px-12 py-5 rounded-[2.5rem] font-black text-sm uppercase shadow-2xl hover:bg-blue-600 transition-all flex items-center gap-3 disabled:bg-slate-400"
             >
               {isGenerating ? <Loader2 className="animate-spin" size={20}/> : <FileDown size={20}/>}
-              {isGenerating ? 'PDF Hazırlanıyor...' : 'PDF İndir (Her Koliden 2 Adet)'}
+              {isGenerating ? 'PDF Hazırlanıyor...' : 'PDF İndir'}
             </button>
-            <button onClick={onClose} className="p-5 bg-slate-50 text-slate-400 rounded-[2.5rem] hover:text-red-500 shadow-sm"><X size={32}/></button>
+            <button onClick={onClose} className="p-5 bg-slate-50 text-slate-400 rounded-[2.5rem] hover:text-red-500 shadow-sm transition-colors"><X size={32}/></button>
           </div>
         </div>
 
         <div className="space-y-24 pb-48 flex flex-col items-center">
           {labels.map((label, idx) => (
-            <div key={idx} className="relative group animate-in fade-in zoom-in-95 duration-500">
-              <div className="absolute -top-6 left-12 bg-blue-600 text-white px-8 py-3 rounded-full text-xs font-black uppercase z-10 shadow-xl tracking-widest italic">Etiket #{idx + 1} (Koli {label.boxNo})</div>
-              
-              <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
-                <div ref={(el) => (labelRefs.current[idx] = el)}>
-                  {renderLabelContent(label, idx)}
-                </div>
-              </div>
-
-              <div className="bg-white shadow-2xl overflow-hidden rounded-sm transform hover:scale-[1.02] transition-all duration-500">
+            <div key={idx} className="bg-white shadow-2xl overflow-hidden rounded-sm transform border border-slate-100">
+               {renderLabelContent(label, idx)}
+               <div ref={(el) => (labelRefs.current[idx] = el)} style={{ position: 'absolute', left: '-9999px' }}>
                  {renderLabelContent(label, idx)}
-              </div>
+               </div>
             </div>
           ))}
         </div>
