@@ -5,10 +5,10 @@ import { supabase, deleteFabricDelivery } from '../../api/orderService';
 export default function FabricIntakeModal({ order, allOrders, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
-  const [activeBatches, setActiveBatches] = useState([]); // 🚀 Aktif tedarik partileri
+  const [activeBatches, setActiveBatches] = useState([]); // Aktif tedarik partileri
   const [formData, setFormData] = useState({
     fabric_kind: '',
-    batch_no: '', // 🚀 Hangi partiye ait olduğu
+    batch_no: '', 
     amount_received: '',
     roll_count: '',
     receiver_name: '',
@@ -58,11 +58,10 @@ export default function FabricIntakeModal({ order, allOrders, onClose, onSuccess
 
   const availableFabrics = order?.fabrics ? Object.values(order.fabrics).filter(f => f.kind) : [];
 
-  // 🛠️ ZEKİ HEDEF HESAPLAMA: Seçilen Batch'e göre hedefi belirle
+  // 🛠️ HEDEF HESAPLAMA: Seçilen Batch'e göre hedefi belirle
   const targetInfo = useMemo(() => {
     if (!formData.fabric_kind || !formData.batch_no) return null;
 
-    // Seçilen partideki (batch) bu kumaşın planlanan miktarını bul
     const currentBatchFabric = activeBatches.find(b => 
       b.batch_no === formData.batch_no && 
       b.fabric_kind === formData.fabric_kind
@@ -77,6 +76,7 @@ export default function FabricIntakeModal({ order, allOrders, onClose, onSuccess
     return null;
   }, [formData.fabric_kind, formData.batch_no, activeBatches]);
 
+  // --- 💾 KAYDETME ---
   const handleSubmit = async (e) => {
     e.preventDefault();
     const selectedFabric = availableFabrics.find(f => f.kind === formData.fabric_kind);
@@ -89,8 +89,10 @@ export default function FabricIntakeModal({ order, allOrders, onClose, onSuccess
         .from('fabric_deliveries')
         .insert([{
           order_no: order.order_no,
-          batch_no: formData.batch_no, // 🚀 Girişi partiye bağla
+          batch_no: formData.batch_no,
           fabric_kind: formData.fabric_kind,
+          // 🛠️ DÜZELTME: fabric_type alanı not-null hatasını engellemek için eklendi
+          fabric_type: selectedFabric.type || 'Main Fabric', 
           amount_received: Number(formData.amount_received),
           roll_count: Number(formData.roll_count) || 0,
           receiver_name: formData.receiver_name,
@@ -105,6 +107,7 @@ export default function FabricIntakeModal({ order, allOrders, onClose, onSuccess
       await loadData();
       onSuccess();
     } catch (error) {
+      console.error("Detaylı Hata:", error);
       alert("Hata: " + error.message);
     } finally {
       setLoading(false);
@@ -112,16 +115,20 @@ export default function FabricIntakeModal({ order, allOrders, onClose, onSuccess
   };
 
   return (
-    <div className="fixed inset-0 z-100 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 no-print">
       <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* HEADER */}
         <div className="bg-slate-900 p-6 text-white shrink-0">
-          <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-white transition-all"><X size={24} /></button>
+          <button onClick={onClose} className="absolute top-6 right-6 text-slate-400 hover:text-white transition-all">
+            <X size={24} />
+          </button>
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20"><Truck size={20} /></div>
+            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <Truck size={20} />
+            </div>
             <div>
-              <h2 className="text-lg font-black tracking-tighter uppercase italic">Kumaş Giriş ve Takip</h2>
+              <h2 className="text-lg font-black tracking-tighter uppercase italic leading-tight">Kumaş Giriş ve Takip</h2>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{order.order_no} — PARTİ BAZLI TAKİP</p>
             </div>
           </div>
@@ -132,7 +139,6 @@ export default function FabricIntakeModal({ order, allOrders, onClose, onSuccess
           <form onSubmit={handleSubmit} className="space-y-5 bg-slate-50 p-6 rounded-4xl border border-slate-100">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               
-              {/* PARTİ SEÇİMİ (KRİTİK ALAN) */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-blue-600 uppercase ml-1 flex items-center gap-1">
                   <Hash size={10}/> Tedarik Partisi (Batch)
@@ -160,7 +166,7 @@ export default function FabricIntakeModal({ order, allOrders, onClose, onSuccess
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center ml-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase">Gelen Miktar</label>
-                  {targetInfo && <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md uppercase tracking-tighter">Parti Hedefi: {targetInfo.total} {targetInfo.unit}</span>}
+                  {targetInfo && <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md uppercase tracking-tighter">Hedef: {targetInfo.total} {targetInfo.unit}</span>}
                 </div>
                 <input type="number" step="0.01" required className="w-full px-4 h-11 bg-white border border-slate-200 rounded-2xl outline-none font-bold focus:ring-2 focus:ring-blue-500/20"
                   value={formData.amount_received} onChange={(e) => setFormData({...formData, amount_received: e.target.value})} />
@@ -189,11 +195,11 @@ export default function FabricIntakeModal({ order, allOrders, onClose, onSuccess
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <div className="flex items-center gap-2">
                 <History size={16} className="text-slate-400" />
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Parti Bazlı Giriş Geçmişi</h3>
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Giriş Geçmişi</h3>
               </div>
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-2 pb-6">
               {history.length > 0 ? history.map((item) => (
                 <div key={item.id} className="flex justify-between items-center p-4 bg-white rounded-2xl border border-slate-100 group hover:border-blue-100 transition-all shadow-sm">
                   <div className="flex items-center gap-4">
@@ -220,7 +226,7 @@ export default function FabricIntakeModal({ order, allOrders, onClose, onSuccess
                   </div>
                 </div>
               )) : (
-                <div className="text-center py-10 bg-slate-50 rounded-3xl border border-dashed border-slate-200 text-slate-300 italic text-[10px] uppercase tracking-widest">Henüz giriş kaydı bulunmuyor.</div>
+                <div className="text-center py-10 bg-slate-50 rounded-3xl border border-dashed border-slate-200 text-slate-300 italic text-[10px] uppercase tracking-widest">Giriş kaydı bulunmuyor.</div>
               )}
             </div>
           </div>
