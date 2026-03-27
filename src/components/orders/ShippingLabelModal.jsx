@@ -7,6 +7,7 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const labelRefs = useRef([]);
 
+  // 🛠️ Her koliden ikişer adet üretilecek şekilde güncellendi
   const generateLabels = () => {
     let allLabels = [];
     boxes.forEach(box => {
@@ -15,7 +16,10 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
       const end = rangeParts[1] || start;
       if (!isNaN(start)) {
         for (let i = start; i <= end; i++) {
-          allLabels.push({ boxNo: i, ...box });
+          const labelData = { boxNo: i, ...box };
+          // Her koli numarası için listeye 2 etiket ekliyoruz
+          allLabels.push(labelData);
+          allLabels.push(labelData);
         }
       }
     });
@@ -40,7 +44,7 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
         const element = labelRefs.current[i];
         if (element) {
           const canvas = await html2canvas(element, { 
-            scale: 2.5, // Netlik için optimize edildi
+            scale: 2.5, 
             useCORS: true, 
             backgroundColor: "#ffffff",
             logging: false,
@@ -57,7 +61,7 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
           pdf.addImage(imgData, 'PNG', 0, 0, 200, 100);
         }
       }
-      pdf.save(`Argox_Etiketleri_${Date.now()}.pdf`);
+      pdf.save(`Argox_Cift_Etiketler_${Date.now()}.pdf`);
     } catch (err) {
       console.error("PDF Hatası:", err);
       alert("Hata oluştu. Lütfen tekrar deneyin.");
@@ -69,22 +73,23 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
   const renderLabelContent = (label, index) => (
     <div 
       data-label-id={index}
+      className="font-sans"
       style={{
         width: '200mm',
         height: '100mm',
         backgroundColor: '#ffffff',
         color: '#000000',
-        border: '12px solid #000000',
-        padding: '20px',
+        border: 'none', // ❌ Dış siyah kontür iptal edildi
+        padding: '25px',
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'row',
-        gap: '0px', // Gap kaldırıldı, padding ile kontrol edilecek
+        gap: '0px',
         overflow: 'hidden',
         fontFamily: 'Arial, sans-serif'
       }}
     >
-      {/* SOL: CONSIGNEE - Daha dar ve kontrollü font */}
+      {/* SOL: CONSIGNEE */}
       <div style={{ flex: '2.5', borderRight: '5px solid #000000', paddingRight: '15px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
         <div>
           <p style={{ fontSize: '10px', fontWeight: '900', borderBottom: '3px solid #000000', display: 'inline-block', marginBottom: '6px' }}>CONSIGNEE / ALICI</p>
@@ -102,7 +107,7 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
         </div>
       </div>
 
-      {/* ORTA: MODEL & RENK - Yazılar küçültüldü */}
+      {/* ORTA: MODEL & RENK */}
       <div style={{ flex: '1.5', borderRight: '5px solid #000000', paddingLeft: '15px', paddingRight: '15px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div>
@@ -124,7 +129,7 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
         </div>
       </div>
 
-      {/* SAĞ: KOLİ & AĞIRLIK - En kritik alan */}
+      {/* SAĞ: KOLİ & AĞIRLIK */}
       <div style={{ flex: '1.2', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', textAlign: 'center', paddingLeft: '10px' }}>
         <div>
           <p style={{ fontSize: '10px', fontWeight: '900', borderBottom: '3px solid #000000', display: 'inline-block' }}>BOX NO</p>
@@ -149,7 +154,7 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
             <div className="w-20 h-20 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center shadow-2xl"><Package size={40}/></div>
             <div>
               <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter italic">Lojistik Baskı Hattı</h2>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Argox 200x100mm • {labels.length} Etiket</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Argox 200x100mm • {labels.length} Toplam Etiket</p>
             </div>
           </div>
           <div className="flex gap-4">
@@ -159,7 +164,7 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
               className="bg-slate-900 text-white px-12 py-5 rounded-[2.5rem] font-black text-sm uppercase shadow-2xl hover:bg-blue-600 transition-all flex items-center gap-3 disabled:bg-slate-400"
             >
               {isGenerating ? <Loader2 className="animate-spin" size={20}/> : <FileDown size={20}/>}
-              {isGenerating ? 'PDF Hazırlanıyor...' : 'PDF İndir'}
+              {isGenerating ? 'PDF Hazırlanıyor...' : 'PDF İndir (Her Koliden 2 Adet)'}
             </button>
             <button onClick={onClose} className="p-5 bg-slate-50 text-slate-400 rounded-[2.5rem] hover:text-red-500 shadow-sm"><X size={32}/></button>
           </div>
@@ -168,16 +173,14 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
         <div className="space-y-24 pb-48 flex flex-col items-center">
           {labels.map((label, idx) => (
             <div key={idx} className="relative group animate-in fade-in zoom-in-95 duration-500">
-              <div className="absolute -top-6 left-12 bg-blue-600 text-white px-8 py-3 rounded-full text-xs font-black uppercase z-10 shadow-xl tracking-widest italic">Koli #{label.boxNo}</div>
+              <div className="absolute -top-6 left-12 bg-blue-600 text-white px-8 py-3 rounded-full text-xs font-black uppercase z-10 shadow-xl tracking-widest italic">Etiket #{idx + 1} (Koli {label.boxNo})</div>
               
-              {/* PDF için gizli render alanı */}
               <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
                 <div ref={(el) => (labelRefs.current[idx] = el)}>
                   {renderLabelContent(label, idx)}
                 </div>
               </div>
 
-              {/* Ekran ön izlemesi */}
               <div className="bg-white shadow-2xl overflow-hidden rounded-sm transform hover:scale-[1.02] transition-all duration-500">
                  {renderLabelContent(label, idx)}
               </div>

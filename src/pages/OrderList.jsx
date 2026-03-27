@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
-  Search, Hash, Printer, Truck, Trash2, Edit3, Scissors, CheckCircle, LayoutGrid, RefreshCcw, X, Calendar, Activity
+  Search, Hash, Printer, Truck, Trash2, Edit3, Scissors, CheckCircle, LayoutGrid, RefreshCcw, X, Calendar, Activity, Copy
 } from 'lucide-react';
 import { getAllOrders, deleteOrder, supabase } from "../api/orderService";
 
@@ -39,16 +39,13 @@ export default function OrderList({ onEditOrder }) {
     return () => { document.body.style.overflow = 'unset'; };
   }, [selectedOrderDetail]);
 
-  // 🔄 VERİLERİ YÜKLE (GÜVENLİ MOD GÜNCELLEMESİ)
+  // 🔄 VERİLERİ YÜKLE
   const loadData = useCallback(async () => {
-    if (orders.length === 0) setLoading(true);
+    setLoading(true);
     try {
-      // 1. Siparişleri çek (Ana veri, her zaman ilk bu gelmeli)
       const ordersData = await getAllOrders();
       setOrders(ordersData || []);
 
-      // 2. Yan verileri hata fırlatmayacak şekilde, sırayla çek
-      // Birinde sorun olsa bile diğeri yüklenmeye devam eder
       const { data: dData } = await supabase.from('fabric_deliveries').select('*');
       if (dData) setDeliveries(dData);
 
@@ -60,11 +57,62 @@ export default function OrderList({ onEditOrder }) {
     } finally {
       setLoading(false);
     }
-  }, [orders.length]);
+  }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // 🛠️ ZEKİ İLERLEME HESAPLAMA (Batch Odaklı)
+  // 🛠️ SİPARİŞİ SİL (TAM SENKRONİZE VERSİYON)
+  const handleDeleteOrder = async (orderId) => {
+    if (!window.confirm('Bu iş emrini silmek istediğinizden emin misiniz?')) return;
+    
+    try {
+      // Önce veritabanından siliyoruz ve bitmesini bekliyoruz
+      await deleteOrder(orderId);
+      
+      // Silme başarılıysa arayüzdeki state'i güncelliyoruz
+      setOrders(prev => prev.filter(o => o.id !== orderId));
+      
+      alert('Sipariş başarıyla silindi.');
+    } catch (err) {
+      console.error("Silme hatası:", err.message);
+      alert("Sipariş silinirken bir hata oluştu.");
+      loadData(); // Hata durumunda listeyi tekrar çek
+    }
+  };
+
+  // 🛠️ SİPARİŞİ KLONLA (HIZLI KOPYALAMA)
+  const handleCloneOrder = async (originalOrder) => {
+    try {
+      // 1. Orijinal veriden id ve tarihleri ayıklıyoruz
+      const { id, created_at, updated_at, ...clonedData } = originalOrder;
+      
+      // 2. Yeni siparişi düzenle
+      const finalData = {
+        ...clonedData,
+        order_no: `${originalOrder.order_no}-KOPYA`,
+        status: 'draft', 
+        is_archived: false,
+        fabric_ordered: false,
+        cutting_qty: {}, 
+        current_stage: 'kesim_bekliyor'
+      };
+
+      // 3. Supabase'e yerleştir
+      const { error } = await supabase
+        .from('orders')
+        .insert([finalData]);
+
+      if (error) throw error;
+
+      alert('Sipariş başarıyla kopyalandı! Listeden düzenleyebilirsiniz.');
+      loadData(); 
+    } catch (err) {
+      console.error("Klonlama hatası:", err.message);
+      alert("Kopyalama sırasında bir sorun oluştu.");
+    }
+  };
+
+  // 🛠️ İLERLEME HESAPLAMA
   const calculateProgress = (order) => {
     const orderProcurements = procurements.filter(p => p.order_no === order.order_no);
 
@@ -87,7 +135,6 @@ export default function OrderList({ onEditOrder }) {
       };
     }
 
-    // FALLBACK: Eğer batch yoksa klasik hesaplama
     const qtyByOrder = order.qty_by_size || order.qtyBySize || {};
     const baseTotal = Object.values(qtyByOrder).reduce((a, b) => a + (Number(b) || 0), 0);
     const extraFactor = 1 + (Number(order.extra_percent || 5) / 100);
@@ -119,11 +166,7 @@ export default function OrderList({ onEditOrder }) {
         o.article?.toLowerCase().includes(searchTerm.toLowerCase());
       return matchesSearch;
     })
-    .sort((a, b) => {
-      const dateA = a.due ? new Date(a.due) : new Date('9999-12-31');
-      const dateB = b.due ? new Date(b.due) : new Date('9999-12-31');
-      return dateA - dateB;
-    });
+    .sort((a, b) => (a.due ? new Date(a.due) : new Date('9999-12-31')) - (b.due ? new Date(b.due) : new Date('9999-12-31')));
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32">
@@ -145,7 +188,7 @@ export default function OrderList({ onEditOrder }) {
           <input 
             type="text" 
             placeholder="Grup, Müşteri veya Artikel Ara..."
-            className="w-full pl-11 pr-4 py-2 bg-slate-50 border-transparent rounded-xl outline-none focus:bg-white text-[11px] font-bold transition-all"
+            className="w-full pl-11 pr-4 py-3 bg-slate-50 border-transparent rounded-xl outline-none focus:bg-white text-[11px] font-bold transition-all"
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
@@ -163,9 +206,11 @@ export default function OrderList({ onEditOrder }) {
 
           return (
             <div key={order.id} className={`bg-white p-5 md:p-6 rounded-[2.5rem] border transition-all group relative ${isCut ? 'border-emerald-500/30 bg-emerald-50/5' : 'border-slate-100'} hover:shadow-xl`}>
+              {/* AKSİYON BUTONLARI */}
               <div className="absolute -top-3 -right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all z-30">
-                <button onClick={(e) => { e.stopPropagation(); onEditOrder(order); }} className="w-9 h-9 bg-white text-slate-400 hover:text-blue-600 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110"><Edit3 size={14} /></button>
-                <button onClick={(e) => { e.stopPropagation(); if(window.confirm('Emin misiniz?')) { deleteOrder(order.id); loadData(); } }} className="w-9 h-9 bg-white text-slate-400 hover:text-red-600 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110"><Trash2 size={14} /></button>
+                <button onClick={(e) => { e.stopPropagation(); handleCloneOrder(order); }} className="w-10 h-10 bg-white text-indigo-500 hover:text-indigo-700 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110" title="Kopyala"><Copy size={16} /></button>
+                <button onClick={(e) => { e.stopPropagation(); onEditOrder(order); }} className="w-10 h-10 bg-white text-blue-500 hover:text-blue-700 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110" title="Düzenle"><Edit3 size={16} /></button>
+                <button onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order.id); }} className="w-10 h-10 bg-white text-red-500 hover:text-red-700 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110" title="Sil"><Trash2 size={16} /></button>
               </div>
 
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -206,8 +251,8 @@ export default function OrderList({ onEditOrder }) {
 
                 <div className="flex flex-wrap items-center gap-2">
                   <button onClick={() => setPrintOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter ${order.fabric_ordered ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>Kumaş Sip. Formu</button>
-                  <button onClick={() => setIntakeOrder(order)} className="bg-blue-50 text-blue-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border">Gelen Kumaş Bilgisi</button>
-                  <button onClick={() => setPreparingOrder(order)} className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg">Kesim Emri</button>
+                  <button onClick={() => setIntakeOrder(order)} className="bg-blue-50 text-blue-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border border-blue-100">Gelen Kumaş Bilgisi</button>
+                  <button onClick={() => setPreparingOrder(order)} className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg hover:bg-blue-600 transition-colors">Kesim Emri</button>
                   <button 
                     onClick={() => setCuttingResultOrder(order)} 
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter transition-all ${
@@ -228,14 +273,13 @@ export default function OrderList({ onEditOrder }) {
 
       {/* MODAL: DETAY KARTI */}
       {selectedOrderDetail && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="absolute inset-0" onClick={() => setSelectedOrderDetail(null)}></div>
-          <div className="relative bg-white w-full max-w-4xl h-full md:h-auto md:max-h-[90vh] rounded-none md:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-300">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedOrderDetail(null)}>
+          <div className="relative bg-white w-full max-w-4xl h-full md:h-auto md:max-h-[90vh] rounded-none md:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-300" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 z-20 bg-white border-b border-slate-100 p-4 md:p-6 flex justify-between items-center">
               <div className="flex items-center gap-3">
                  <span className="px-3 py-1 bg-blue-600 text-white text-[9px] font-black rounded-lg uppercase tracking-widest">Sipariş Detayı</span>
               </div>
-              <button onClick={() => setSelectedOrderDetail(null)} className="p-3 bg-slate-900 text-white rounded-2xl hover:bg-blue-600 shadow-lg">
+              <button onClick={() => setSelectedOrderDetail(null)} className="p-3 bg-slate-900 text-white rounded-2xl hover:bg-blue-600 shadow-lg transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -259,19 +303,11 @@ export default function OrderList({ onEditOrder }) {
               <div className="p-8 md:p-10 space-y-8">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2"><Scissors size={14}/> Beden Denge Matrisi</h3>
-                   <div className="flex gap-2">
-                      <div className="text-[9px] font-black text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">SIP: {Object.values(selectedOrderDetail.qty_by_size || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
-                      <div className="text-[9px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">KES: {Object.values(selectedOrderDetail.cutting_qty || {}).reduce((a,b) => a + Number(b||0), 0)}</div>
-                   </div>
                 </div>
 
                 <div className="flex gap-3 overflow-x-auto pb-6 custom-scrollbar min-w-full">
                   {Object.entries(selectedOrderDetail.qty_by_size || {})
-                    .filter(([size, qty]) => {
-                      const cut = Number(selectedOrderDetail.cutting_qty?.[size] || 0);
-                      const orderQty = Number(qty || 0);
-                      return orderQty > 0 || cut > 0;
-                    })
+                    .filter(([size, qty]) => Number(qty) > 0 || Number(selectedOrderDetail.cutting_qty?.[size] || 0) > 0)
                     .sort((a, b) => {
                       const indexA = sizeOrder.indexOf(a[0].toUpperCase());
                       const indexB = sizeOrder.indexOf(b[0].toUpperCase());
@@ -297,7 +333,7 @@ export default function OrderList({ onEditOrder }) {
             </div>
 
             <div className="p-6 md:p-8 bg-white border-t border-slate-100">
-               <button onClick={() => setSelectedOrderDetail(null)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.3em]">Kapat</button>
+               <button onClick={() => setSelectedOrderDetail(null)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-blue-600 transition-colors">Kapat</button>
             </div>
           </div>
         </div>

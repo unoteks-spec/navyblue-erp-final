@@ -241,7 +241,7 @@ export default function PackingList() {
         {activeOrder && (
           <div className="pt-8 border-t border-white/10 flex flex-wrap gap-4 animate-in fade-in duration-500">
             {activeOrderSizes.map(sz => (
-              <div key={sz} className="flex-1 min-w-[80px]">
+              <div key={sz} className="flex-1 min-w-20">
                 <span className="text-[9px] font-black uppercase block text-center opacity-60 mb-2">{sz}</span>
                 <input type="number" step="0.001" className="w-full bg-white text-slate-900 rounded-2xl p-3 text-xs font-black text-center shadow-lg outline-none focus:ring-4 focus:ring-blue-400 transition-all"
                   value={unitWeights[activeRefOrderId]?.[sz] || ''} 

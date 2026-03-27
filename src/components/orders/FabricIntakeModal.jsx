@@ -129,7 +129,7 @@ export default function FabricIntakeModal({ order, allOrders, onClose, onSuccess
 
         <div className="overflow-y-auto p-8 pt-6 space-y-8 custom-scrollbar">
           {/* FORM ALANI */}
-          <form onSubmit={handleSubmit} className="space-y-5 bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+          <form onSubmit={handleSubmit} className="space-y-5 bg-slate-50 p-6 rounded-4xl border border-slate-100">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               
               {/* PARTİ SEÇİMİ (KRİTİK ALAN) */}
