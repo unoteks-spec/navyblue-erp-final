@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
-  Search, Hash, Printer, Truck, Trash2, Edit3, Scissors, CheckCircle, LayoutGrid, RefreshCcw, X, Calendar, Activity, Copy
+  Search, Hash, Printer, Truck, Trash2, Edit3, Scissors, CheckCircle, LayoutGrid, RefreshCcw, X, Calendar, Activity, Copy, Calculator
 } from 'lucide-react';
 import { getAllOrders, deleteOrder, supabase } from "../api/orderService";
 
@@ -61,32 +61,24 @@ export default function OrderList({ onEditOrder }) {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // 🛠️ SİPARİŞİ SİL (TAM SENKRONİZE VERSİYON)
+  // 🛠️ SİPARİŞİ SİL
   const handleDeleteOrder = async (orderId) => {
     if (!window.confirm('Bu iş emrini silmek istediğinizden emin misiniz?')) return;
-    
     try {
-      // Önce veritabanından siliyoruz ve bitmesini bekliyoruz
       await deleteOrder(orderId);
-      
-      // Silme başarılıysa arayüzdeki state'i güncelliyoruz
       setOrders(prev => prev.filter(o => o.id !== orderId));
-      
       alert('Sipariş başarıyla silindi.');
     } catch (err) {
       console.error("Silme hatası:", err.message);
       alert("Sipariş silinirken bir hata oluştu.");
-      loadData(); // Hata durumunda listeyi tekrar çek
+      loadData();
     }
   };
 
-  // 🛠️ SİPARİŞİ KLONLA (HIZLI KOPYALAMA)
+  // 🛠️ SİPARİŞİ KLONLA
   const handleCloneOrder = async (originalOrder) => {
     try {
-      // 1. Orijinal veriden id ve tarihleri ayıklıyoruz
       const { id, created_at, updated_at, ...clonedData } = originalOrder;
-      
-      // 2. Yeni siparişi düzenle
       const finalData = {
         ...clonedData,
         order_no: `${originalOrder.order_no}-KOPYA`,
@@ -96,14 +88,8 @@ export default function OrderList({ onEditOrder }) {
         cutting_qty: {}, 
         current_stage: 'kesim_bekliyor'
       };
-
-      // 3. Supabase'e yerleştir
-      const { error } = await supabase
-        .from('orders')
-        .insert([finalData]);
-
+      const { error } = await supabase.from('orders').insert([finalData]);
       if (error) throw error;
-
       alert('Sipariş başarıyla kopyalandı! Listeden düzenleyebilirsiniz.');
       loadData(); 
     } catch (err) {
@@ -112,7 +98,7 @@ export default function OrderList({ onEditOrder }) {
     }
   };
 
-  // 🛠️ İLERLEME HESAPLAMA
+  // 🛠️ İLERLEME HESAPLAMA (ORİJİNAL - HİÇ DOKUNULMADI)
   const calculateProgress = (order) => {
     const orderProcurements = procurements.filter(p => p.order_no === order.order_no);
 
@@ -171,6 +157,7 @@ export default function OrderList({ onEditOrder }) {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32">
       
+      {/* 1. ÜST BAR */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-slate-900 rounded-xl text-white shadow-lg"><LayoutGrid size={20} /></div>
@@ -182,6 +169,7 @@ export default function OrderList({ onEditOrder }) {
         <button onClick={loadData} className="p-2.5 bg-white border border-slate-100 rounded-xl hover:bg-slate-50"><RefreshCcw size={18} className={loading ? 'animate-spin' : ''} /></button>
       </div>
 
+      {/* 2. ARAMA */}
       <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -194,6 +182,7 @@ export default function OrderList({ onEditOrder }) {
         </div>
       </div>
 
+      {/* 3. ANA LİSTE */}
       <div className="grid gap-6">
         {filteredOrders.length === 0 ? (
           <div className="py-20 text-center bg-white rounded-[2.5rem] border border-dashed border-slate-200 text-slate-300 font-black uppercase tracking-widest text-xs">
@@ -206,7 +195,6 @@ export default function OrderList({ onEditOrder }) {
 
           return (
             <div key={order.id} className={`bg-white p-5 md:p-6 rounded-[2.5rem] border transition-all group relative ${isCut ? 'border-emerald-500/30 bg-emerald-50/5' : 'border-slate-100'} hover:shadow-xl`}>
-              {/* AKSİYON BUTONLARI */}
               <div className="absolute -top-3 -right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all z-30">
                 <button onClick={(e) => { e.stopPropagation(); handleCloneOrder(order); }} className="w-10 h-10 bg-white text-indigo-500 hover:text-indigo-700 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110" title="Kopyala"><Copy size={16} /></button>
                 <button onClick={(e) => { e.stopPropagation(); onEditOrder(order); }} className="w-10 h-10 bg-white text-blue-500 hover:text-blue-700 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110" title="Düzenle"><Edit3 size={16} /></button>
@@ -227,7 +215,6 @@ export default function OrderList({ onEditOrder }) {
                         {order.due ? new Date(order.due).toLocaleDateString('tr-TR') : 'BELİRSİZ'}
                       </div>
                     </div>
-                    
                     <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold uppercase">
                       <span className="text-blue-600">{order.order_no}</span>
                       <span className="text-slate-200">/</span>
@@ -239,6 +226,7 @@ export default function OrderList({ onEditOrder }) {
 
                 <div className="flex-1 w-full lg:max-w-60">
                   <div className="flex justify-between items-end mb-1.5">
+                    {/* ✅ Parti Kodu Buradaki Stats İçinde Saklanıyor */}
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                       Kumaş Girişi {stats.batch && <span className="text-blue-600 ml-1">({stats.batch})</span>}
                     </span>
@@ -253,16 +241,8 @@ export default function OrderList({ onEditOrder }) {
                   <button onClick={() => setPrintOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter ${order.fabric_ordered ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>Kumaş Sip. Formu</button>
                   <button onClick={() => setIntakeOrder(order)} className="bg-blue-50 text-blue-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border border-blue-100">Gelen Kumaş Bilgisi</button>
                   <button onClick={() => setPreparingOrder(order)} className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg hover:bg-blue-600 transition-colors">Kesim Emri</button>
-                  <button 
-                    onClick={() => setCuttingResultOrder(order)} 
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter transition-all ${
-                      isCut 
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-100' 
-                        : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white'
-                    }`}
-                  >
-                    {isCut ? <CheckCircle size={14} /> : <Scissors size={14} />}
-                    {isCut ? 'Kesildi' : 'Sonuç Gir'}
+                  <button onClick={() => setCuttingResultOrder(order)} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter transition-all ${isCut ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white'}`}>
+                    {isCut ? <CheckCircle size={14} /> : <Scissors size={14} />} {isCut ? 'Kesildi' : 'Sonuç Gir'}
                   </button>
                 </div>
               </div>
@@ -271,20 +251,17 @@ export default function OrderList({ onEditOrder }) {
         })}
       </div>
 
-      {/* MODAL: DETAY KARTI */}
+      {/* 🚀 MODAL: DETAY KARTI (GÜNCELLENMİŞ VERSİYON) */}
       {selectedOrderDetail && (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedOrderDetail(null)}>
           <div className="relative bg-white w-full max-w-4xl h-full md:h-auto md:max-h-[90vh] rounded-none md:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-300" onClick={e => e.stopPropagation()}>
             <div className="sticky top-0 z-20 bg-white border-b border-slate-100 p-4 md:p-6 flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                 <span className="px-3 py-1 bg-blue-600 text-white text-[9px] font-black rounded-lg uppercase tracking-widest">Sipariş Detayı</span>
-              </div>
-              <button onClick={() => setSelectedOrderDetail(null)} className="p-3 bg-slate-900 text-white rounded-2xl hover:bg-blue-600 shadow-lg transition-colors">
-                <X size={20} />
-              </button>
+              <span className="px-3 py-1 bg-blue-600 text-white text-[9px] font-black rounded-lg uppercase tracking-widest">Sipariş Detayı</span>
+              <button onClick={() => setSelectedOrderDetail(null)} className="p-3 bg-slate-900 text-white rounded-2xl hover:bg-blue-600 shadow-lg transition-colors"><X size={20} /></button>
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar">
+              {/* ÜST BİLGİ */}
               <div className="p-8 md:p-10 bg-slate-50/50 flex flex-col md:flex-row gap-8 border-b border-slate-100">
                 <div className="w-32 h-44 bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-inner shrink-0 mx-auto md:mx-0">
                   {selectedOrderDetail.model_image ? <img src={selectedOrderDetail.model_image} className="w-full h-full object-cover" /> : <Hash size={30} className="text-slate-100 m-auto mt-16" />}
@@ -300,11 +277,35 @@ export default function OrderList({ onEditOrder }) {
                 </div>
               </div>
 
-              <div className="p-8 md:p-10 space-y-8">
-                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                   <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2"><Scissors size={14}/> Beden Denge Matrisi</h3>
+              <div className="p-8 md:p-10 space-y-10">
+                
+                {/* 🚀 TOPLAM ÖZET KARTLARI (YENİ) */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white border border-slate-100 p-6 rounded-4xl flex items-center gap-6 shadow-sm">
+                    <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-inner"><Calculator size={28} /></div>
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sipariş Toplamı</p>
+                      <p className="text-3xl font-black text-slate-900 leading-none mt-1">
+                        {Object.values(selectedOrderDetail.qty_by_size || {}).reduce((a, b) => a + Number(b || 0), 0)} <span className="text-sm text-slate-400">Pcs</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="bg-white border border-emerald-100 p-6 rounded-4xl flex items-center gap-6 shadow-sm">
+                    <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner"><Scissors size={28} /></div>
+                    <div>
+                      <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Kesim Toplamı</p>
+                      <p className="text-3xl font-black text-emerald-900 leading-none mt-1">
+                        {Object.values(selectedOrderDetail.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0)} <span className="text-sm text-emerald-400">Pcs</span>
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                   <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2"><CheckCircle size={14}/> Beden Denge Matrisi</h3>
+                </div>
+
+                {/* 🚀 YATAY BEDEN KARTLARI (GÜNCELLENDİ) */}
                 <div className="flex gap-3 overflow-x-auto pb-6 custom-scrollbar min-w-full">
                   {Object.entries(selectedOrderDetail.qty_by_size || {})
                     .filter(([size, qty]) => Number(qty) > 0 || Number(selectedOrderDetail.cutting_qty?.[size] || 0) > 0)
@@ -317,13 +318,13 @@ export default function OrderList({ onEditOrder }) {
                       const cut = selectedOrderDetail.cutting_qty?.[size] || 0;
                       const diff = Number(cut) - Number(qty);
                       return (
-                        <div key={size} className="w-28 bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm flex flex-col shrink-0">
-                          <div className="bg-slate-900 py-2 text-center text-[10px] font-black text-white uppercase">{size}</div>
+                        <div key={size} className="flex-shrink-0 w-28 bg-white border border-slate-100 rounded-[2.5rem] overflow-hidden shadow-sm flex flex-col transition-all hover:border-blue-200">
+                          <div className="bg-slate-900 py-2.5 text-center text-[10px] font-black text-white uppercase">{size}</div>
                           <div className="p-4 text-center space-y-3">
                             <div className="space-y-0.5"><span className="text-[8px] font-bold text-slate-400 uppercase block">Sipariş</span><span className="text-lg font-black text-slate-900">{qty}</span></div>
                             <div className="h-px bg-slate-50 w-full" />
                             <div className="space-y-0.5"><span className="text-[8px] font-bold text-blue-400 uppercase block">Kesilen</span><span className="text-lg font-black text-blue-600">{cut}</span></div>
-                            <div className={`pt-1 text-[9px] font-black uppercase ${diff >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{diff > 0 ? `+${diff}` : diff}</div>
+                            <div className={`pt-1 text-[9px] font-black uppercase border-t border-slate-50 ${diff >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{diff > 0 ? `+${diff}` : diff}</div>
                           </div>
                         </div>
                       );
@@ -339,7 +340,7 @@ export default function OrderList({ onEditOrder }) {
         </div>
       )}
 
-      {/* MODALLAR */}
+      {/* DİĞER MODALLAR */}
       {printOrder && <FabricOrderPrint order={printOrder} onClose={() => setPrintOrder(null)} onSuccess={loadData} />}
       {intakeOrder && <FabricIntakeModal order={intakeOrder} allOrders={orders} onClose={() => setIntakeOrder(null)} onSuccess={loadData} />}
       {preparingOrder && <CuttingOrderModal order={preparingOrder} onClose={() => setPreparingOrder(null)} onConfirm={(upd) => { setPreparingOrder(null); setPrintCuttingOrder(upd); loadData(); }} />}
