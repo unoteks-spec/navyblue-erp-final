@@ -1,12 +1,17 @@
-// v2.2.0 - Shipping & Packing Integration
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { supabase } from './api/orderService'; // Supabase client yolun
+import Login from './pages/Login'; // Yeni oluşturduğumuz Login sayfası
+
+// Sayfalar
 import Orders from './pages/Orders';
 import OrderList from './pages/OrderList';
 import Dashboard from './pages/Dashboard';
 import ProductionReport from './pages/ProductionReport';
 import ProductionTrack from './pages/ProductionTrack';
 import ArchivedOrders from './pages/ArchivedOrders';
-import PackingList from './pages/PackingList'; // 🛠️ YENİ EKLEDİK
+import PackingList from './pages/PackingList';
+
+// İkonlar
 import { 
   LayoutGrid, 
   PlusCircle, 
@@ -14,25 +19,55 @@ import {
   FileBarChart, 
   Activity,
   Archive,
-  Package // 🛠️ Çeki Listesi İkonu
+  Package,
+  LogOut // Çıkış butonu için ekledik
 } from 'lucide-react';
 
 function App() {
+  const [session, setSession] = useState(null);
   const [activePage, setActivePage] = useState('dashboard');
   const [editingOrder, setEditingOrder] = useState(null);
 
-  // 🔄 Düzenleme İşlemini Başlat (Listeden Form'a geçiş)
+  // 🛡️ OTURUM KONTROLÜ
+  useEffect(() => {
+    // Mevcut oturumu al
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    // Oturum değişikliklerini dinle
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // 🔄 Düzenleme İşlemini Başlat
   function handleEditOrder(order) {
     setEditingOrder(order); 
     setActivePage('create'); 
   }
 
-  // ✅ İşlem Tamamlandığında (Form'dan Liste'ye dönüş)
+  // ✅ İşlem Tamamlandığında
   function handleComplete() {
     setEditingOrder(null); 
     setActivePage('list'); 
   }
 
+  // 🚪 ÇIKIŞ YAPMA FONKSİYONU
+  const handleLogout = async () => {
+    if (window.confirm("Oturumu kapatmak istediğinize emin misiniz?")) {
+      await supabase.auth.signOut();
+    }
+  };
+
+  // 🛑 EĞER OTURUM YOKSA LOGIN EKRANINI GÖSTER
+  if (!session) {
+    return <Login />;
+  }
+
+  // ✅ OTURUM VARSA ERP İÇERİĞİNİ GÖSTER
   return (
     <div className="min-h-screen bg-slate-50/50 pb-24">
       
@@ -52,12 +87,8 @@ function App() {
         )}
 
         {activePage === 'track' && <ProductionTrack />}
-
         {activePage === 'report' && <ProductionReport />}
-
         {activePage === 'archived' && <ArchivedOrders />}
-
-        {/* 🛠️ ÇEKİ LİSTESİ SAYFASI */}
         {activePage === 'packing' && <PackingList />}
       </main>
 
@@ -75,7 +106,7 @@ function App() {
           <span className="text-[8px] font-black uppercase tracking-tighter">Panel</span>
         </button>
 
-        <div className="w-px h-5 bg-slate-800 hidden sm:block"></div>
+        <div className="w-px h-5 bg-slate-800"></div>
 
         {/* 2. Liste */}
         <button 
@@ -88,7 +119,7 @@ function App() {
           <span className="text-[8px] font-black uppercase tracking-tighter">Liste</span>
         </button>
 
-        <div className="w-px h-5 bg-slate-800 hidden sm:block"></div>
+        <div className="w-px h-5 bg-slate-800"></div>
 
         {/* 3. Akış */}
         <button 
@@ -101,9 +132,9 @@ function App() {
           <span className="text-[8px] font-black uppercase tracking-tighter">Akış</span>
         </button>
 
-        <div className="w-px h-5 bg-slate-800 hidden sm:block"></div>
+        <div className="w-px h-5 bg-slate-800"></div>
 
-        {/* 4. Arşiv (Eski Yerinde ✨) */}
+        {/* 4. Arşiv */}
         <button 
           onClick={() => { setEditingOrder(null); setActivePage('archived'); }}
           className={`flex flex-col items-center gap-1 transition-all duration-300 shrink-0 ${
@@ -114,7 +145,7 @@ function App() {
           <span className="text-[8px] font-black uppercase tracking-tighter">Arşiv</span>
         </button>
 
-        <div className="w-px h-5 bg-slate-800 hidden sm:block"></div>
+        <div className="w-px h-5 bg-slate-800"></div>
 
         {/* 5. Rapor */}
         <button 
@@ -127,9 +158,9 @@ function App() {
           <span className="text-[8px] font-black uppercase tracking-tighter">Rapor</span>
         </button>
 
-        <div className="w-px h-5 bg-slate-800 hidden sm:block"></div>
+        <div className="w-px h-5 bg-slate-800"></div>
 
-        {/* 6. Çeki Listesi (YENİ 🛠️) */}
+        {/* 6. Çeki Listesi */}
         <button 
           onClick={() => { setEditingOrder(null); setActivePage('packing'); }}
           className={`flex flex-col items-center gap-1 transition-all duration-300 shrink-0 ${
@@ -140,7 +171,7 @@ function App() {
           <span className="text-[8px] font-black uppercase tracking-tighter">Çeki</span>
         </button>
 
-        <div className="w-px h-5 bg-slate-800 hidden sm:block"></div>
+        <div className="w-px h-5 bg-slate-800"></div>
 
         {/* 7. Yeni Kayıt */}
         <button 
@@ -151,6 +182,17 @@ function App() {
         >
           <PlusCircle size={18} strokeWidth={activePage === 'create' ? 2.5 : 2} />
           <span className="text-[8px] font-black uppercase tracking-tighter">Yeni</span>
+        </button>
+
+        <div className="w-px h-5 bg-slate-800/50"></div>
+
+        {/* 8. ÇIKIŞ (Güvenlik için eklendi) */}
+        <button 
+          onClick={handleLogout}
+          className="flex flex-col items-center gap-1 text-red-500 hover:text-red-400 transition-all duration-300 shrink-0"
+        >
+          <LogOut size={18} />
+          <span className="text-[8px] font-black uppercase tracking-tighter">Çıkış</span>
         </button>
       </div>
     </div>
