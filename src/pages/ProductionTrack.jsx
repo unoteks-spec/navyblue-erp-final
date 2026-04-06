@@ -4,7 +4,7 @@ import {
   Clock, ChevronRight, Activity, User, Undo2, Hash, Archive, PackageCheck, AlertCircle, ClipboardCheck, Truck
 } from 'lucide-react';
 
-// 🛠️ YENİ MODAL İMPORTU
+// 🛠️ SEVKİYAT SONUÇ MODALI
 import ShipmentResultModal from '../components/orders/ShipmentResultModal';
 
 const STAGES = [
@@ -14,7 +14,7 @@ const STAGES = [
   { key: 'dikim', label: 'DİKİMDE', isFason: true },
   { key: 'ilik_dugme', label: 'İLİK-DÜĞME', isFason: true },
   { key: 'yikama_boyama', label: 'YIKAMA-BOYAMA', isFason: true },
-  { key: 'utu_ambalaj', label: 'ÜTÜ AMBALAJ', isFason: false },
+  { key: 'utu_ambalaj', label: 'ÜTÜ AMBALAJ', isFason: true }, // ✅ ARTIK TAKİP EDİLEBİLİR
   { key: 'yuklendi', label: 'YÜKLENDİ', isFason: false }
 ];
 
@@ -37,7 +37,7 @@ export default function ProductionTrack() {
 
   useEffect(() => { load(); }, []);
 
-  // 🛠️ SEVKİYATI BAŞLAT (Sadece bu butona basılırsa irsaliye takibi aktif olur)
+  // 🛠️ SEVKİYATI BAŞLAT (Fason takibi tetikler)
   const startWaybillTracking = async (orderId) => {
     try {
       const { error } = await supabase
@@ -55,7 +55,7 @@ export default function ProductionTrack() {
     }
   };
 
-  // 🛠️ İRSALİYE NUMARASINI KAYDETME (QNB Kontrolü)
+  // 🛠️ QNB İRSALİYE NO KAYDET
   const handleSaveWaybill = async (orderId, waybillNo) => {
     if (!waybillNo) return;
     try {
@@ -73,13 +73,12 @@ export default function ProductionTrack() {
     }
   };
 
-  // İleri taşıma (Yeni durağa geçerken takip ve irsaliye sıfırlanır)
+  // 🛠️ İLERİ TAŞIMA (Yeni durağa geçerken eski irsaliye takibi sıfırlanır)
   const handleMove = async (order, stageIndex) => {
     const nextStage = STAGES[stageIndex];
     if (!nextStage) return;
 
     try {
-      // Yeni aşamaya geçerken tüm irsaliye durumlarını sıfırlıyoruz
       await supabase
         .from('orders')
         .update({ 
@@ -114,7 +113,7 @@ export default function ProductionTrack() {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32">
       
-      {/* BAŞLIK BÖLÜMÜ */}
+      {/* ÜST PANEL: BAŞLIK VE İSTATİSTİK */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-slate-900 rounded-xl text-white shadow-lg">
@@ -131,7 +130,6 @@ export default function ProductionTrack() {
                 <PackageCheck size={14} className="text-emerald-500"/>
                 <span className="text-[10px] font-black text-slate-900 uppercase">Aktif İş: {orders.filter(o => !o.is_archived && o.status !== 'archived').length}</span>
             </div>
-            {/* 🛠️ Unutulan İrsaliye Sayacı: Sadece aktif sevkiyatı olanları sayar */}
             <div className="bg-red-50 px-4 py-2 rounded-2xl border border-red-100 flex items-center gap-2">
                 <AlertCircle size={14} className="text-red-600 animate-pulse"/>
                 <span className="text-[10px] font-black text-red-600 uppercase">İrsaliye Bekleyen: {orders.filter(o => o.waybill_tracking_active && !o.is_waybill_issued).length}</span>
@@ -139,7 +137,7 @@ export default function ProductionTrack() {
         </div>
       </div>
 
-      {/* İSTASYON SÜTUNLARI */}
+      {/* ANA AKIŞ SÜTUNLARI */}
       <div className="flex gap-4 overflow-x-auto pb-10 snap-x snap-mandatory custom-scrollbar -mx-4 md:-mx-6 px-4 md:px-6">
         {STAGES.map((stage, index) => (
           <div key={stage.key} className="flex flex-col gap-3 min-w-64 md:min-w-72 snap-center">
@@ -169,14 +167,12 @@ export default function ProductionTrack() {
                 })
                 .map(order => {
                   const totalQty = Object.values(order.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
-                  
-                  // 🛠️ MANTIK: Sevkiyat aktifse ve irsaliye kesilmemişse alarm ver
                   const needsWaybill = order.waybill_tracking_active && !order.is_waybill_issued;
 
                   return (
                     <div key={order.id} className={`bg-white p-4 rounded-4xl shadow-sm border transition-all ${needsWaybill ? 'border-red-400 ring-2 ring-red-50' : 'border-slate-100'} group hover:shadow-md`}>
                       
-                      {/* Kart Üst Bölüm */}
+                      {/* MODEL VE MÜŞTERİ BİLGİSİ */}
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex gap-3 min-w-0">
                           <div className="w-12 h-12 rounded-2xl overflow-hidden border border-slate-50 shrink-0 bg-slate-50 flex items-center justify-center shadow-inner">
@@ -205,7 +201,7 @@ export default function ProductionTrack() {
                         </div>
                       </div>
 
-                      {/* DETAY SATIRI */}
+                      {/* ARA DETAYLAR */}
                       <div className="text-[10px] text-slate-400 font-bold uppercase mb-3 px-1 leading-tight flex items-center justify-between border-b border-slate-50 pb-3">
                         <div className="flex items-center gap-1.5">
                             <span className="text-blue-600">{order.order_no}</span>
@@ -215,7 +211,7 @@ export default function ProductionTrack() {
                         <div className="bg-slate-900 text-white px-2 py-0.5 rounded-md text-[9px]">{totalQty} AD</div>
                       </div>
 
-                      {/* 🛠️ YENİ: KONTROLLÜ SEVKİYAT BÖLÜMÜ */}
+                      {/* 🛠️ KONTROLLÜ SEVKİYAT BÖLÜMÜ */}
                       {stage.isFason && (
                         <div className="mb-4">
                           {!order.waybill_tracking_active ? (
@@ -299,6 +295,7 @@ export default function ProductionTrack() {
         ))}
       </div>
 
+      {/* MODAL KONTROLÜ */}
       {shipmentModalOrder && (
         <ShipmentResultModal 
           order={shipmentModalOrder} 
