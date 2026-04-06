@@ -318,7 +318,7 @@ export default function OrderList({ onEditOrder }) {
                       const cut = selectedOrderDetail.cutting_qty?.[size] || 0;
                       const diff = Number(cut) - Number(qty);
                       return (
-                        <div key={size} className="flex-shrink-0 w-28 bg-white border border-slate-100 rounded-[2.5rem] overflow-hidden shadow-sm flex flex-col transition-all hover:border-blue-200">
+                        <div key={size} className="shrink-0 w-28 bg-white border border-slate-100 rounded-[2.5rem] overflow-hidden shadow-sm flex flex-col transition-all hover:border-blue-200">
                           <div className="bg-slate-900 py-2.5 text-center text-[10px] font-black text-white uppercase">{size}</div>
                           <div className="p-4 text-center space-y-3">
                             <div className="space-y-0.5"><span className="text-[8px] font-bold text-slate-400 uppercase block">Sipariş</span><span className="text-lg font-black text-slate-900">{qty}</span></div>

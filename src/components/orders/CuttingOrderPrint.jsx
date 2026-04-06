@@ -26,13 +26,32 @@ export default function CuttingOrderPrint({ order, onClose }) {
 
   sortedSizes.forEach(size => {
     const qty = Number(order.qty_by_size[size] || 0);
-    // Hassas hesaplama: Küsürat hatasını engellemek için toFixed kullanıldı
     const planned = Math.ceil(Number((qty * extraFactor).toFixed(4))); 
     plannedQtys[size] = planned;
     sumOfPlanned += planned; 
   });
 
-  const fabrics = Object.values(order.fabrics || {}).filter(f => f.kind);
+  // 🛠️ 2. DEĞİŞİKLİK: KUMAŞ SIRALAMA (KESİN ÇÖZÜM)
+  // Metin araması yerine veritabanındaki "main" anahtarını (key) baz alıyoruz.
+  const fabrics = Object.entries(order.fabrics || {})
+    .filter(([_, f]) => f && f.kind) // Sadece cinsi yazılmış olanları al
+    .sort(([keyA], [keyB]) => {
+      if (keyA === 'main') return -1; // "main" olan her zaman en üste
+      if (keyB === 'main') return 1;
+      return 0;
+    })
+    .map(([_, f]) => f); // Sadece kumaş verisini geri döndür
+
+  // 🛠️ 1. DEĞİŞİKLİK: TARİH FORMATLAMA (GG.AA.YYYY)
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '---';
+    // YYYY-MM-DD formatını ayırıp tersine diziyoruz
+    if (dateStr.includes('-')) {
+      const [year, month, day] = dateStr.split('-');
+      return `${day}.${month}.${year}`;
+    }
+    return dateStr;
+  };
 
   const handleDownloadPDF = async () => {
     if (!printRef.current) return;
@@ -97,7 +116,8 @@ export default function CuttingOrderPrint({ order, onClose }) {
           fontFamily: 'monospace',
           padding: '12mm'
         }}
-        className="relative flex flex-col border-4 border-black"
+        // 🛠️ 3. DEĞİŞİKLİK: Sayfanın en dışındaki siyah border kaldırıldı
+        className="relative flex flex-col"
       >
         {/* ÜST BÖLÜM: BİLGİLER VE SAĞ ÜST RESİM */}
         <div style={{ borderBottom: '4px solid #000000', display: 'table', width: '100%', paddingBottom: '20px' }} className="pb-6">
@@ -111,7 +131,8 @@ export default function CuttingOrderPrint({ order, onClose }) {
                 <tr><td style={{ color: '#666666' }}>ARTİKEL:</td><td>{order.article}</td></tr>
                 <tr><td style={{ color: '#666666' }}>MODEL ADI:</td><td>{order.model}</td></tr>
                 <tr><td style={{ color: '#666666' }}>RENK:</td><td>{order.color}</td></tr>
-                <tr><td style={{ color: '#666666' }}>TARİH:</td><td>{order.cutting_date || '---'}</td></tr>
+                {/* 🛠️ Tarih formatı uygulandı */}
+                <tr><td style={{ color: '#666666' }}>TARİH:</td><td>{formatDate(order.cutting_date)}</td></tr>
                 <tr><td style={{ color: '#666666' }}>PASTAL ENİ:</td><td>{order.marker_width ? `${order.marker_width} CM` : '---'}</td></tr>
               </tbody>
             </table>
@@ -184,7 +205,6 @@ export default function CuttingOrderPrint({ order, onClose }) {
               </tr>
             </tbody>
           </table>
-          <p style={{ fontSize: '9px', marginTop: '6px', fontStyle: 'italic', fontWeight: 'bold' }} className="opacity-60">* Beden bazlı planlama yapılmış ve ondalık değerler yukarı yuvarlanmıştır.</p>
         </div>
 
         {/* ALT BÖLÜM: TALİMAT VE ONAY */}

@@ -57,7 +57,7 @@ export default function Login() {
                 <input 
                   type="email" 
                   required
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-transparent rounded-2xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 text-sm font-bold transition-all border border-slate-100"
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-transparent rounded-2xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 text-sm font-bold transition-all border"
                   placeholder="kaptan@navyblue.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -72,7 +72,7 @@ export default function Login() {
                 <input 
                   type="password" 
                   required
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-transparent rounded-2xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 text-sm font-bold transition-all border border-slate-100"
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-transparent rounded-2xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 text-sm font-bold transition-all border"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

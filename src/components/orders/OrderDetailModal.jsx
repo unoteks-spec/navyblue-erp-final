@@ -94,7 +94,7 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
                 const diff = Number(cQty) - Number(sQty);
                 
                 return (
-                  <div key={size} className="flex-shrink-0 w-28 bg-slate-800/40 border border-slate-800 rounded-[2rem] overflow-hidden flex flex-col shadow-inner">
+                  <div key={size} className="shrink-0 w-28 bg-slate-800/40 border border-slate-800 rounded-4xl overflow-hidden flex flex-col shadow-inner">
                     {/* Beden Başlığı */}
                     <div className="bg-slate-800 py-2.5 text-center">
                       <span className="text-xs font-black text-blue-400 uppercase">{size}</span>
