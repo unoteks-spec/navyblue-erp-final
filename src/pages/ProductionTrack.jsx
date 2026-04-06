@@ -1,31 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { getAllOrders, updateOrderStage, moveOrderBack } from '../api/orderService';
+import { getAllOrders, updateOrderStage, moveOrderBack, supabase } from '../api/orderService';
 import { 
-  Clock, ChevronRight, Activity, User, Undo2, Hash, Archive, PackageCheck 
+  Clock, ChevronRight, Activity, User, Undo2, Hash, Archive, PackageCheck, AlertCircle, ClipboardCheck
 } from 'lucide-react';
-
-// 🛠️ YENİ MODAL İMPORTU
 import ShipmentResultModal from '../components/orders/ShipmentResultModal';
 
 const STAGES = [
-  { key: 'kesimhanede', label: 'KESİMHANE' },
-  { key: 'baski', label: 'BASKIDA' },
-  { key: 'nakis', label: 'NAKIŞTA' },
-  { key: 'dikim', label: 'DİKİMDE' },
-  { key: 'ilik_dugme', label: 'İLİK-DÜĞME' },
-  { key: 'yikama_boyama', label: 'YIKAMA-BOYAMA' },
-  { key: 'utu_ambalaj', label: 'ÜTÜ AMBALAJ' },
-  { key: 'yuklendi', label: 'YÜKLENDİ' }
+  { key: 'kesimhanede', label: 'KESİMHANE', isFason: false },
+  { key: 'baski', label: 'BASKIDA', isFason: true },
+  { key: 'nakis', label: 'NAKIŞTA', isFason: true },
+  { key: 'dikim', label: 'DİKİMDE', isFason: true },
+  { key: 'ilik_dugme', label: 'İLİK-DÜĞME', isFason: true },
+  { key: 'yikama_boyama', label: 'YIKAMA-BOYAMA', isFason: true },
+  { key: 'utu_ambalaj', label: 'ÜTÜ AMBALAJ', isFason: false },
+  { key: 'yuklendi', label: 'YÜKLENDİ', isFason: false }
 ];
 
 export default function ProductionTrack() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  // 🛠️ SEVKİYAT MODAL KONTROLÜ
   const [shipmentModalOrder, setShipmentModalOrder] = useState(null);
 
-  // Verileri yükleme fonksiyonu
   const load = async () => {
     setLoading(true);
     try {
@@ -40,11 +35,40 @@ export default function ProductionTrack() {
 
   useEffect(() => { load(); }, []);
 
-  // İleri taşıma
+  // 🛠️ İRSALİYE NUMARASINI KAYDETME (QNB Kontrolü)
+  const handleSaveWaybill = async (orderId, waybillNo) => {
+    if (!waybillNo) return;
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          current_waybill_no: waybillNo,
+          is_waybill_issued: true 
+        })
+        .eq('id', orderId);
+      
+      if (!error) load();
+    } catch (err) {
+      alert("İrsaliye kaydedilemedi.");
+    }
+  };
+
+  // İleri taşıma (Yeni durağa geçerken irsaliye sıfırlanır)
   const handleMove = async (order, stageIndex) => {
     const nextStage = STAGES[stageIndex];
     if (!nextStage) return;
+
     try {
+      // Yeni aşamaya geçerken 'irsaliye_kesildi' bilgisini sıfırlıyoruz ki 
+      // yeni atölye için tekrar sorsun.
+      await supabase
+        .from('orders')
+        .update({ 
+          is_waybill_issued: false, 
+          current_waybill_no: null 
+        })
+        .eq('id', order.id);
+
       await updateOrderStage(order.id, nextStage.key, order.tracking);
       await load();
     } catch (err) {
@@ -52,7 +76,6 @@ export default function ProductionTrack() {
     }
   };
 
-  // Geri taşıma
   const handleBack = async (order, stageIndex) => {
     const prevStage = STAGES[stageIndex - 1];
     if (!prevStage) return;
@@ -64,7 +87,6 @@ export default function ProductionTrack() {
     }
   };
 
-  // 🛠️ ARŞİVLEME: Artık direkt onay istemiyor, modalı açıyor
   const handleArchive = (order) => {
     setShipmentModalOrder(order);
   };
@@ -84,11 +106,15 @@ export default function ProductionTrack() {
           </div>
         </div>
         
-        {/* İstatistik Özeti */}
         <div className="flex gap-2">
             <div className="bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-2">
                 <PackageCheck size={14} className="text-emerald-500"/>
                 <span className="text-[10px] font-black text-slate-900 uppercase">Aktif İş: {orders.filter(o => !o.is_archived && o.status !== 'archived').length}</span>
+            </div>
+            {/* 🛠️ Unutulan İrsaliye Sayacı */}
+            <div className="bg-red-50 px-4 py-2 rounded-2xl border border-red-100 flex items-center gap-2">
+                <AlertCircle size={14} className="text-red-600 animate-pulse"/>
+                <span className="text-[10px] font-black text-red-600 uppercase">İrsaliye Bekleyen: {orders.filter(o => STAGES.find(s => s.key === (o.current_stage || 'kesimhanede'))?.isFason && !o.is_waybill_issued).length}</span>
             </div>
         </div>
       </div>
@@ -98,7 +124,6 @@ export default function ProductionTrack() {
         {STAGES.map((stage, index) => (
           <div key={stage.key} className="flex flex-col gap-3 min-w-64 md:min-w-72 snap-center">
             
-            {/* Sütun Başlığı */}
             <div className={`p-4 rounded-3xl border-b-4 shadow-sm transition-all ${
               stage.key === 'yuklendi' 
               ? 'bg-blue-600 border-blue-800 text-white' 
@@ -113,7 +138,6 @@ export default function ProductionTrack() {
               <h3 className="text-xs md:text-sm font-black tracking-widest uppercase truncate">{stage.label}</h3>
             </div>
 
-            {/* Sütun Kart Alanı */}
             <div className="flex flex-col gap-3 min-h-[65vh] bg-slate-100/30 p-2 rounded-[2.5rem] border-2 border-dashed border-slate-200/50">
               {loading ? (
                 <div className="py-20 text-center text-slate-300 font-black text-[8px] animate-pulse uppercase tracking-widest">Veriler Alınıyor...</div>
@@ -125,9 +149,10 @@ export default function ProductionTrack() {
                 })
                 .map(order => {
                   const totalQty = Object.values(order.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
+                  const needsWaybill = stage.isFason && !order.is_waybill_issued;
 
                   return (
-                    <div key={order.id} className="bg-white p-4 rounded-4xl shadow-sm border border-slate-100 group hover:border-blue-400 hover:shadow-md transition-all">
+                    <div key={order.id} className={`bg-white p-4 rounded-4xl shadow-sm border transition-all ${needsWaybill ? 'border-red-400 ring-2 ring-red-50' : 'border-slate-100'} group hover:shadow-md`}>
                       
                       {/* Kart Üst Bölüm */}
                       <div className="flex justify-between items-start mb-3">
@@ -159,7 +184,7 @@ export default function ProductionTrack() {
                       </div>
 
                       {/* DETAY SATIRI */}
-                      <div className="text-[10px] text-slate-400 font-bold uppercase mb-4 px-1 leading-tight flex items-center justify-between border-b border-slate-50 pb-3">
+                      <div className="text-[10px] text-slate-400 font-bold uppercase mb-3 px-1 leading-tight flex items-center justify-between border-b border-slate-50 pb-3">
                         <div className="flex items-center gap-1.5">
                             <span className="text-blue-600">{order.order_no}</span>
                             <span className="text-slate-200">/</span>
@@ -167,6 +192,42 @@ export default function ProductionTrack() {
                         </div>
                         <div className="bg-slate-900 text-white px-2 py-0.5 rounded-md text-[9px]">{totalQty} AD</div>
                       </div>
+
+                      {/* 🛠️ YENİ: İRSALİYE KONTROL BÖLÜMÜ */}
+                      {stage.isFason && (
+                        <div className="mb-4 p-2 rounded-2xl bg-slate-50 border border-dashed border-slate-200">
+                          {order.is_waybill_issued ? (
+                            <div className="flex items-center gap-2 text-emerald-600 font-black text-[9px] uppercase">
+                              <ClipboardCheck size={14} /> Resmi İrsaliye: {order.current_waybill_no}
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-2">
+                              <div className="flex items-center gap-1.5 text-red-600 font-black text-[9px] uppercase animate-pulse">
+                                <AlertCircle size={12} /> İrsaliye Kesilmeli (QNB)
+                              </div>
+                              <div className="flex gap-1">
+                                <input 
+                                  type="text" 
+                                  placeholder="QNB İrs No" 
+                                  className="flex-1 bg-white border border-slate-200 rounded-lg px-2 py-1 text-[9px] font-bold outline-none focus:ring-1 focus:ring-blue-400"
+                                  onKeyDown={(e) => {
+                                    if(e.key === 'Enter') handleSaveWaybill(order.id, e.target.value);
+                                  }}
+                                />
+                                <button 
+                                  onClick={(e) => {
+                                    const input = e.currentTarget.previousSibling;
+                                    handleSaveWaybill(order.id, input.value);
+                                  }}
+                                  className="bg-blue-600 text-white px-2 rounded-lg text-[8px] font-black"
+                                >
+                                  KAYDET
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* AKSİYON BUTONLARI */}
                       <div className="flex gap-2">
@@ -182,7 +243,7 @@ export default function ProductionTrack() {
                         
                         {stage.key === 'yuklendi' ? (
                           <button 
-                            onClick={() => handleArchive(order)} // 🛠️ ARŞİVLEME: Tüm order objesini gönderiyoruz
+                            onClick={() => handleArchive(order)} 
                             className="flex-1 py-2.5 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-slate-900 transition-all shadow-lg active:scale-95 tracking-widest"
                           >
                             ARŞİVLE <Archive size={14} />
@@ -204,7 +265,6 @@ export default function ProductionTrack() {
         ))}
       </div>
 
-      {/* 🛠️ SEVKİYAT SONUÇ MODALI: Sadece Arşivle'ye basıldığında görünür */}
       {shipmentModalOrder && (
         <ShipmentResultModal 
           order={shipmentModalOrder} 
