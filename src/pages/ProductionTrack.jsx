@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { getAllOrders, updateOrderStage, moveOrderBack, supabase } from '../api/orderService';
 import { 
-  Clock, ChevronRight, Activity, User, Undo2, Hash, Archive, PackageCheck, AlertCircle, ClipboardCheck
+  Clock, ChevronRight, Activity, User, Undo2, Hash, Archive, PackageCheck, AlertCircle, ClipboardCheck, Truck
 } from 'lucide-react';
+
+// 🛠️ YENİ MODAL İMPORTU
 import ShipmentResultModal from '../components/orders/ShipmentResultModal';
 
 const STAGES = [
@@ -35,6 +37,24 @@ export default function ProductionTrack() {
 
   useEffect(() => { load(); }, []);
 
+  // 🛠️ SEVKİYATI BAŞLAT (Sadece bu butona basılırsa irsaliye takibi aktif olur)
+  const startWaybillTracking = async (orderId) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          waybill_tracking_active: true,
+          is_waybill_issued: false,
+          current_waybill_no: null 
+        })
+        .eq('id', orderId);
+      
+      if (!error) load();
+    } catch (err) {
+      alert("Takip başlatılamadı.");
+    }
+  };
+
   // 🛠️ İRSALİYE NUMARASINI KAYDETME (QNB Kontrolü)
   const handleSaveWaybill = async (orderId, waybillNo) => {
     if (!waybillNo) return;
@@ -53,17 +73,17 @@ export default function ProductionTrack() {
     }
   };
 
-  // İleri taşıma (Yeni durağa geçerken irsaliye sıfırlanır)
+  // İleri taşıma (Yeni durağa geçerken takip ve irsaliye sıfırlanır)
   const handleMove = async (order, stageIndex) => {
     const nextStage = STAGES[stageIndex];
     if (!nextStage) return;
 
     try {
-      // Yeni aşamaya geçerken 'irsaliye_kesildi' bilgisini sıfırlıyoruz ki 
-      // yeni atölye için tekrar sorsun.
+      // Yeni aşamaya geçerken tüm irsaliye durumlarını sıfırlıyoruz
       await supabase
         .from('orders')
         .update({ 
+          waybill_tracking_active: false, 
           is_waybill_issued: false, 
           current_waybill_no: null 
         })
@@ -111,10 +131,10 @@ export default function ProductionTrack() {
                 <PackageCheck size={14} className="text-emerald-500"/>
                 <span className="text-[10px] font-black text-slate-900 uppercase">Aktif İş: {orders.filter(o => !o.is_archived && o.status !== 'archived').length}</span>
             </div>
-            {/* 🛠️ Unutulan İrsaliye Sayacı */}
+            {/* 🛠️ Unutulan İrsaliye Sayacı: Sadece aktif sevkiyatı olanları sayar */}
             <div className="bg-red-50 px-4 py-2 rounded-2xl border border-red-100 flex items-center gap-2">
                 <AlertCircle size={14} className="text-red-600 animate-pulse"/>
-                <span className="text-[10px] font-black text-red-600 uppercase">İrsaliye Bekleyen: {orders.filter(o => STAGES.find(s => s.key === (o.current_stage || 'kesimhanede'))?.isFason && !o.is_waybill_issued).length}</span>
+                <span className="text-[10px] font-black text-red-600 uppercase">İrsaliye Bekleyen: {orders.filter(o => o.waybill_tracking_active && !o.is_waybill_issued).length}</span>
             </div>
         </div>
       </div>
@@ -149,7 +169,9 @@ export default function ProductionTrack() {
                 })
                 .map(order => {
                   const totalQty = Object.values(order.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
-                  const needsWaybill = stage.isFason && !order.is_waybill_issued;
+                  
+                  // 🛠️ MANTIK: Sevkiyat aktifse ve irsaliye kesilmemişse alarm ver
+                  const needsWaybill = order.waybill_tracking_active && !order.is_waybill_issued;
 
                   return (
                     <div key={order.id} className={`bg-white p-4 rounded-4xl shadow-sm border transition-all ${needsWaybill ? 'border-red-400 ring-2 ring-red-50' : 'border-slate-100'} group hover:shadow-md`}>
@@ -193,37 +215,49 @@ export default function ProductionTrack() {
                         <div className="bg-slate-900 text-white px-2 py-0.5 rounded-md text-[9px]">{totalQty} AD</div>
                       </div>
 
-                      {/* 🛠️ YENİ: İRSALİYE KONTROL BÖLÜMÜ */}
+                      {/* 🛠️ YENİ: KONTROLLÜ SEVKİYAT BÖLÜMÜ */}
                       {stage.isFason && (
-                        <div className="mb-4 p-2 rounded-2xl bg-slate-50 border border-dashed border-slate-200">
-                          {order.is_waybill_issued ? (
-                            <div className="flex items-center gap-2 text-emerald-600 font-black text-[9px] uppercase">
-                              <ClipboardCheck size={14} /> Resmi İrsaliye: {order.current_waybill_no}
-                            </div>
+                        <div className="mb-4">
+                          {!order.waybill_tracking_active ? (
+                            <button 
+                              onClick={() => startWaybillTracking(order.id)}
+                              className="w-full py-2 bg-blue-50 text-blue-600 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 border border-blue-100 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                            >
+                              <Truck size={14} /> Atölyeye Sevk Et (Fason)
+                            </button>
                           ) : (
-                            <div className="flex flex-col gap-2">
-                              <div className="flex items-center gap-1.5 text-red-600 font-black text-[9px] uppercase animate-pulse">
-                                <AlertCircle size={12} /> İrsaliye Kesilmeli (QNB)
-                              </div>
-                              <div className="flex gap-1">
-                                <input 
-                                  type="text" 
-                                  placeholder="QNB İrs No" 
-                                  className="flex-1 bg-white border border-slate-200 rounded-lg px-2 py-1 text-[9px] font-bold outline-none focus:ring-1 focus:ring-blue-400"
-                                  onKeyDown={(e) => {
-                                    if(e.key === 'Enter') handleSaveWaybill(order.id, e.target.value);
-                                  }}
-                                />
-                                <button 
-                                  onClick={(e) => {
-                                    const input = e.currentTarget.previousSibling;
-                                    handleSaveWaybill(order.id, input.value);
-                                  }}
-                                  className="bg-blue-600 text-white px-2 rounded-lg text-[8px] font-black"
-                                >
-                                  KAYDET
-                                </button>
-                              </div>
+                            <div className={`p-2 rounded-2xl ${order.is_waybill_issued ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'} border border-dashed`}>
+                              {order.is_waybill_issued ? (
+                                <div className="flex items-center gap-2 text-emerald-600 font-black text-[9px] uppercase">
+                                  <ClipboardCheck size={14} /> Resmi İrsaliye: {order.current_waybill_no}
+                                </div>
+                              ) : (
+                                <div className="flex flex-col gap-2">
+                                  <div className="flex items-center gap-1.5 text-red-600 font-black text-[9px] uppercase animate-pulse">
+                                    <AlertCircle size={12} /> İrsaliye Bekliyor (QNB)
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <input 
+                                      type="text" 
+                                      placeholder="QNB İrs No" 
+                                      id={`waybill-input-${order.id}`}
+                                      className="flex-1 bg-white border border-slate-200 rounded-lg px-2 py-1 text-[9px] font-bold outline-none focus:ring-1 focus:ring-blue-400"
+                                      onKeyDown={(e) => {
+                                        if(e.key === 'Enter') handleSaveWaybill(order.id, e.target.value);
+                                      }}
+                                    />
+                                    <button 
+                                      onClick={() => {
+                                        const val = document.getElementById(`waybill-input-${order.id}`).value;
+                                        handleSaveWaybill(order.id, val);
+                                      }}
+                                      className="bg-red-600 text-white px-2 rounded-lg text-[8px] font-black uppercase"
+                                    >
+                                      ONAYLA
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
