@@ -127,11 +127,12 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
             <div>
               <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', lineHeight: '1' }}>SIZE / RATIO</p>
               <h2 style={{ margin: '4px 0 0 0', fontSize: '12px', fontWeight: '900', lineHeight: '1.2' }}>
-                {sizeRatioText}
+                {sizeRatioText} 
+                {/* 🛠️ LOT SAYISI BURAYA EKLENDİ */}
+                {label.type === 'LOT' && label.lotQty ? ` x ${label.lotQty} LOT` : ''}
               </h2>
             </div>
           </div>
-          {/* ✅ Kutu kaldırıldı, zemin beyaz, yazı siyah ve font büyük */}
           <div style={{ backgroundColor: '#ffffff', color: '#000000', padding: '10px 5px', textAlign: 'center' }}>
             <p style={{ margin: 0, fontSize: '9px', fontWeight: '700', lineHeight: '1' }}>TOTAL PCS</p>
             <p style={{ margin: '2px 0 0 0', fontSize: '48px', fontWeight: '900', lineHeight: '1' }}>{label.totalPcs}</p>

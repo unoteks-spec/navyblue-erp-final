@@ -136,7 +136,6 @@ export default function PackingList() {
     mainTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
     mainTitle.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    // Tarih Sağ Kısım ve Made In Turkey
     worksheet.mergeCells('G3:H3');
     const dateCell = worksheet.getCell('G3');
     dateCell.value = `DATE: ${today}`;
@@ -171,7 +170,8 @@ export default function PackingList() {
         b.range, 
         ord ? `${ord.model} / ${ord.article} / ${ord.color}` : '-',
         b.type,
-        b.type === 'LOT' ? `${b.lotSizes} (${b.lotRatio})` : b.size,
+        // 🛠️ LOT SAYISI EXCEL'E EKLENDİ
+        b.type === 'LOT' ? `${b.lotSizes} (${b.lotRatio}) x ${b.qtyPerBox} Lot` : b.size,
         totalPcs,
         Number(net),
         Number(gross),
@@ -183,7 +183,6 @@ export default function PackingList() {
       });
     });
 
-    // 🛠️ EXCEL TOPLAMLAR SATIRI
     worksheet.addRow([]);
     const footerRow = worksheet.addRow([
       'GRAND TOTALS', 
@@ -214,7 +213,6 @@ export default function PackingList() {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-10 space-y-10 pb-32 bg-white no-print">
       
-      {/* 1. SEVK BILGILERI */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10 p-10 border-2 border-slate-50 rounded-[3rem] shadow-sm">
         <div className="space-y-4">
           <div className="flex items-center gap-3 text-blue-600">
@@ -238,7 +236,6 @@ export default function PackingList() {
         </div>
       </div>
 
-      {/* 2. REFERANS VE AGIRLIKLAR */}
       <div className="bg-blue-600 p-10 rounded-[3.5rem] text-white shadow-2xl space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="space-y-3">
@@ -273,7 +270,6 @@ export default function PackingList() {
         )}
       </div>
 
-      {/* 3. ANA TABLO */}
       <div className="overflow-hidden rounded-[3rem] border border-slate-100 shadow-xl bg-white">
         <table className="w-full text-left border-collapse">
           <thead className="bg-slate-900 text-[9px] font-black text-slate-400 uppercase tracking-widest">
@@ -340,7 +336,6 @@ export default function PackingList() {
         </table>
       </div>
 
-      {/* 4. AKSIYONLAR */}
       <div className="flex flex-col md:flex-row justify-between items-center gap-6 pt-6">
         <button onClick={addRow} className="bg-blue-50 text-blue-600 px-12 py-5 rounded-4xl font-black text-xs uppercase shadow-sm hover:bg-blue-600 hover:text-white transition-all">+ Add Row</button>
         <div className="flex gap-4">
@@ -360,6 +355,8 @@ export default function PackingList() {
               size: b.size,
               lotSizes: b.lotSizes, 
               lotRatio: b.lotRatio,
+              // 🛠️ MODAL'A GÖNDERİLEN VERİYE LOT SAYISI EKLENDİ
+              lotQty: b.type === 'LOT' ? b.qtyPerBox : null,
               type: b.type,
               article: ord?.article || '---',
               color: ord?.color || '---' 
