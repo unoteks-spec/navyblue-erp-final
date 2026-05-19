@@ -7,7 +7,11 @@ export default function CuttingOrderPrint({ order, onClose }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const printRef = useRef(); 
   
-  const SIZE_ORDER = ['3XS', '2XS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', 'I', 'II', 'STD'];
+  // 🛠️ BEBEK VE ÇOCUK BEDENLERİ SIRALAMANIN EN BAŞINA EKLENDİ
+  const SIZE_ORDER = [
+    '3M', '6M', '9M', '12M', '18M', '24M', '3Y', '4Y', '5Y', '6Y', // Bebek/Çocuk Grubu
+    '3XS', '2XS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', 'I', 'II', 'STD'
+  ];
   
   const sortedSizes = Object.keys(order.qty_by_size || {})
     .filter(s => (order.qty_by_size[s] || 0) > 0)
@@ -31,21 +35,19 @@ export default function CuttingOrderPrint({ order, onClose }) {
     sumOfPlanned += planned; 
   });
 
-  // 🛠️ 2. DEĞİŞİKLİK: KUMAŞ SIRALAMA (KESİN ÇÖZÜM)
-  // Metin araması yerine veritabanındaki "main" anahtarını (key) baz alıyoruz.
+  // KUMAŞ SIRALAMA
   const fabrics = Object.entries(order.fabrics || {})
-    .filter(([_, f]) => f && f.kind) // Sadece cinsi yazılmış olanları al
+    .filter(([_, f]) => f && f.kind) 
     .sort(([keyA], [keyB]) => {
-      if (keyA === 'main') return -1; // "main" olan her zaman en üste
+      if (keyA === 'main') return -1; 
       if (keyB === 'main') return 1;
       return 0;
     })
-    .map(([_, f]) => f); // Sadece kumaş verisini geri döndür
+    .map(([_, f]) => f); 
 
-  // 🛠️ 1. DEĞİŞİKLİK: TARİH FORMATLAMA (GG.AA.YYYY)
+  // TARİH FORMATLAMA (GG.AA.YYYY)
   const formatDate = (dateStr) => {
     if (!dateStr) return '---';
-    // YYYY-MM-DD formatını ayırıp tersine diziyoruz
     if (dateStr.includes('-')) {
       const [year, month, day] = dateStr.split('-');
       return `${day}.${month}.${year}`;
@@ -116,7 +118,6 @@ export default function CuttingOrderPrint({ order, onClose }) {
           fontFamily: 'monospace',
           padding: '12mm'
         }}
-        // 🛠️ 3. DEĞİŞİKLİK: Sayfanın en dışındaki siyah border kaldırıldı
         className="relative flex flex-col"
       >
         {/* ÜST BÖLÜM: BİLGİLER VE SAĞ ÜST RESİM */}
@@ -131,7 +132,6 @@ export default function CuttingOrderPrint({ order, onClose }) {
                 <tr><td style={{ color: '#666666' }}>ARTİKEL:</td><td>{order.article}</td></tr>
                 <tr><td style={{ color: '#666666' }}>MODEL ADI:</td><td>{order.model}</td></tr>
                 <tr><td style={{ color: '#666666' }}>RENK:</td><td>{order.color}</td></tr>
-                {/* 🛠️ Tarih formatı uygulandı */}
                 <tr><td style={{ color: '#666666' }}>TARİH:</td><td>{formatDate(order.cutting_date)}</td></tr>
                 <tr><td style={{ color: '#666666' }}>PASTAL ENİ:</td><td>{order.marker_width ? `${order.marker_width} CM` : '---'}</td></tr>
               </tbody>

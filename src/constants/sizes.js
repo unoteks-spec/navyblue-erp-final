@@ -1,5 +1,7 @@
 export const SIZE_GROUPS = {
   STANDART: ["XS", "S", "M", "L", "XL", "2XL", "3XL"],
+  // 🛠️ YENİ BEBEK BEDEN GRUBU EKLENDİ
+  BEBEK: ["3M", "6M", "9M", "12M", "18M", "24M", "3Y", '4Y', '5Y', '6Y'],
   COCUK: ["4", "5", "6", "7", "8", "9", "10", "11", "12"],
   YETISKIN: ["3XS", "2XS", "XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "I", "II", "STD"],
   UK: ["8", "10", "12", "14", "16", "18"],

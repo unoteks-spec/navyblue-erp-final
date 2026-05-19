@@ -12,7 +12,12 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
     return { orderQty, cutQty };
   }, [order]);
 
-  const sizeOrder = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', '36', '38', '40', '42', '44', '46', '48', '50', '52'];
+  // 🛠️ BEBEK VE ÇOCUK BEDENLERİ SIRALAMANIN EN BAŞINA MANTIKLI ŞEKİLDE EKLENDİ
+  const sizeOrder = [
+    '3M', '6M', '9M', '12M', '18M', '24M', '3Y', '4Y', '5Y', '6Y', // Bebek/Çocuk Grubu
+    '3XS', '2XS', 'XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', // Standart Grup
+    '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60', '62' // Numerik Grup
+  ];
 
   const sortedSizes = useMemo(() => {
     const allSizes = new Set([
@@ -86,7 +91,6 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Beden Denge Matrisi</h3>
             </div>
             
-            {/* 🚀 KRİTİK ALAN: flex-nowrap ve overflow-x-auto yan yana dizilmeyi garantiler */}
             <div className="flex flex-row flex-nowrap gap-3 overflow-x-auto pb-4 custom-scrollbar">
               {sortedSizes.map(size => {
                 const sQty = order.qty_by_size?.[size] || 0;

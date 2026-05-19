@@ -4,8 +4,19 @@ import { updateCuttingResults } from '../../api/orderService';
 
 export default function CuttingResultModal({ order, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
-  const SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
-  const sortedSizes = Object.keys(order.qty_by_size || {}).sort((a, b) => SIZE_ORDER.indexOf(a) - SIZE_ORDER.indexOf(b));
+  
+  // 🛠️ BEBEK VE ÇOCUK BEDENLERİ SIRALAMANIN EN BAŞINA EKLENDİ
+  const SIZE_ORDER = [
+    '3M', '6M', '9M', '12M', '18M', '24M', '3Y', '4Y', '5Y', '6Y', // Bebek/Çocuk Grubu
+    '3XS', '2XS', 'XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', // Standart Grup
+    '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60', '62' // Numerik Grup
+  ];
+
+  const sortedSizes = Object.keys(order.qty_by_size || {}).sort((a, b) => {
+    const indexA = SIZE_ORDER.indexOf(a.toUpperCase());
+    const indexB = SIZE_ORDER.indexOf(b.toUpperCase());
+    return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+  });
 
   const [results, setResults] = useState({});
   const [details, setDetails] = useState({ cuttingDate: "", markerWidth: "" });
