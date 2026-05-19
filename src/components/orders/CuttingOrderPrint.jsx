@@ -7,9 +7,11 @@ export default function CuttingOrderPrint({ order, onClose }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const printRef = useRef(); 
   
-  // 🛠️ BEBEK VE ÇOCUK BEDENLERİ SIRALAMANIN EN BAŞINA EKLENDİ
+  // 🛠️ NUMERİK 2 VE 3 BEDENLERİ ÇOCUK GRUBUNUN BAŞINA GELECEK ŞEKİLDE SIRALAMAYA EKLENDİ
   const SIZE_ORDER = [
-    '3M', '6M', '9M', '12M', '18M', '24M', '3Y', '4Y', '5Y', '6Y', // Bebek/Çocuk Grubu
+    '3M', '6M', '9M', '12M', '18M', '24M', // Bebek Grubu
+    '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', // Çocuk Grubu (Numerik 2 ve 3 eklendi)
+    '3Y', '4Y', '5Y', '6Y', // Çocuk Grubu (Yaş bazlı)
     '3XS', '2XS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', 'I', 'II', 'STD'
   ];
   
@@ -143,7 +145,7 @@ export default function CuttingOrderPrint({ order, onClose }) {
               <span style={{ fontSize: '10px', fontWeight: 'bold', display: 'block', borderBottom: '1px solid #000', paddingBottom: '4px', marginBottom: '4px' }}>SİPARİŞ NO</span>
               <span style={{ fontSize: '22px', fontWeight: '900' }}>{order.order_no}</span>
             </div>
-            <div style={{ border: '2px solid #000000', width: '100%', height: '180px', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            <div style={{ border: '2px solid #000000', width: '100%', height: '180px', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justify: 'center', overflow: 'hidden' }}>
                {order.model_image ? (
                  <img src={order.model_image} style={{ maxWidth: '95%', maxHeight: '95%', objectFit: 'contain' }} alt="Model" />
                ) : (

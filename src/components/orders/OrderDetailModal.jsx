@@ -12,11 +12,13 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
     return { orderQty, cutQty };
   }, [order]);
 
-  // 🛠️ BEBEK VE ÇOCUK BEDENLERİ SIRALAMANIN EN BAŞINA MANTIKLI ŞEKİLDE EKLENDİ
+  // 🛠️ NUMERİK 2 VE 3 BEDENLERİ ÇOCUK GRUBUNUN BAŞINA GELECEK ŞEKİLDE SIRALAMAYA EKLENDİ
   const sizeOrder = [
-    '3M', '6M', '9M', '12M', '18M', '24M', '3Y', '4Y', '5Y', '6Y', // Bebek/Çocuk Grubu
+    '3M', '6M', '9M', '12M', '18M', '24M', // Bebek Grubu
+    '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', // Çocuk Grubu (Numerik 2 ve 3 eklendi)
+    '3Y', '4Y', '5Y', '6Y', // Çocuk Grubu (Yaş bazlı)
     '3XS', '2XS', 'XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', // Standart Grup
-    '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60', '62' // Numerik Grup
+    '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60', '62' // Numerik Yetişkin Grubu
   ];
 
   const sortedSizes = useMemo(() => {
@@ -76,7 +78,7 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
               </div>
               <div>
                 <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Kesim Toplamı</p>
-                <p className="text-3xl font-black text-emerald-900 leading-none mt-1">{totals.cutQty} <span className="text-sm text-emerald-400">Pcs</span></p>
+                <p className="text-3xl font-black text-emerald-900 leading-none mt-1">{totals.cutQty} <span className="text-sm text-slate-400">Pcs</span></p>
               </div>
             </div>
           </div>
