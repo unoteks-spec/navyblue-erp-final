@@ -9,11 +9,13 @@ export default function CuttingOrderPrint({ order, onClose }) {
   
   // 🛠️ NUMERİK 2 VE 3 BEDENLERİ ÇOCUK GRUBUNUN BAŞINA GELECEK ŞEKİLDE SIRALAMAYA EKLENDİ
   const SIZE_ORDER = [
-    '3M', '6M', '9M', '12M', '18M', '24M', // Bebek Grubu
-    '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', // Çocuk Grubu (Numerik 2 ve 3 eklendi)
-    '3Y', '4Y', '5Y', '6Y', // Çocuk Grubu (Yaş bazlı)
-    '3XS', '2XS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', 'I', 'II', 'STD'
-  ];
+  '3M', '6M', '9M', '12M', '18M', '24M', // Bebek Grubu
+  '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', // Çocuk Grubu (Numerik)
+  'XS', 'S', 'M', 'L', // Çocuk Grubu (Harfli - Numerik çocukların ardına alındı)
+  '3Y', '4Y', '5Y', '6Y', // Çocuk Grubu (Yaş bazlı)
+  '3XS', '2XS', 'XXS', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', // Standart Yetişkin Varyantları
+  '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60', '62' // Numerik Yetişkin Grubu
+];
   
   const sortedSizes = Object.keys(order.qty_by_size || {})
     .filter(s => (order.qty_by_size[s] || 0) > 0)

@@ -82,9 +82,9 @@ export default function Orders({ editingOrder, onComplete }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrderNo, setSelectedOrderNo] = useState(null);
 
-  // 🛠️ YENİ NUMERİK 2 VE 3 BEDENLERİ VARSAYILAN ŞABLONA EKLENDİ
+  // 🛠️ HARFLİ ÇOCUK BEDENLERİ (XS, S, M, L) VE NUMERİKLER TEK BİR VARSAYILAN ŞABLONDA BİRLEŞTİRİLDİ
   const defaultQtyBySize = { 
-    S: 0, M: 0, L: 0, XL: 0,
+    XS: 0, S: 0, M: 0, L: 0, XL: 0, // Standart ve Çocuk harfli tabanı ortak karşılar
     "2": 0, "3": 0,
     "3M": 0, "6M": 0, "9M": 0, "12M": 0, "18M": 0, "24M": 0, 
     "3Y": 0, "4Y": 0, "5Y": 0, "6Y": 0 
