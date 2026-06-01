@@ -4,7 +4,6 @@ import {
 } from 'lucide-react';
 import { getAllOrders, deleteOrder, supabase } from "../api/orderService";
 
-import FabricOrderPrint from '../components/orders/FabricOrderPrint';
 import CuttingOrderModal from '../components/orders/CuttingOrderModal';
 import CuttingOrderPrint from '../components/orders/CuttingOrderPrint';
 import CuttingResultModal from '../components/orders/CuttingResultModal';
@@ -13,7 +12,6 @@ export default function OrderList({ onEditOrder }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [printOrder, setPrintOrder] = useState(null);
   const [preparingOrder, setPreparingOrder] = useState(null);
   const [printCuttingOrder, setPrintCuttingOrder] = useState(null);
   const [cuttingResultOrder, setCuttingResultOrder] = useState(null);
@@ -87,15 +85,15 @@ export default function OrderList({ onEditOrder }) {
     }
   };
 
-  // 🛠️ YENİ TEMİZ İLERLEME HESAPLAMA: Sadece siparişin kendi durum bayrağına bakar
+  // 🛠️ İLERLEME HESAPLAMA
   const calculateProgress = (order) => {
     if (order.current_stage === 'kesim_bekliyor' && !order.fabric_ordered) {
       return { percent: 0 };
     }
     if (order.fabric_ordered && order.current_stage === 'kesim_bekliyor') {
-      return { percent: 50 }; // Sipariş geçildi, yolda
+      return { percent: 50 };
     }
-    return { percent: 100 }; // Kumaş geldi veya kesimde
+    return { percent: 100 };
   };
 
   const getStageLabel = (key) => {
@@ -159,7 +157,7 @@ export default function OrderList({ onEditOrder }) {
               <div className="absolute -top-3 -right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all z-30">
                 <button onClick={(e) => { e.stopPropagation(); handleCloneOrder(order); }} className="w-10 h-10 bg-white text-indigo-500 hover:text-indigo-700 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110" title="Kopyala"><Copy size={16} /></button>
                 <button onClick={(e) => { e.stopPropagation(); onEditOrder(order); }} className="w-10 h-10 bg-white text-blue-500 hover:text-blue-700 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110" title="Düzenle"><Edit3 size={16} /></button>
-                <button onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order.id); }} className="w-10 h-10 bg-white text-red-500 hover:text-red-700 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110" title="Sil"><Trash2 size={16} /></button>
+                <button onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order.id); }} className="w-10 h-10 bg-whitetext-red-500 hover:text-red-700 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110" title="Sil"><Trash2 size={16} /></button>
               </div>
 
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -196,16 +194,7 @@ export default function OrderList({ onEditOrder }) {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <button onClick={() => setPrintOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter ${order.fabric_ordered ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>Kumaş Sip. Formu</button>
-                  
-                  {/* 🛠️ TEMİZLENDİ: Eski modal yerine modern yönlendirme sağlayan bilgi butonu */}
-                  <button 
-                    onClick={() => alert("📌 Giriş ve İrsaliye işlemlerinizi, alt menüdeki 'KUMAŞ' sekmesinden toplu ve hatasız olarak gerçekleştirebilirsiniz.")} 
-                    className="bg-blue-50 text-blue-600 border-blue-100 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border"
-                  >
-                    Kumaş Bilgisi
-                  </button>
-
+                  {/* 🛠️ SADECE KESİM ODALAKLI BUTONLAR BIRAKILDI */}
                   <button onClick={() => setPreparingOrder(order)} className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg hover:bg-blue-600 transition-colors">Kesim Emri</button>
                   <button onClick={() => setCuttingResultOrder(order)} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter transition-all ${isCut ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white'}`}>
                     {isCut ? <CheckCircle size={14} /> : <Scissors size={14} />} {isCut ? 'Kesildi' : 'Sonuç Gir'}
@@ -303,7 +292,6 @@ export default function OrderList({ onEditOrder }) {
       )}
 
       {/* DİĞER MODALLAR */}
-      {printOrder && <FabricOrderPrint order={printOrder} onClose={() => setPrintOrder(null)} onSuccess={loadData} />}
       {preparingOrder && <CuttingOrderModal order={preparingOrder} onClose={() => setPreparingOrder(null)} onConfirm={(upd) => { setPreparingOrder(null); setPrintCuttingOrder(upd); loadData(); }} />}
       {printCuttingOrder && <CuttingOrderPrint order={printCuttingOrder} onClose={() => setPrintCuttingOrder(null)} />}
       {cuttingResultOrder && <CuttingResultModal order={cuttingResultOrder} onClose={() => setCuttingResultOrder(null)} onSuccess={loadData} />}
