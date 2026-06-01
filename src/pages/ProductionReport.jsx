@@ -2,21 +2,24 @@ import React, { useEffect, useState } from 'react';
 import { getAllOrders } from '../api/orderService';
 import { 
   MapPin, CheckCircle2, FileBarChart, Printer, Truck, 
-  ChevronDown, ChevronUp, PackageCheck, Clock
+  ChevronDown, ChevronUp, PackageCheck
 } from 'lucide-react';
 
 export default function ProductionReport() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState('pending');
   const [customerFilter, setCustomerFilter] = useState('');
   const [orderFilter, setOrderFilter] = useState('');
   const [expandedId, setExpandedId] = useState(null);
 
   const sizeOrder = [
-    'XXS', 'XS', 'S', 'M', 'L', 'XL', 
-    'XXL', '2XL', '3XL', '4XL', '5XL', 
-    '36', '38', '40', '42', '44', '46', '48', '50', '52'
+    '3M', '6M', '9M', '12M', '18M', '24M', 
+    '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 
+    'XS', 'S', 'M', 'L', 
+    '3Y', '4Y', '5Y', '6Y', 
+    '3XS', '2XS', 'XXS', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', 
+    '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60', '62'
   ];
 
   useEffect(() => {
@@ -50,6 +53,7 @@ export default function ProductionReport() {
     if (filter === 'pending') statusMatch = !isArchived && o.status !== 'cut_completed';
     else if (filter === 'completed') statusMatch = o.status === 'cut_completed' && !isArchived;
     else if (filter === 'archived') statusMatch = isArchived;
+    else if (filter === 'all') statusMatch = true;
 
     const customerMatch = !customerFilter || o.customer?.toLowerCase().includes(customerFilter.toLowerCase());
     const orderMatch = !orderFilter || o.order_no?.toLowerCase().includes(orderFilter.toLowerCase());
@@ -146,6 +150,9 @@ export default function ProductionReport() {
                 const pTotal = Object.values(o.qty_by_size || {}).reduce((a, b) => a + Number(b || 0), 0);
                 const cTotal = Object.values(o.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
                 const sTotal = Object.values(o.shipped_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
+                const diffTotal = sTotal - cTotal;
+
+                const activeSizes = Object.keys(o.qty_by_size || {}).sort((a,b) => sizeOrder.indexOf(a.toUpperCase()) - sizeOrder.indexOf(b.toUpperCase()));
 
                 return (
                   <React.Fragment key={o.id}>
@@ -170,31 +177,57 @@ export default function ProductionReport() {
 
                     {isExpanded && (
                       <tr className="bg-slate-50/50">
-                        <td colSpan="9" className="p-8">
-                          <div className="bg-white rounded-4xl border border-slate-200 p-8 shadow-inner">
-                            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2 mb-6">
-                              <PackageCheck size={14}/> Beden Kesim/Sevk Analizi
-                            </h3>
-                            <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar">
-                              {Object.keys(o.qty_by_size || {}).sort((a,b) => sizeOrder.indexOf(a.toUpperCase()) - sizeOrder.indexOf(b.toUpperCase())).map(size => {
-                                const c = Number(o.cutting_qty?.[size] || 0);
-                                const s = Number(o.shipped_qty?.[size] || 0);
-                                const diff = s - c; // 🛠️ HESAPLAMA GÜNCELLENDİ: SEVK - KESİM
-                                
-                                return (
-                                  <div key={size} className="min-w-25 flex flex-col border border-slate-100 rounded-3xl overflow-hidden bg-white shadow-sm">
-                                    <div className="bg-[#0f172a] text-white text-[10px] font-black py-2 text-center uppercase">{size}</div>
-                                    <div className="p-4 space-y-3 text-nowrap">
-                                      <div className="flex justify-between items-center"><span className="text-[7px] font-bold text-emerald-400 uppercase">Kesim</span><span className="text-[11px] font-black text-emerald-600">{c}</span></div>
-                                      <div className="flex justify-between items-center pt-2 border-t border-slate-50"><span className="text-[7px] font-black text-indigo-400 uppercase">Sevk</span><span className="text-xs font-black text-indigo-600">{s}</span></div>
-                                      <div className={`text-center pt-1 text-[8px] font-black uppercase ${diff === 0 ? 'text-slate-400' : diff > 0 ? 'text-blue-500' : 'text-red-500'}`}>
-                                        {diff > 0 ? `+${diff}` : diff} FİRE/FARK
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                        <td colSpan="9" className="p-6">
+                          <div className="bg-white rounded-3xl border border-slate-200 shadow-inner overflow-hidden max-w-full overflow-x-auto">
+                            <div className="bg-slate-900 px-6 py-3 flex items-center gap-2">
+                              <PackageCheck size={14} className="text-blue-400" />
+                              <h3 className="text-[10px] font-black text-white uppercase tracking-wider">Beden Dağılım Matrisi</h3>
                             </div>
+                            
+                            <table className="w-full text-center text-xs border-collapse">
+                              <thead>
+                                <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase">
+                                  <th className="py-3 px-4 text-left font-black bg-slate-100 sticky left-0 z-10 w-28 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">AŞAMA</th>
+                                  {activeSizes.map(size => <th key={size} className="py-3 px-3 min-w-16 border-l border-slate-200/60 font-black text-slate-800">{size}</th>)}
+                                  {/* 🛠️ YENİ TOPLAM SÜTUNU BAŞLIĞI */}
+                                  <th className="py-3 px-4 text-right font-black bg-slate-800 text-white min-w-20">TOPLAM</th>
+                                </tr>
+                              </thead>
+                              <tbody className="font-bold">
+                                {/* KESİM SATIRI */}
+                                <tr className="border-b border-slate-100">
+                                  <td className="py-2.5 px-4 text-left font-black text-emerald-600 bg-slate-50/80 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-[10px]">KESİLEN</td>
+                                  {activeSizes.map(size => <td key={size} className="py-2.5 px-3 border-l border-slate-100 text-emerald-700 font-black">{o.cutting_qty?.[size] || 0}</td>)}
+                                  {/* 🛠️ KESİM TOPLAMI */}
+                                  <td className="py-2.5 px-4 text-right font-black text-emerald-700 bg-emerald-50">{cTotal}</td>
+                                </tr>
+                                {/* SEVK SATIRI */}
+                                <tr className="border-b border-slate-100">
+                                  <td className="py-2.5 px-4 text-left font-black text-indigo-600 bg-slate-50/80 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-[10px]">SEVK EDİLEN</td>
+                                  {activeSizes.map(size => <td key={size} className="py-2.5 px-3 border-l border-slate-100 text-indigo-700 font-black">{o.shipped_qty?.[size] || 0}</td>)}
+                                  {/* 🛠️ SEVK TOPLAMI */}
+                                  <td className="py-2.5 px-4 text-right font-black text-indigo-700 bg-indigo-50">{sTotal}</td>
+                                </tr>
+                                {/* FARK SATIRI */}
+                                <tr className="bg-slate-50/30">
+                                  <td className="py-2.5 px-4 text-left font-black text-slate-500 bg-slate-100/50 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-[10px]">FARK / FİRE</td>
+                                  {activeSizes.map(size => {
+                                    const c = Number(o.cutting_qty?.[size] || 0);
+                                    const s = Number(o.shipped_qty?.[size] || 0);
+                                    const diff = s - c;
+                                    return (
+                                      <td key={size} className={`py-2.5 px-3 border-l border-slate-100 font-black text-[11px] ${diff === 0 ? 'text-slate-400' : diff > 0 ? 'text-blue-600' : 'text-red-500'}`}>
+                                        {diff > 0 ? `+${diff}` : diff}
+                                      </td>
+                                    );
+                                  })}
+                                  {/* 🛠️ GENEL FARK / FİRE TOPLAMI */}
+                                  <td className={`py-2.5 px-4 text-right font-black text-[11px] bg-slate-100 ${diffTotal === 0 ? 'text-slate-500' : diffTotal > 0 ? 'text-blue-600' : 'text-red-500'}`}>
+                                    {diffTotal > 0 ? `+${diffTotal}` : diffTotal}
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
                           </div>
                         </td>
                       </tr>
@@ -210,7 +243,6 @@ export default function ProductionReport() {
         <div className="p-8 border-t-2 border-[#0f172a] flex justify-between items-center text-[9px] font-black text-[#94a3b8] uppercase tracking-widest bg-white">
           <div>© NAVY BLUE ERP - PRECISION LOGISTICS</div>
           <div className="flex gap-10">
-             {/* 🛠️ FOOTER FARK HESABI DA KESİM VS SEVK OLARAK GÜNCELLENDİ */}
             <div>KESİM/SEVK FARKI: <span className={totalShipped - totalCut >= 0 ? 'text-emerald-600' : 'text-red-500'}>{totalShipped - totalCut} ADET</span></div>
             <div className="font-black text-[#0f172a]">ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.</div>
           </div>

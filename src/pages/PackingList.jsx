@@ -8,7 +8,8 @@ import {
   Tag, 
   Box, 
   ListFilter, 
-  Package 
+  Package,
+  Save
 } from 'lucide-react';
 import { supabase } from '../api/orderService';
 import ExcelJS from 'exceljs';
@@ -18,6 +19,7 @@ import ShippingLabelModal from '../components/orders/ShippingLabelModal';
 export default function PackingList() {
   const [orders, setOrders] = useState([]);
   const [consignee, setConsignee] = useState({ name: '', address: '' });
+  const [customers, setCustomers] = useState([]); // Kayıtlı müşteriler için state
   const [unitWeights, setUnitWeights] = useState({});
   const [boxTare, setBoxTare] = useState(0.5); 
   const [defaultDims, setDefaultDims] = useState('60x40x40');
@@ -37,7 +39,16 @@ export default function PackingList() {
     }
   ]);
 
-  const sizeOrder = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', '36', '38', '40', '42', '44', '46', '48', '50', '52'];
+  // Yeni Bebek, Çocuk ve Standart Beden Sıralama Matrisi Entegre Edildi
+  const sizeOrder = [
+    '3M', '6M', '9M', '12M', '18M', '24M', 
+    '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 
+    'XS', 'S', 'M', 'L', 
+    '3Y', '4Y', '5Y', '6Y', 
+    '3XS', '2XS', 'XXS', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', 
+    '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60', '62'
+  ];
+  
   const today = new Date().toLocaleDateString('en-GB');
 
   useEffect(() => {
@@ -50,8 +61,30 @@ export default function PackingList() {
         .order('order_no', { ascending: false });
       setOrders(data || []);
     };
+    
+    // LocalStorage üzerinden kayıtlı hızlı müşterileri yükle
+    const savedCust = localStorage.getItem('navyblue_saved_customers');
+    if (savedCust) setCustomers(JSON.parse(savedCust));
+
     fetchOrders();
   }, []);
+
+  // Müşteri adını ve adresini hızlıca kaydetme fonksiyonu
+  const handleSaveCustomer = () => {
+    if (!consignee.name.trim()) return;
+    const updated = [...customers.filter(c => c.name !== consignee.name), { name: consignee.name, address: consignee.address }];
+    setCustomers(updated);
+    localStorage.setItem('navyblue_saved_customers', JSON.stringify(updated));
+    alert("Müşteri hızlı seçim listesine kaydedildi!");
+  };
+
+  // Seçilen müşterinin bilgilerini otomatik doldurma
+  const handleSelectCustomer = (e) => {
+    const cust = customers.find(c => c.name === e.target.value);
+    if (cust) {
+      setConsignee({ name: cust.name, address: cust.address });
+    }
+  };
 
   const activeOrder = useMemo(() => orders.find(o => o.id === activeRefOrderId), [activeRefOrderId, orders]);
 
@@ -94,6 +127,34 @@ export default function PackingList() {
     return { net: Number(calcNet).toFixed(2), gross: Number(calcGross).toFixed(2), totalPcs: calcQty };
   };
 
+  // Excel ve Raporlama için beden kırılımlı genel toplam hesabı
+  const sizeTotals = useMemo(() => {
+    const breakdown = {};
+    boxes.forEach((b) => {
+      const rangeParts = b.range.split('-').map(Number);
+      const start = rangeParts[0];
+      const end = rangeParts[1] || start;
+      if (isNaN(start)) return;
+      const boxCount = (end - start + 1) || 1;
+
+      if (b.type === 'LOT' && b.lotRatio) {
+        const ratios = b.lotRatio.split('-').map(Number);
+        const sizes = b.lotSizes.split('-').map(s => s.trim().toUpperCase());
+        ratios.forEach((r, i) => {
+          const sz = sizes[i];
+          if (!sz) return;
+          const qty = r * Number(b.qtyPerBox || 0) * boxCount;
+          breakdown[sz] = (breakdown[sz] || 0) + qty;
+        });
+      } else if (b.size) {
+        const sz = b.size.toUpperCase();
+        const qty = Number(b.qtyPerBox || 0) * boxCount;
+        breakdown[sz] = (breakdown[sz] || 0) + qty;
+      }
+    });
+    return breakdown;
+  }, [boxes]);
+
   const totals = useMemo(() => {
     const uniqueBoxNumbers = new Set();
     let tQty = 0; 
@@ -120,6 +181,45 @@ export default function PackingList() {
       totalBoxes: uniqueBoxNumbers.size 
     };
   }, [boxes, boxTare, unitWeights]);
+
+  // Koli Numarası Aynı Olan Bedenleri Argox için Tek Kolide Birleştirme Mantığı
+  const mergedLabelsData = useMemo(() => {
+    const grouped = {};
+    boxes.forEach((b, idx) => {
+      if (!b.range) return;
+      const boxCalc = getBoxData(b, idx, boxes);
+      const ord = orders.find(o => o.id === b.orderId);
+      
+      if (!grouped[b.range]) {
+        grouped[b.range] = {
+          range: b.range,
+          dimensions: b.dimensions,
+          net: 0,
+          gross: 0,
+          totalPcs: 0,
+          article: ord?.article || '---',
+          color: ord?.color || '---',
+          items: [] 
+        };
+      }
+      
+      grouped[b.range].net += Number(boxCalc.net);
+      grouped[b.range].gross += Number(boxCalc.gross);
+      grouped[b.range].totalPcs += boxCalc.totalPcs;
+
+      if (b.type === 'LOT') {
+        grouped[b.range].items.push({ detail: `${b.lotSizes} (${b.lotRatio})`, qty: `${b.qtyPerBox} Lot` });
+      } else {
+        grouped[b.range].items.push({ detail: b.size, qty: b.qtyPerBox });
+      }
+    });
+
+    return Object.values(grouped).map(g => ({
+      ...g,
+      net: g.net.toFixed(2),
+      gross: g.gross.toFixed(2)
+    }));
+  }, [boxes, orders, unitWeights]);
 
   const exportToExcel = async () => {
     const workbook = new ExcelJS.Workbook();
@@ -170,7 +270,6 @@ export default function PackingList() {
         b.range, 
         ord ? `${ord.model} / ${ord.article} / ${ord.color}` : '-',
         b.type,
-        // 🛠️ LOT SAYISI EXCEL'E EKLENDİ
         b.type === 'LOT' ? `${b.lotSizes} (${b.lotRatio}) x ${b.qtyPerBox} Lot` : b.size,
         totalPcs,
         Number(net),
@@ -202,8 +301,24 @@ export default function PackingList() {
       c.alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
+    // Excel Çıktısının En Altına Beden Kırılımlı Yükleme Toplamlarını Ekliyoruz
+    worksheet.addRow([]);
+    const sizeHeaderRow = worksheet.addRow(['BEDEN DAĞILIM MATRİS TOPLAMLARI (SIZE BREAKDOWN GRAND TOTALS)']);
+    sizeHeaderRow.font = { bold: true, size: 11 };
+    
+    const activeSizeKeys = Object.keys(sizeTotals).sort((a,b) => sizeOrder.indexOf(a) - sizeOrder.indexOf(b));
+    activeSizeKeys.forEach(sz => {
+      const szRow = worksheet.addRow([sz, `${sizeTotals[sz]} PCS`]);
+      szRow.getCell(1).font = { bold: true };
+      szRow.getCell(1).alignment = { horizontal: 'left' };
+    });
+
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `PackingList_Alfa_${Date.now()}.xlsx`);
+    
+    // 🛠️ 1. DEĞİŞİKLİK: Excel Dosya adı dinamik formata uyarlandı (packing list - müşteri ismi - tarih)
+    const safeCustomerName = consignee.name.trim() ? consignee.name.trim().replace(/[^a-zA-Z0-9şŞçÇgGğĞüÜöÖıİ-]/g, '_') : 'Bilinmeyen-Musteri';
+    const safeDate = today.replace(/\//g, '-');
+    saveAs(new Blob([buffer]), `packing list - ${safeCustomerName} - ${safeDate}.xlsx`);
   };
 
   const addRow = () => setBoxes([...boxes, { id: Date.now(), orderId: '', range: '', type: 'SINGLE', size: '', lotRatio: '', lotSizes: 'S-M-L-XL', qtyPerBox: '', dimensions: defaultDims }]);
@@ -213,7 +328,8 @@ export default function PackingList() {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-10 space-y-10 pb-32 bg-white no-print">
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-10 p-10 border-2 border-slate-50 rounded-[3rem] shadow-sm">
+      {/* ÜST MÜŞTERİ KARTI (OTOMATİK SEÇİM ÖZELLİKLİ) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10 p-10 border-2 border-slate-50 rounded-[3rem] shadow-sm relative">
         <div className="space-y-4">
           <div className="flex items-center gap-3 text-blue-600">
             <Building2 size={20}/> 
@@ -224,13 +340,24 @@ export default function PackingList() {
             <p className="text-xs text-slate-500 font-bold leading-relaxed max-w-sm">Meriç Mh. 5746/3 Sk. N.21 Mtk Sit. 35090 Bornova İzmir Turkey</p>
           </div>
         </div>
-        <div className="space-y-6 text-right">
-          <div className="flex items-center justify-end gap-3 text-indigo-600">
+        <div className="space-y-4 text-right">
+          <div className="flex items-center justify-end gap-4 text-indigo-600">
+            {customers.length > 0 && (
+              <select onChange={handleSelectCustomer} className="text-[10px] font-black uppercase bg-slate-50 border border-slate-200 rounded-lg p-1.5 outline-none cursor-pointer">
+                <option value="">Kayıtlı Müşteriler...</option>
+                {customers.map((c, i) => <option key={i} value={c.name}>{c.name}</option>)}
+              </select>
+            )}
             <User size={20}/> 
             <span className="text-xs font-black uppercase tracking-widest">Consignee / Alıcı</span>
           </div>
-          <div className="pr-8 space-y-4">
-            <input type="text" placeholder="Buyer Name..." className="w-full text-right font-black text-slate-900 text-lg border-b-2 border-slate-100 outline-none" value={consignee.name} onChange={(e) => setConsignee({...consignee, name: e.target.value})} />
+          <div className="pr-8 space-y-3">
+            <div className="flex gap-2 justify-end items-center">
+              <button onClick={handleSaveCustomer} title="Bu müşteriyi listeye kaydet" className="p-1.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-indigo-600 transition-colors border border-slate-200">
+                <Save size={14}/>
+              </button>
+              <input type="text" placeholder="Buyer Name..." className="w-full text-right font-black text-slate-900 text-lg border-b-2 border-slate-100 outline-none" value={consignee.name} onChange={(e) => setConsignee({...consignee, name: e.target.value})} />
+            </div>
             <textarea placeholder="Address..." className="w-full text-right text-xs font-bold text-slate-500 border-none outline-none resize-none h-16" value={consignee.address} onChange={(e) => setConsignee({...consignee, address: e.target.value})} />
           </div>
         </div>
@@ -346,22 +473,7 @@ export default function PackingList() {
 
       {showLabels && (
         <ShippingLabelModal 
-          boxes={boxes.map((b, idx) => {
-            const ord = orders.find(o => o.id === b.orderId);
-            const boxCalc = getBoxData(b, idx, boxes);
-            return { 
-              ...b, 
-              ...boxCalc, 
-              size: b.size,
-              lotSizes: b.lotSizes, 
-              lotRatio: b.lotRatio,
-              // 🛠️ MODAL'A GÖNDERİLEN VERİYE LOT SAYISI EKLENDİ
-              lotQty: b.type === 'LOT' ? b.qtyPerBox : null,
-              type: b.type,
-              article: ord?.article || '---',
-              color: ord?.color || '---' 
-            };
-          })} 
+          boxes={mergedLabelsData} 
           consignee={consignee} 
           onClose={() => setShowLabels(false)} 
         />

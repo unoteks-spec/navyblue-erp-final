@@ -5,32 +5,33 @@ import FabricRequirement from './FabricRequirement';
 export default function OrderDetailModal({ order, isOpen, onClose }) {
   if (!isOpen || !order) return null;
 
-  // 🛠️ Toplam Hesaplamaları
+  // 🛠️ Toplam Hesaplamaları (cutting_qty ile tam senkronize)
   const totals = useMemo(() => {
     const orderQty = Object.values(order.qty_by_size || {}).reduce((a, b) => a + Number(b || 0), 0);
-    const cutQty = Object.values(order.cut_qty_by_size || {}).reduce((a, b) => a + Number(b || 0), 0);
-    return { orderQty, cutQty };
+    const cutQty = Object.values(order.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
+    const diffQty = cutQty - orderQty;
+    return { orderQty, cutQty, diffQty };
   }, [order]);
 
-  // 🛠️ NUMERİK 2 VE 3 BEDENLERİ ÇOCUK GRUBUNUN BAŞINA GELECEK ŞEKİLDE SIRALAMAYA EKLENDİ
+  // 🛠️ TÜM BEDEN GRUPLARI KRONOLOJİK SIRAYLA TANIMLANDI
   const SIZE_ORDER = [
-  '3M', '6M', '9M', '12M', '18M', '24M', // Bebek Grubu
-  '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', // Çocuk Grubu (Numerik)
-  'XS', 'S', 'M', 'L', // Çocuk Grubu (Harfli - Numerik çocukların ardına alındı)
-  '3Y', '4Y', '5Y', '6Y', // Çocuk Grubu (Yaş bazlı)
-  '3XS', '2XS', 'XXS', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', // Standart Yetişkin Varyantları
-  '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60', '62' // Numerik Yetişkin Grubu
-];
+    '3M', '6M', '9M', '12M', '18M', '24M', // Bebek Grubu
+    '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', // Çocuk Grubu (Numerik)
+    'XS', 'S', 'M', 'L', // Çocuk Grubu (Harfli)
+    '3Y', '4Y', '5Y', '6Y', // Çocuk Grubu (Yaş bazlı)
+    '3XS', '2XS', 'XXS', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', // Standart Yetişkin Varyantları
+    '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60', '62' // Numerik Yetişkin Grubu
+  ];
 
   const sortedSizes = useMemo(() => {
     const allSizes = new Set([
       ...Object.keys(order.qty_by_size || {}),
-      ...Object.keys(order.cut_qty_by_size || {})
+      ...Object.keys(order.cutting_qty || {})
     ]);
     
     return Array.from(allSizes).sort((a, b) => {
-      const indexA = sizeOrder.indexOf(a.toUpperCase());
-      const indexB = sizeOrder.indexOf(b.toUpperCase());
+      const indexA = SIZE_ORDER.indexOf(a.toUpperCase());
+      const indexB = SIZE_ORDER.indexOf(b.toUpperCase());
       return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
     });
   }, [order]);
@@ -40,7 +41,7 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
       <div className="bg-white w-full max-w-5xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header */}
-        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+        <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-2xl font-black text-slate-800 tracking-tight">{order.order_no}</h2>
@@ -87,49 +88,62 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
           {/* 2. Kumaş İhtiyaç Analizi */}
           <FabricRequirement order={order} />
 
-          {/* 3. Yan Yana Beden Kartları (Kaydırılabilir Satır) */}
-          <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white shadow-2xl">
-            <div className="flex items-center gap-3 mb-6">
+          {/* 3. RAPOR SAYFASINDAKİ GİBİ LİSTE HALİNDE MATRİS TABLOSU */}
+          <div className="bg-slate-900 rounded-[2.5rem] overflow-hidden shadow-2xl">
+            <div className="p-6 bg-slate-950 flex items-center gap-3">
                <CheckCircle className="text-blue-400" size={18} />
-               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Beden Denge Matrisi</h3>
+               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Beden Dağılım Matrisi</h3>
             </div>
             
-            <div className="flex flex-row flex-nowrap gap-3 overflow-x-auto pb-4 custom-scrollbar">
-              {sortedSizes.map(size => {
-                const sQty = order.qty_by_size?.[size] || 0;
-                const cQty = order.cut_qty_by_size?.[size] || 0;
-                const diff = Number(cQty) - Number(sQty);
-                
-                return (
-                  <div key={size} className="shrink-0 w-28 bg-slate-800/40 border border-slate-800 rounded-4xl overflow-hidden flex flex-col shadow-inner">
-                    {/* Beden Başlığı */}
-                    <div className="bg-slate-800 py-2.5 text-center">
-                      <span className="text-xs font-black text-blue-400 uppercase">{size}</span>
-                    </div>
-                    
-                    <div className="p-4 text-center space-y-4">
-                      {/* Sipariş */}
-                      <div className="space-y-1">
-                        <span className="text-[8px] font-bold text-slate-500 uppercase block tracking-tighter">Sipariş</span>
-                        <span className="text-lg font-black text-white">{sQty}</span>
-                      </div>
+            <div className="max-w-full overflow-x-auto custom-scrollbar">
+              <table className="w-full text-center text-xs border-collapse min-w-180">
+                <thead>
+                  <tr className="bg-slate-800/40 border-b border-slate-800 text-[10px] font-black text-slate-400 uppercase">
+                    <th className="py-4 px-6 text-left font-black bg-slate-900 sticky left-0 z-10 w-28 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] text-[10px]">AŞAMA</th>
+                    {sortedSizes.map(size => (
+                      <th key={size} className="py-4 px-3 min-w-16 border-l border-slate-800/60 font-black text-slate-200">{size}</th>
+                    ))}
+                    <th className="py-4 px-6 text-right font-black bg-slate-950 text-blue-400 min-w-24">TOPLAM</th>
+                  </tr>
+                </thead>
+                <tbody className="font-bold text-white">
+                  {/* SİPARİŞ SATIRI */}
+                  <tr className="border-b border-slate-800/40 hover:bg-slate-800/20 transition-colors">
+                    <td className="py-3 px-6 text-left font-black text-blue-400 bg-slate-900/90 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] text-[10px]">SİPARİŞ</td>
+                    {sortedSizes.map(size => (
+                      <td key={size} className="py-3 px-3 border-l border-slate-800/30 text-slate-300 font-bold">{order.qty_by_size?.[size] || 0}</td>
+                    ))}
+                    <td className="py-3 px-6 text-right font-black text-blue-400 bg-slate-950/40">{totals.orderQty}</td>
+                  </tr>
 
-                      <div className="h-px bg-slate-700/50 w-full" />
+                  {/* KESİM SATIRI */}
+                  <tr className="border-b border-slate-800/40 hover:bg-slate-800/20 transition-colors">
+                    <td className="py-3 px-6 text-left font-black text-emerald-400 bg-slate-900/90 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] text-[10px]">KESİLEN</td>
+                    {sortedSizes.map(size => (
+                      <td key={size} className="py-3 px-3 border-l border-slate-800/30 text-emerald-400 font-black">{order.cutting_qty?.[size] || 0}</td>
+                    ))}
+                    <td className="py-3 px-6 text-right font-black text-emerald-400 bg-slate-950/40">{totals.cutQty}</td>
+                  </tr>
 
-                      {/* Kesim */}
-                      <div className="space-y-1">
-                        <span className="text-[8px] font-bold text-emerald-500 uppercase block tracking-tighter">Kesim</span>
-                        <span className="text-lg font-black text-emerald-400">{cQty}</span>
-                      </div>
-
-                      {/* Fark Göstergesi */}
-                      <div className={`text-[9px] font-black pt-1 border-t border-slate-800/50 ${diff >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                        {diff > 0 ? `+${diff}` : diff}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+                  {/* FARK SATIRI */}
+                  <tr className="bg-slate-950/20 hover:bg-slate-800/20 transition-colors">
+                    <td className="py-3 px-6 text-left font-black text-slate-400 bg-slate-900/90 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] text-[10px]">FARK / FİRE</td>
+                    {sortedSizes.map(size => {
+                      const sQty = Number(order.qty_by_size?.[size] || 0);
+                      const cQty = Number(order.cutting_qty?.[size] || 0);
+                      const diff = cQty - sQty;
+                      return (
+                        <td key={size} className={`py-3 px-3 border-l border-slate-800/30 font-black text-[11px] ${diff === 0 ? 'text-slate-500' : diff > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {diff > 0 ? `+${diff}` : diff}
+                        </td>
+                      );
+                    })}
+                    <td className={`py-3 px-6 text-right font-black text-[11px] bg-slate-950/60 ${totals.diffQty === 0 ? 'text-slate-400' : totals.diffQty > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {totals.diffQty > 0 ? `+${totals.diffQty}` : totals.diffQty}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 

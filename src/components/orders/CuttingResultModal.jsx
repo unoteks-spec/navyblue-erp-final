@@ -5,15 +5,15 @@ import { updateCuttingResults } from '../../api/orderService';
 export default function CuttingResultModal({ order, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   
-  // 🛠rm NUMERİK 2 VE 3 BEDENLERİ ÇOCUK GRUBUNUN BAŞINA GELECEK ŞEKİLDE SIRALAMAYA EKLENDİ
+  // 🛠️ TÜM YENİ BEDEN GRUPLARI KRONOLOJİK SIRAYLA KORUNDU
   const SIZE_ORDER = [
-  '3M', '6M', '9M', '12M', '18M', '24M', // Bebek Grubu
-  '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', // Çocuk Grubu (Numerik)
-  'XS', 'S', 'M', 'L', // Çocuk Grubu (Harfli - Numerik çocukların ardına alındı)
-  '3Y', '4Y', '5Y', '6Y', // Çocuk Grubu (Yaş bazlı)
-  '3XS', '2XS', 'XXS', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', // Standart Yetişkin Varyantları
-  '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60', '62' // Numerik Yetişkin Grubu
-];
+    '3M', '6M', '9M', '12M', '18M', '24M', // Bebek Grubu
+    '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', // Çocuk Grubu (Numerik)
+    'XS', 'S', 'M', 'L', // Çocuk Grubu (Harfli - Numerik çocukların ardına alındı)
+    '3Y', '4Y', '5Y', '6Y', // Çocuk Grubu (Yaş bazlı)
+    '3XS', '2XS', 'XXS', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', // Standart Yetişkin Varyantları
+    '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60', '62' // Numerik Yetişkin Grubu
+  ];
 
   const sortedSizes = Object.keys(order.qty_by_size || {}).sort((a, b) => {
     const indexA = SIZE_ORDER.indexOf(a.toUpperCase());
@@ -52,24 +52,38 @@ export default function CuttingResultModal({ order, onClose, onSuccess }) {
 
   return (
     <div className="fixed inset-0 z-200 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 text-slate-900">
-      <div className="bg-white w-full max-w-md rounded-4xl shadow-2xl overflow-hidden animate-in zoom-in duration-200">
-        <div className="bg-emerald-600 px-6 py-4 flex justify-between items-center text-white">
-          <div className="flex items-center gap-2 text-white"><Scissors size={18} /><h2 className="text-xs font-black uppercase italic tracking-tighter">Kesim Girişi: {order.order_no}</h2></div>
+      {/* 🛠️ 1. DEĞİŞİKLİK: Küçük ekranlarda taşmayı önlemek için max-h-[90vh] ve flex-col yapısı eklendi */}
+      <div className="bg-white w-full max-w-md max-h-[90vh] rounded-4xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in duration-200">
+        
+        {/* MODAL HEADER */}
+        <div className="bg-emerald-600 px-6 py-4 flex justify-between items-center text-white shrink-0">
+          <div className="flex items-center gap-2 text-white">
+            <Scissors size={18} />
+            <h2 className="text-xs font-black uppercase italic tracking-tighter">Kesim Girişi: {order.order_no}</h2>
+          </div>
           <button onClick={onClose}><X size={20} /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        {/* MODAL FORM VE İÇERİK SARMALAYICI */}
+        {/* 🛠️ 2. DEĞİŞİKLİK: flex-1 ve overflow-y-auto ile form alanının kendi içinde kayması sağlandı */}
+        <form id="cutting-form" onSubmit={handleSubmit} className="p-6 space-y-4 flex-1 overflow-y-auto custom-scrollbar">
           <div className="bg-slate-900 rounded-2xl p-4 flex justify-between items-center">
-            <div className="flex items-center gap-3"><Calculator className="text-emerald-400" size={20} />
-              <div><p className="text-[8px] font-black text-slate-500 uppercase">Toplam Üretim</p><div className="text-xl font-black text-white italic">{currentTotal} ADET</div></div>
+            <div className="flex items-center gap-3">
+              <Calculator className="text-emerald-400" size={20} />
+              <div>
+                <p className="text-[8px] font-black text-slate-500 uppercase">Toplam Üretim</p>
+                <div className="text-xl font-black text-white italic">{currentTotal} ADET</div>
+              </div>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-            <div className="space-y-1"><label className="text-[9px] font-black text-slate-400 uppercase ml-1">Kesim Tarihi</label>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Kesim Tarihi</label>
               <input type="date" className="w-full h-10 px-3 bg-white border rounded-xl text-xs font-bold outline-none text-slate-900" value={details.cuttingDate} onChange={e => setDetails({...details, cuttingDate: e.target.value})} />
             </div>
-            <div className="space-y-1"><label className="text-[9px] font-black uppercase ml-1 text-slate-400">En (cm)</label>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black uppercase ml-1 text-slate-400">En (cm)</label>
               <input type="number" className="w-full h-10 px-3 bg-white border rounded-xl text-xs font-bold outline-none text-slate-900" value={details.markerWidth} onChange={e => setDetails({...details, markerWidth: e.target.value})} />
             </div>
           </div>
@@ -82,11 +96,21 @@ export default function CuttingResultModal({ order, onClose, onSuccess }) {
               </div>
             ))}
           </div>
+        </form>
 
-          <button type="submit" disabled={loading} className="w-full bg-emerald-600 text-white h-12 rounded-2xl font-black text-xs uppercase shadow-lg hover:bg-slate-900 transition-all">
+        {/* MODAL FOOTER (KAYDET BUTONU) */}
+        {/* 🛠️ 3. DEĞİŞİKLİK: Form dışına çıkartılıp shrink-0 ile tabana çivilendi */}
+        <div className="p-6 bg-white border-t border-slate-50 shrink-0">
+          <button 
+            type="submit" 
+            form="cutting-form" 
+            disabled={loading} 
+            className="w-full bg-emerald-600 text-white h-12 rounded-2xl font-black text-xs uppercase shadow-lg hover:bg-slate-900 transition-all"
+          >
             {loading ? "GÜNCELLENİYOR..." : "KAYDET VE KAPAT"}
           </button>
-        </form>
+        </div>
+
       </div>
     </div>
   );

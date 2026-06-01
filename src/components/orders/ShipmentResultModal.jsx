@@ -6,19 +6,21 @@ export default function ShipmentResultModal({ order, onClose, onSuccess }) {
   const [shippedQty, setShippedQty] = useState(order.cutting_qty || {});
   const [loading, setLoading] = useState(false);
 
-  // 🛠️ BEDEN SIRALAMA ANAHTARI
+  // 🛠️ YENİ BEBEK, ÇOCUK VE STANDART BEDEN SIRALAMA MATRİSİ ENTEGRE EDİLDİ
   const sizeOrder = [
-    'XXS', 'XS', 'S', 'M', 'L', 'XL', 
-    'XXL', '2XL', '3XL', '4XL', '5XL', 
-    '36', '38', '40', '42', '44', '46', '48', '50', '52'
+    '3M', '6M', '9M', '12M', '18M', '24M', 
+    '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 
+    'XS', 'S', 'M', 'L', 
+    '3Y', '4Y', '5Y', '6Y', 
+    '3XS', '2XS', 'XXS', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', 
+    '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60', '62' 
   ];
 
-  // 🛠️ BEDENLERİ SIRALAYAN MOTOR
+  // BEDENLERİ SIRALAYAN MOTOR
   const sortedSizes = useMemo(() => {
     return Object.keys(order.qty_by_size || {}).sort((a, b) => {
       const indexA = sizeOrder.indexOf(a.toUpperCase());
       const indexB = sizeOrder.indexOf(b.toUpperCase());
-      // Eğer listede yoksa en sona at (99)
       return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
     });
   }, [order.qty_by_size]);
@@ -38,9 +40,11 @@ export default function ShipmentResultModal({ order, onClose, onSuccess }) {
 
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-      <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+      {/* 🛠️ 1. DEĞİŞİKLİK: Modal küçük laptop ekranlarında taşmasın diye max-h-[90vh] ve flex-col yapıldı */}
+      <div className="bg-white w-full max-w-lg max-h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
         
-        <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+        {/* MODAL HEADER */}
+        <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/50 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-600 rounded-xl text-white shadow-lg">
               <Truck size={18} />
@@ -50,7 +54,9 @@ export default function ShipmentResultModal({ order, onClose, onSuccess }) {
           <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition-colors text-slate-400"><X size={20}/></button>
         </div>
         
-        <div className="p-8 max-h-[60vh] overflow-y-auto custom-scrollbar">
+        {/* MODAL İÇERİK (BEDENLER) */}
+        {/* 🛠️ 2. DEĞİŞİKLİK: flex-1 ve overflow-y-auto ile sadece bu orta alanın kendi içinde kayması sağlandı */}
+        <div className="p-8 flex-1 overflow-y-auto custom-scrollbar">
           <div className="mb-6">
             <h3 className="text-lg font-black text-slate-900 leading-none uppercase">{order.article}</h3>
             <p className="text-[10px] text-slate-400 font-bold uppercase mt-1 tracking-widest">{order.model} / {order.color}</p>
@@ -63,7 +69,6 @@ export default function ShipmentResultModal({ order, onClose, onSuccess }) {
               <span className="w-24 text-center">Yüklenen</span>
             </div>
             
-            {/* 🛠️ ARTIK SIRALI LİSTE DÖNÜYOR */}
             {sortedSizes.map(size => (
               <div key={size} className="flex items-center bg-slate-50 p-3 rounded-2xl border border-slate-100/50">
                 <span className="flex-1 font-black text-slate-700 uppercase text-xs">{size}</span>
@@ -79,7 +84,9 @@ export default function ShipmentResultModal({ order, onClose, onSuccess }) {
           </div>
         </div>
 
-        <div className="p-8 bg-white border-t border-slate-50">
+        {/* MODAL FOOTER (KAYDET BUTONU) */}
+        {/* 🛠️ 3. DEĞİŞİKLİK: shrink-0 verilerek butonun modal tabanına jilet gibi kilitlenmesi sağlandı */}
+        <div className="p-8 bg-white border-t border-slate-50 shrink-0">
           <button 
             onClick={handleSave}
             disabled={loading}

@@ -7,6 +7,7 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const labelRefs = useRef([]);
 
+  // 🛠️ Koli numarasına göre tekilleştirilmiş etiket listesi oluşturuluyor
   const generateLabels = () => {
     let allLabels = [];
     boxes.forEach(box => {
@@ -16,7 +17,6 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
       if (!isNaN(start)) {
         for (let i = start; i <= end; i++) {
           const labelData = { boxNo: i, ...box };
-          allLabels.push(labelData);
           allLabels.push(labelData);
         }
       }
@@ -69,16 +69,6 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
   };
 
   const renderLabelContent = (label, index) => {
-    let sizeRatioText = "";
-    
-    if (label.type === 'LOT') {
-      const sizes = label.lotSizes || "";
-      const ratios = label.lotRatio || "";
-      sizeRatioText = sizes && ratios ? `${sizes} / ${ratios}` : (sizes || ratios || "---");
-    } else {
-      sizeRatioText = label.size || "---";
-    }
-
     return (
       <div 
         data-label-id={index}
@@ -115,7 +105,7 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
 
         {/* ORTA SÜTUN */}
         <div style={{ display: 'table-cell', width: '30%', borderRight: '5px solid #000000', paddingLeft: '15px', paddingRight: '15px', verticalAlign: 'top' }}>
-          <div style={{ height: '175px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ height: '175px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div>
               <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', lineHeight: '1' }}>MODEL</p>
               <h2 style={{ margin: '4px 0 0 0', fontSize: '18px', fontWeight: '900', lineHeight: '1.1' }}>{label.article || '---'}</h2>
@@ -124,18 +114,28 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
               <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', color: '#0000FF', lineHeight: '1' }}>COLOR / RENK</p>
               <h2 style={{ margin: '4px 0 0 0', fontSize: '16px', fontWeight: '900', fontStyle: 'italic', lineHeight: '1.1' }}>{label.color || '---'}</h2>
             </div>
-            <div>
-              <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', lineHeight: '1' }}>SIZE / RATIO</p>
-              <h2 style={{ margin: '4px 0 0 0', fontSize: '12px', fontWeight: '900', lineHeight: '1.2' }}>
-                {sizeRatioText} 
-                {/* 🛠️ LOT SAYISI BURAYA EKLENDİ */}
-                {label.type === 'LOT' && label.lotQty ? ` x ${label.lotQty} LOT` : ''}
-              </h2>
+            {/* 🛠️ BİRLİŞTİRİLMİŞ İÇERİK: Koli içindeki tüm beden kırılımları alt alta şık bir liste olarak listelenir */}
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+              <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', lineHeight: '1', marginBottom: '4px' }}>CONTENT / İÇERİK</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '75px', overflow: 'hidden' }}>
+                {label.items && label.items.length > 0 ? (
+                  label.items.map((item, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyBetween: 'space-between', fontSize: '11px', fontWeight: '900', borderBottom: '1px dashed #eee', paddingBottom: '2px' }}>
+                      <span style={{ textTransform: 'uppercase' }}>{item.detail}:</span>
+                      <span style={{ marginLeft: 'auto', color: '#2563eb' }}>{item.qty} Pcs</span>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ fontSize: '11px', fontWeight: '900' }}>
+                    {label.type === 'LOT' ? `${label.lotSizes} (${label.lotRatio}) ${label.lotQty ? `x ${label.lotQty} LOT` : ''}` : (label.size || '---')}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-          <div style={{ backgroundColor: '#ffffff', color: '#000000', padding: '10px 5px', textAlign: 'center' }}>
+          <div style={{ backgroundColor: '#ffffff', color: '#000000', padding: '5px 5px', textAlign: 'center', borderTop: '2px solid #000' }}>
             <p style={{ margin: 0, fontSize: '9px', fontWeight: '700', lineHeight: '1' }}>TOTAL PCS</p>
-            <p style={{ margin: '2px 0 0 0', fontSize: '48px', fontWeight: '900', lineHeight: '1' }}>{label.totalPcs}</p>
+            <p style={{ margin: '2px 0 0 0', fontSize: '42px', fontWeight: '900', lineHeight: '1' }}>{label.totalPcs}</p>
           </div>
         </div>
 
