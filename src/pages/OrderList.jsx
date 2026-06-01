@@ -1,23 +1,19 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
-  Search, Hash, Printer, Truck, Trash2, Edit3, Scissors, CheckCircle, LayoutGrid, RefreshCcw, X, Calendar, Activity, Copy, Calculator
+  Search, Hash, CheckCircle, LayoutGrid, RefreshCcw, X, Calendar, Activity, Copy, Calculator, Scissors, Edit3, Trash2
 } from 'lucide-react';
 import { getAllOrders, deleteOrder, supabase } from "../api/orderService";
 
 import FabricOrderPrint from '../components/orders/FabricOrderPrint';
-import FabricIntakeModal from '../components/orders/FabricIntakeModal';
 import CuttingOrderModal from '../components/orders/CuttingOrderModal';
 import CuttingOrderPrint from '../components/orders/CuttingOrderPrint';
 import CuttingResultModal from '../components/orders/CuttingResultModal';
 
 export default function OrderList({ onEditOrder }) {
   const [orders, setOrders] = useState([]);
-  const [deliveries, setDeliveries] = useState([]);
-  const [procurements, setProcurements] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [printOrder, setPrintOrder] = useState(null);
-  const [intakeOrder, setIntakeOrder] = useState(null);
   const [preparingOrder, setPreparingOrder] = useState(null);
   const [printCuttingOrder, setPrintCuttingOrder] = useState(null);
   const [cuttingResultOrder, setCuttingResultOrder] = useState(null);
@@ -45,15 +41,8 @@ export default function OrderList({ onEditOrder }) {
     try {
       const ordersData = await getAllOrders();
       setOrders(ordersData || []);
-
-      const { data: dData } = await supabase.from('fabric_deliveries').select('*');
-      if (dData) setDeliveries(dData);
-
-      const { data: pData } = await supabase.from('fabric_procurements').select('*');
-      if (pData) setProcurements(pData);
-      
     } catch (error) {
-      console.error("Dashboard yükleme hatası:", error.message);
+      console.error("Siparişler yüklenirken hata oluştu:", error.message);
     } finally {
       setLoading(false);
     }
@@ -98,43 +87,15 @@ export default function OrderList({ onEditOrder }) {
     }
   };
 
-  // 🛠️ İLERLEME HESAPLAMA (ORİJİNAL - HİÇ DOKUNULMADI)
+  // 🛠️ YENİ TEMİZ İLERLEME HESAPLAMA: Sadece siparişin kendi durum bayrağına bakar
   const calculateProgress = (order) => {
-    const orderProcurements = procurements.filter(p => p.order_no === order.order_no);
-
-    if (orderProcurements.length > 0) {
-      const latestProcurement = orderProcurements.sort((a,b) => new Date(b.created_at) - new Date(a.created_at))[0];
-      const latestBatchNo = latestProcurement.batch_no;
-
-      const batchNeeded = orderProcurements
-        .filter(p => p.batch_no === latestBatchNo)
-        .reduce((sum, p) => sum + Number(p.planned_amount || 0), 0);
-
-      const batchReceived = deliveries
-        .filter(d => d.order_no === order.order_no && d.batch_no === latestBatchNo)
-        .reduce((sum, d) => sum + Number(d.amount_received || 0), 0);
-
-      if (batchNeeded === 0) return { percent: 0, batch: latestBatchNo };
-      return { 
-        percent: Math.round(Math.min(100, (batchReceived / batchNeeded) * 100)),
-        batch: latestBatchNo 
-      };
+    if (order.current_stage === 'kesim_bekliyor' && !order.fabric_ordered) {
+      return { percent: 0 };
     }
-
-    const qtyByOrder = order.qty_by_size || order.qtyBySize || {};
-    const baseTotal = Object.values(qtyByOrder).reduce((a, b) => a + (Number(b) || 0), 0);
-    const extraFactor = 1 + (Number(order.extra_percent || 5) / 100);
-    const totalPieces = Math.ceil(baseTotal * extraFactor);
-    let needed = 0;
-    const orderFabricKeys = new Set();
-    Object.values(order.fabrics || {}).forEach(f => {
-      if (!f.kind || !f.color) return;
-      needed += totalPieces * (Number(f.perPieceKg || 0));
-      orderFabricKeys.add(`${f.kind.toLowerCase()}-${f.color.toLowerCase()}`);
-    });
-    if (needed === 0) return { percent: 0 };
-    const received = deliveries.filter(d => d.order_no === order.order_no && orderFabricKeys.has(`${(d.fabric_kind || '').toLowerCase()}-${(d.color || '').toLowerCase()}`)).reduce((sum, d) => sum + Number(d.amount_received || 0), 0);
-    return { percent: Math.round(Math.min(100, (received / needed) * 100)) };
+    if (order.fabric_ordered && order.current_stage === 'kesim_bekliyor') {
+      return { percent: 50 }; // Sipariş geçildi, yolda
+    }
+    return { percent: 100 }; // Kumaş geldi veya kesimde
   };
 
   const getStageLabel = (key) => {
@@ -226,10 +187,7 @@ export default function OrderList({ onEditOrder }) {
 
                 <div className="flex-1 w-full lg:max-w-60">
                   <div className="flex justify-between items-end mb-1.5">
-                    {/* ✅ Parti Kodu Buradaki Stats İçinde Saklanıyor */}
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                      Kumaş Girişi {stats.batch && <span className="text-blue-600 ml-1">({stats.batch})</span>}
-                    </span>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Kumaş Durumu</span>
                     <span className={`text-[10px] font-black ${stats.percent === 100 ? 'text-emerald-500' : 'text-blue-600'}`}>%{stats.percent}</span>
                   </div>
                   <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -239,7 +197,15 @@ export default function OrderList({ onEditOrder }) {
 
                 <div className="flex flex-wrap items-center gap-2">
                   <button onClick={() => setPrintOrder(order)} className={`px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter ${order.fabric_ordered ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}`}>Kumaş Sip. Formu</button>
-                  <button onClick={() => setIntakeOrder(order)} className="bg-blue-50 text-blue-600 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border border-blue-100">Gelen Kumaş Bilgisi</button>
+                  
+                  {/* 🛠️ TEMİZLENDİ: Eski modal yerine modern yönlendirme sağlayan bilgi butonu */}
+                  <button 
+                    onClick={() => alert("📌 Giriş ve İrsaliye işlemlerinizi, alt menüdeki 'KUMAŞ' sekmesinden toplu ve hatasız olarak gerçekleştirebilirsiniz.")} 
+                    className="bg-blue-50 text-blue-600 border-blue-100 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border"
+                  >
+                    Kumaş Bilgisi
+                  </button>
+
                   <button onClick={() => setPreparingOrder(order)} className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg hover:bg-blue-600 transition-colors">Kesim Emri</button>
                   <button onClick={() => setCuttingResultOrder(order)} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter transition-all ${isCut ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white'}`}>
                     {isCut ? <CheckCircle size={14} /> : <Scissors size={14} />} {isCut ? 'Kesildi' : 'Sonuç Gir'}
@@ -251,7 +217,7 @@ export default function OrderList({ onEditOrder }) {
         })}
       </div>
 
-      {/* 🚀 MODAL: DETAY KARTI (GÜNCELLENMİŞ VERSİYON) */}
+      {/* MODAL: DETAY KARTI */}
       {selectedOrderDetail && (
         <div className="fixed inset-0 z-100 flex items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedOrderDetail(null)}>
           <div className="relative bg-white w-full max-w-4xl h-full md:h-auto md:max-h-[90vh] rounded-none md:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-300" onClick={e => e.stopPropagation()}>
@@ -261,7 +227,6 @@ export default function OrderList({ onEditOrder }) {
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-              {/* ÜST BİLGİ */}
               <div className="p-8 md:p-10 bg-slate-50/50 flex flex-col md:flex-row gap-8 border-b border-slate-100">
                 <div className="w-32 h-44 bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-inner shrink-0 mx-auto md:mx-0">
                   {selectedOrderDetail.model_image ? <img src={selectedOrderDetail.model_image} className="w-full h-full object-cover" /> : <Hash size={30} className="text-slate-100 m-auto mt-16" />}
@@ -278,8 +243,6 @@ export default function OrderList({ onEditOrder }) {
               </div>
 
               <div className="p-8 md:p-10 space-y-10">
-                
-                {/* 🚀 TOPLAM ÖZET KARTLARI (YENİ) */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-white border border-slate-100 p-6 rounded-4xl flex items-center gap-6 shadow-sm">
                     <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-inner"><Calculator size={28} /></div>
@@ -305,7 +268,6 @@ export default function OrderList({ onEditOrder }) {
                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2"><CheckCircle size={14}/> Beden Denge Matrisi</h3>
                 </div>
 
-                {/* 🚀 YATAY BEDEN KARTLARI (GÜNCELLENDİ) */}
                 <div className="flex gap-3 overflow-x-auto pb-6 custom-scrollbar min-w-full">
                   {Object.entries(selectedOrderDetail.qty_by_size || {})
                     .filter(([size, qty]) => Number(qty) > 0 || Number(selectedOrderDetail.cutting_qty?.[size] || 0) > 0)
@@ -342,7 +304,6 @@ export default function OrderList({ onEditOrder }) {
 
       {/* DİĞER MODALLAR */}
       {printOrder && <FabricOrderPrint order={printOrder} onClose={() => setPrintOrder(null)} onSuccess={loadData} />}
-      {intakeOrder && <FabricIntakeModal order={intakeOrder} allOrders={orders} onClose={() => setIntakeOrder(null)} onSuccess={loadData} />}
       {preparingOrder && <CuttingOrderModal order={preparingOrder} onClose={() => setPreparingOrder(null)} onConfirm={(upd) => { setPreparingOrder(null); setPrintCuttingOrder(upd); loadData(); }} />}
       {printCuttingOrder && <CuttingOrderPrint order={printCuttingOrder} onClose={() => setPrintCuttingOrder(null)} />}
       {cuttingResultOrder && <CuttingResultModal order={cuttingResultOrder} onClose={() => setCuttingResultOrder(null)} onSuccess={loadData} />}
