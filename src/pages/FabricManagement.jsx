@@ -7,14 +7,16 @@ import {
   FilePlus, 
   AlertCircle, 
   Package,
-  Edit
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { 
   getOrdersWaitingForFabric, 
   createFabricPurchaseOrder, 
   getFabricOrders, 
   receiveFabricDelivery,
-  updateFabricPurchaseOrder // 🛠️ Yeni eklediğimiz servis fonksiyonu
+  updateFabricPurchaseOrder,
+  deleteFabricPurchaseOrder
 } from '../api/orderService';
 
 export default function FabricManagement() {
@@ -29,13 +31,13 @@ export default function FabricManagement() {
   // Modal State'leri
   const [showPoModal, setShowPoModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false); // 🛠️ Düzenleme Modalı State'i
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedPo, setSelectedPo] = useState(null);
 
   // Form State'leri
   const [poForm, setPoForm] = useState({ supplierName: '', customQtyKg: '' });
-  const [receiveForm, setReceiveForm] = useState({ receivedKg: '' });
-  const [editForm, setEditForm] = useState({ supplierName: '', orderedQtyKg: '', fabricType: '', color: '' }); // 🛠️ Düzenleme Formu State'i
+  const [receiveForm, setReceiveForm] = useState({ receivedKg: '', receivedRolls: '' });
+  const [editForm, setEditForm] = useState({ supplierName: '', orderedQtyKg: '', fabricType: '', color: '' });
 
   const loadData = async () => {
     setLoading(true);
@@ -149,10 +151,10 @@ export default function FabricManagement() {
     if (!selectedPo) return;
 
     try {
-      await receiveFabricDelivery(selectedPo.id, receiveForm.receivedKg);
+      await receiveFabricDelivery(selectedPo.id, receiveForm.receivedKg, receiveForm.receivedRolls);
       alert("Kumaş girişi yapıldı! İlgili artikeller otomatik olarak KESİM aşamasına aktarıldı.");
       setShowReceiveModal(false);
-      setReceiveForm({ receivedKg: '' });
+      setReceiveForm({ receivedKg: '', receivedRolls: '' });
       setSelectedPo(null);
       loadData();
     } catch (err) {
@@ -160,7 +162,6 @@ export default function FabricManagement() {
     }
   };
 
-  // 🛠️ Düzenleme İşlemini Tetikleme
   const handleOpenEditModal = (po) => {
     setSelectedPo(po);
     setEditForm({
@@ -172,7 +173,6 @@ export default function FabricManagement() {
     setShowEditModal(true);
   };
 
-  // 🛠️ Düzenlemeyi Kaydetme
   const handleUpdatePo = async (e) => {
     e.preventDefault();
     if (!selectedPo) return;
@@ -185,6 +185,18 @@ export default function FabricManagement() {
       loadData();
     } catch (err) {
       alert("Güncelleme hatası: " + err.message);
+    }
+  };
+
+  const handleDeletePo = async (poId, poNo) => {
+    if (window.confirm(`⚠️ ${poNo} numaralı kumaş siparişini tamamen silmek istediğinize emin misiniz?\n\nBu siparişe bağlı tüm artikeller serbest kalacak ve tekrar "Kumaş Bekleyenler" havuzuna dönecektir.`)) {
+      try {
+        await deleteFabricPurchaseOrder(poId);
+        alert("Kumaş siparişi iptal edildi ve artikeller havuza geri gönderildi.");
+        loadData();
+      } catch (err) {
+        alert("Silme hatası: " + err.message);
+      }
     }
   };
 
@@ -301,9 +313,9 @@ export default function FabricManagement() {
                     <div className="flex items-center gap-3">
                       <span className="bg-slate-900 text-white text-[11px] font-black px-3 py-1 rounded-xl tracking-wider">{po.fabric_po_no}</span>
                       <span className="text-base font-black text-slate-900 uppercase italic tracking-tight">{po.supplier_name}</span>
-                      <span className={`text-[8px] font-black uppercase px-2.5 py-1 rounded-lg tracking-widest ${po.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {po.status === 'completed' ? 'DEPOYA İNDİ' : 'YOLDA / BEKLİYOR'}
-                      </span>
+                      {po.received_rolls > 0 && (
+                        <span className="bg-blue-100 text-blue-800 text-[9px] font-black px-2.5 py-1 rounded-lg uppercase tracking-tight">📦 {po.received_rolls} Top Kumaş</span>
+                      )}
                     </div>
                     
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100/50">
@@ -313,11 +325,12 @@ export default function FabricManagement() {
                       <div><span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">FİELEN GELEN</span><span className="text-xs font-black text-emerald-600 italic">{po.received_qty_kg || 0} / {po.ordered_qty_kg} KG</span></div>
                     </div>
 
+                    {/* 🛠️ GÜNCELLENEN ROZET ALANI: Sipariş No yanına Artikel İsmi de eklendi */}
                     <div className="flex flex-wrap gap-2 pt-1">
                       <span className="text-[8px] font-black text-slate-400 uppercase flex items-center gap-1"><Package size={10}/> Bağlı Artikeller:</span>
                       {po.fabric_order_items?.map(item => (
-                        <span key={item.id} className="bg-white border border-slate-200 px-2 py-0.5 rounded-lg text-[9px] font-bold text-slate-600 uppercase">
-                          {item.orders?.order_no} ({item.allocated_qty_kg} Kg)
+                        <span key={item.id} className="bg-white border border-slate-200 px-2 py-1 rounded-lg text-[9px] font-black text-slate-700 uppercase shadow-sm">
+                          {item.orders?.order_no} <span className="text-blue-600 font-bold">({item.orders?.article || 'Tanımsız'})</span> - {item.allocated_qty_kg} Kg
                         </span>
                       ))}
                     </div>
@@ -336,7 +349,13 @@ export default function FabricManagement() {
                       onClick={() => handleOpenEditModal(po)}
                       className="flex-1 bg-slate-100 hover:bg-slate-900 text-slate-700 hover:text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 border border-slate-200 transition-all"
                     >
-                      <Edit size={14}/> Siparişi Düzenle
+                      <Edit size={14}/> Düzenle
+                    </button>
+                    <button 
+                      onClick={() => handleDeletePo(po.id, po.fabric_po_no)}
+                      className="flex-1 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 border border-red-200 transition-all"
+                    >
+                      <Trash2 size={14}/> İptal / Sil
                     </button>
                   </div>
                 </div>
@@ -346,7 +365,7 @@ export default function FabricManagement() {
         </div>
       )}
 
-      {/* ------------------ MODAL 1: SİPARİŞ OLUŞTURMA MODALI ------------------ */}
+      {/* MODAL 1: SİPARİŞ OLUŞTURMA */}
       {showPoModal && (
         <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 text-slate-900">
           <div className="bg-white w-full max-w-md rounded-4xl shadow-2xl p-6 space-y-6">
@@ -377,7 +396,7 @@ export default function FabricManagement() {
         </div>
       )}
 
-      {/* ------------------ MODAL 2: İRSALİYE GİRİŞ MODALI ------------------ */}
+      {/* MODAL 2: İRSALİYE GİRİŞİ */}
       {showReceiveModal && (
         <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 text-slate-900">
           <div className="bg-white w-full max-w-sm rounded-4xl shadow-2xl p-6 space-y-6">
@@ -392,7 +411,12 @@ export default function FabricManagement() {
             <form onSubmit={handleReceiveDelivery} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Gelen Net İrsaliye Kilosu (KG)</label>
-                <input required type="number" step="0.01" className="w-full h-12 px-4 bg-slate-50 border rounded-xl text-sm font-black text-center text-emerald-600 outline-none focus:ring-2 focus:ring-emerald-500" placeholder="0.00" value={receiveForm.receivedKg} onChange={e => setReceiveForm({...receiveForm, receivedKg: e.target.value})} />
+                <input required type="number" step="0.01" className="w-full h-11 px-4 bg-slate-50 border rounded-xl text-sm font-black text-center text-emerald-600 outline-none" placeholder="0.00" value={receiveForm.receivedKg} onChange={e => setReceiveForm({...receiveForm, receivedKg: e.target.value})} />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Gelen Top / Rulo Sayısı</label>
+                <input required type="number" className="w-full h-11 px-4 bg-slate-50 border rounded-xl text-sm font-black text-center text-blue-600 outline-none" placeholder="Örn: 15" value={receiveForm.receivedRolls} onChange={e => setReceiveForm({...receiveForm, receivedRolls: e.target.value})} />
               </div>
 
               <div className="flex gap-3 pt-2">
@@ -404,10 +428,10 @@ export default function FabricManagement() {
         </div>
       )}
 
-      {/* ------------------ 🛠️ MODAL 3: SİPARİŞ DÜZENLEME MODALI (YENİ) ------------------ */}
+      {/* MODAL 3: SİPARİŞ DÜZENLEME */}
       {showEditModal && (
         <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 text-slate-900">
-          <div className="bg-white w-full max-w-md rounded-4xl shadow-2xl p-6 space-y-6 animate-in zoom-in duration-150">
+          <div className="bg-white w-full max-w-md rounded-4xl shadow-2xl p-6 space-y-6">
             <h2 className="text-sm font-black uppercase border-b pb-3 flex items-center gap-2 text-amber-600"><Edit size={16}/> Kumaş Siparişini Düzenle ({selectedPo?.fabric_po_no})</h2>
             
             <form onSubmit={handleUpdatePo} className="space-y-4">

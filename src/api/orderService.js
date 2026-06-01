@@ -225,7 +225,7 @@ export const getPackingList = async (orderNo) => {
  * 🛠️ 7. YENİ KUMAŞ YÖNETİM SİSTEMİ FONKSİYONLARI (PO BAZLI TAKİP)
  */
 
-// Kumaş Siparişi Bekleyen (Henüz yeni PO'lara bağlanmamış) Aktif Artikelleri Listele
+// Kumaş Siparişi Bekleyen Aktif Artikelleri Listele
 export const getOrdersWaitingForFabric = async () => {
   const { data, error } = await supabase
     .from('orders')
@@ -239,7 +239,6 @@ export const getOrdersWaitingForFabric = async () => {
 
 // Yeni Toplu Kumaş Satın Alma Siparişi (PO) Oluştur ve Artikelleri Bağla
 export const createFabricPurchaseOrder = async (poData, selectedOrderIds) => {
-  // 1. Yeni Kumaş Sipariş Numarasını Belirle (K-2026-001 formatı)
   const year = new Date().getFullYear();
   const { data: lastFabricOrders } = await supabase
     .from('fabric_orders')
@@ -256,7 +255,6 @@ export const createFabricPurchaseOrder = async (poData, selectedOrderIds) => {
   }
   const finalPoNo = `K-${year}-${String(sequence).padStart(3, '0')}`;
 
-  // 2. Kumaş Siparişini fabric_orders Tablosuna Ekle
   const { data: newPo, error: poError } = await supabase
     .from('fabric_orders')
     .insert([
@@ -274,7 +272,6 @@ export const createFabricPurchaseOrder = async (poData, selectedOrderIds) => {
   if (poError) throw poError;
   const fabricOrderId = newPo[0].id;
 
-  // 3. Seçilen Artikelleri Köprü Tablosuna (fabric_order_items) Kaydet ve orders tablosunda 'kumaş sipariş edildi' yap
   const itemRows = selectedOrderIds.map(id => ({
     fabric_order_id: fabricOrderId,
     order_id: id,
@@ -284,13 +281,12 @@ export const createFabricPurchaseOrder = async (poData, selectedOrderIds) => {
   const { error: itemsError } = await supabase.from('fabric_order_items').insert(itemRows);
   if (itemsError) throw itemsError;
 
-  // 4. Ana orders tablosundaki bu artikellerin fabric_ordered durumunu güncelle
   await supabase.from('orders').update({ fabric_ordered: true }).in('id', selectedOrderIds);
 
   return newPo[0];
 };
 
-// Tüm Geçilen Kumaş Siparişlerini (Yoldaki ve Bitenleri) Getir
+// Tüm Geçilen Kumaş Siparişlerini Getir
 export const getFabricOrders = async () => {
   const { data, error } = await supabase
     .from('fabric_orders')
@@ -309,44 +305,6 @@ export const getFabricOrders = async () => {
   return data || [];
 };
 
-// İrsaliye/Kumaş Girişi Yap (Sadece o Siparişe Bağlı Artikelleri Tetikler!)
-export const receiveFabricDelivery = async (fabricOrderId, receivedKg) => {
-  // 1. Kumaş siparişinin durumunu ve gelen kilosunu güncelle
-  const { data: currentPo, error: fetchError } = await supabase.from('fabric_orders').select('received_qty_kg').eq('id', fabricOrderId).single();
-  if (fetchError) throw fetchError;
-
-  const newTotalReceived = Number(currentPo.received_qty_kg || 0) + Number(receivedKg);
-
-  const { error: poUpdateError } = await supabase
-    .from('fabric_orders')
-    .update({
-      received_qty_kg: newTotalReceived,
-      status: 'completed'
-    })
-    .eq('id', fabricOrderId);
-
-  if (poUpdateError) throw poUpdateError;
-
-  // 2. Bu kumaş siparişine bağlı olan artikelleri bul
-  const { data: items, error: itemsError } = await supabase
-    .from('fabric_order_items')
-    .select('order_id')
-    .eq('fabric_order_id', fabricOrderId);
-
-  if (itemsError) throw itemsError;
-
-  const orderIdsToUpdate = items.map(i => i.order_id);
-
-  // 3. Sadece ve sadece bu bağlı artikellerin aşamasını "KESİM BEKLİYOR" konumuna çek
-  if (orderIdsToUpdate.length > 0) {
-    await supabase
-      .from('orders')
-      .update({ current_stage: 'kesimhanede' }) // Kumaş geldiği için otomatik kesimhaneye paslanır
-      .in('id', orderIdsToUpdate);
-  }
-
-  return true;
-};
 // Geçilen Kumaş Siparişini (PO) Güncelle/Düzenle
 export const updateFabricPurchaseOrder = async (poId, updatedData) => {
   const { data, error } = await supabase
@@ -362,4 +320,74 @@ export const updateFabricPurchaseOrder = async (poId, updatedData) => {
 
   if (error) throw error;
   return data[0];
+};
+
+// İrsaliye/Kumaş Girişi Yap (Kilo + TOP SAYISI BAZLI GÜNCEL TEK TANIM)
+export const receiveFabricDelivery = async (fabricOrderId, receivedKg, receivedRolls) => {
+  const { data: currentPo, error: fetchError } = await supabase
+    .from('fabric_orders')
+    .select('received_qty_kg, received_rolls')
+    .eq('id', fabricOrderId)
+    .single();
+    
+  if (fetchError) throw fetchError;
+
+  const newTotalReceived = Number(currentPo.received_qty_kg || 0) + Number(receivedKg);
+  const newTotalRolls = Number(currentPo.received_rolls || 0) + Number(receivedRolls || 0);
+
+  const { error: poUpdateError } = await supabase
+    .from('fabric_orders')
+    .update({
+      received_qty_kg: newTotalReceived,
+      received_rolls: newTotalRolls,
+      status: 'completed'
+    })
+    .eq('id', fabricOrderId);
+
+  if (poUpdateError) throw poUpdateError;
+
+  const { data: items, error: itemsError } = await supabase
+    .from('fabric_order_items')
+    .select('order_id')
+    .eq('fabric_order_id', fabricOrderId);
+
+  if (itemsError) throw itemsError;
+
+  const orderIdsToUpdate = items.map(i => i.order_id);
+
+  if (orderIdsToUpdate.length > 0) {
+    await supabase
+      .from('orders')
+      .update({ current_stage: 'kesimhanede' })
+      .in('id', orderIdsToUpdate);
+  }
+
+  return true;
+};
+
+// Kumaş Siparişini Tamamen Silme Operasyonu
+export const deleteFabricPurchaseOrder = async (fabricOrderId) => {
+  const { data: items, error: itemsError } = await supabase
+    .from('fabric_order_items')
+    .select('order_id')
+    .eq('fabric_order_id', fabricOrderId);
+
+  if (itemsError) throw itemsError;
+  
+  const connectedOrderIds = items.map(i => i.order_id);
+
+  if (connectedOrderIds.length > 0) {
+    await supabase
+      .from('orders')
+      .update({ fabric_ordered: false })
+      .in('id', connectedOrderIds);
+  }
+
+  const { error: deleteError } = await supabase
+    .from('fabric_orders')
+    .delete()
+    .eq('id', fabricOrderId);
+
+  if (deleteError) throw deleteError;
+  return true;
 };
