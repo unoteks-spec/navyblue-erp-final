@@ -12,6 +12,10 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       includeAssets: ['logo.png', 'favicon.ico', 'apple-touch-icon.png'],
+      // 🛠️ BÜYÜK BOYUTLU JS DOSYALARI İÇİN 4 MB ÖNBELLEK LİMİTİ ENJEKTE EDİLDİ
+      workbox: {
+        maximumFileSizeToCacheInBytes: 4000000,
+      },
       manifest: {
         name: 'Navy Blue ERP',
         short_name: 'NavyBlue',
