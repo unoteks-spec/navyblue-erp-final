@@ -10,6 +10,7 @@ import ProductionReport from './pages/ProductionReport';
 import ProductionTrack from './pages/ProductionTrack';
 import ArchivedOrders from './pages/ArchivedOrders';
 import PackingList from './pages/PackingList';
+import FabricManagement from './pages/FabricManagement'; // 🛠️ YENİ: Kumaş Yönetim Sayfası Entegre Edildi
 
 // İkonlar
 import { 
@@ -20,6 +21,7 @@ import {
   Activity,
   Archive,
   Package,
+  Layers, // 🛠️ YENİ: Kumaş ikonumuz için eklendi
   LogOut // Çıkış butonu için ekledik
 } from 'lucide-react';
 
@@ -90,6 +92,7 @@ function App() {
         {activePage === 'report' && <ProductionReport />}
         {activePage === 'archived' && <ArchivedOrders />}
         {activePage === 'packing' && <PackingList />}
+        {activePage === 'fabric' && <FabricManagement />} {/* 🛠️ YENİ: Sayfa render bloğuna eklendi */}
       </main>
 
       {/* Alt Menü (Modern Floating Navigation) */}
@@ -160,7 +163,20 @@ function App() {
 
         <div className="w-px h-5 bg-slate-800"></div>
 
-        {/* 6. Çeki Listesi */}
+        {/* 🛠️ YENİ 6. Kumaş Yönetimi Butonu (Rapor ve Çeki listesi arasına eklendi) */}
+        <button 
+          onClick={() => { setEditingOrder(null); setActivePage('fabric'); }}
+          className={`flex flex-col items-center gap-1 transition-all duration-300 shrink-0 ${
+            activePage === 'fabric' ? 'text-blue-400 scale-110' : 'text-slate-500 hover:text-slate-300'
+          }`}
+        >
+          <Layers size={18} strokeWidth={activePage === 'fabric' ? 2.5 : 2} />
+          <span className="text-[8px] font-black uppercase tracking-tighter">Kumaş</span>
+        </button>
+
+        <div className="w-px h-5 bg-slate-800"></div>
+
+        {/* 7. Çeki Listesi */}
         <button 
           onClick={() => { setEditingOrder(null); setActivePage('packing'); }}
           className={`flex flex-col items-center gap-1 transition-all duration-300 shrink-0 ${
@@ -173,7 +189,7 @@ function App() {
 
         <div className="w-px h-5 bg-slate-800"></div>
 
-        {/* 7. Yeni Kayıt */}
+        {/* 8. Yeni Kayıt */}
         <button 
           onClick={() => { setEditingOrder(null); setActivePage('create'); }}
           className={`flex flex-col items-center gap-1 transition-all duration-300 shrink-0 ${
@@ -186,7 +202,7 @@ function App() {
 
         <div className="w-px h-5 bg-slate-800/50"></div>
 
-        {/* 8. ÇIKIŞ (Güvenlik için eklendi) */}
+        {/* 9. ÇIKIŞ */}
         <button 
           onClick={handleLogout}
           className="flex flex-col items-center gap-1 text-red-500 hover:text-red-400 transition-all duration-300 shrink-0"

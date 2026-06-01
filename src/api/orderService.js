@@ -70,11 +70,10 @@ export const updateCuttingResults = async (orderId, results, details) => {
  * 3. DASHBOARD İSTATİSTİKLERİ
  */
 export const getDashboardStats = async () => {
-  // 🛠️ GÜNCELLEME: Dashboard sadece AKTİF işleri göstersin (Yüklenen/Arşivlenenleri hariç tut)
   const [ordersRes, deliveriesRes] = await Promise.all([
     supabase.from('orders')
       .select('*')
-      .not('status', 'in', '("completed","archived")') // Arşivlenenleri listeden düşürür
+      .not('status', 'in', '("completed","archived")') 
       .is('is_archived', false), 
     supabase.from('fabric_deliveries').select('*')
   ]);
@@ -181,56 +180,34 @@ export const updateGroupFabricDeadlines = async (orderNo, deadlines) => {
   return true;
 };
 
-// 🛠️ TEK VE GÜNCEL ARŞİVLEME FONKSİYONU
 export const archiveOrder = async (id) => {
-  const { data, error } = await supabase
-    .from('orders')
-    .update({ 
-      status: 'archived',
-      is_archived: true 
-    })
-    .eq('id', id);
-  
+  const { data, error } = await supabase.from('orders').update({ status: 'archived', is_archived: true }).eq('id', id);
   if (error) throw error;
   return data;
 };
-// src/api/orderService.js
 
-/**
- * SİPARİŞİ SEVK EDİLEN ADETLERLE ARŞİVLE
- */
 export const archiveOrderWithQty = async (id, shippedQty) => {
-  const { data, error } = await supabase
-    .from('orders')
-    .update({ 
+  const { data, error } = await supabase.from('orders').update({ 
       status: 'archived',
       is_archived: true,
-      shipped_qty: shippedQty, // 🛠️ Yeni: Beden bazlı sevkiyat verisi
+      shipped_qty: shippedQty, 
       completed_at: new Date().toISOString()
-    })
-    .eq('id', id);
-  
-  if (error) {
-    console.error("Arşivleme hatası:", error.message);
-    throw error;
-  }
+    }).eq('id', id);
+  if (error) throw error;
   return data;
 };
+
 /**
  * 6. ÇEKİ LİSTESİ (PACKING LIST) İŞLEMLERİ
  */
-
-// Çeki Listesini Kaydet
 export const savePackingList = async (orderNo, boxes, consignee) => {
-  // Önce bu siparişe ait eski listeyi temizleyelim (Update mantığı için)
   await supabase.from('packing_lists').delete().eq('order_no', orderNo);
-
   const { data, error } = await supabase.from('packing_lists').insert([
     {
       order_no: orderNo,
       consignee_name: consignee.name,
       consignee_address: consignee.address,
-      boxes_data: boxes, // Tüm Lot/Single bilgilerini JSON olarak saklar
+      boxes_data: boxes, 
       updated_at: new Date().toISOString()
     }
   ]);
@@ -238,12 +215,135 @@ export const savePackingList = async (orderNo, boxes, consignee) => {
   return data;
 };
 
-// Çeki Listesini Getir
 export const getPackingList = async (orderNo) => {
-  const { data, error } = await supabase
-    .from('packing_lists')
-    .select('*')
-    .eq('order_no', orderNo)
-    .single();
+  const { data, error } = await supabase.from('packing_lists').select('*').eq('order_no', orderNo).single();
   return data;
+};
+
+
+/**
+ * 🛠️ 7. YENİ KUMAŞ YÖNETİM SİSTEMİ FONKSİYONLARI (PO BAZLI TAKİP)
+ */
+
+// Kumaş Siparişi Bekleyen (Henüz yeni PO'lara bağlanmamış) Aktif Artikelleri Listele
+export const getOrdersWaitingForFabric = async () => {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .is('is_archived', false)
+    .not('status', 'in', '("completed","archived")');
+  
+  if (error) throw error;
+  return data || [];
+};
+
+// Yeni Toplu Kumaş Satın Alma Siparişi (PO) Oluştur ve Artikelleri Bağla
+export const createFabricPurchaseOrder = async (poData, selectedOrderIds) => {
+  // 1. Yeni Kumaş Sipariş Numarasını Belirle (K-2026-001 formatı)
+  const year = new Date().getFullYear();
+  const { data: lastFabricOrders } = await supabase
+    .from('fabric_orders')
+    .select('fabric_po_no')
+    .like('fabric_po_no', `K-${year}-%`)
+    .order('fabric_po_no', { ascending: false })
+    .limit(1);
+
+  let sequence = 1;
+  if (lastFabricOrders && lastFabricOrders.length > 0) {
+    const lastNo = lastFabricOrders[0].fabric_po_no;
+    const lastSeq = parseInt(lastNo.split('-').pop());
+    if (!isNaN(lastSeq)) sequence = lastSeq + 1;
+  }
+  const finalPoNo = `K-${year}-${String(sequence).padStart(3, '0')}`;
+
+  // 2. Kumaş Siparişini fabric_orders Tablosuna Ekle
+  const { data: newPo, error: poError } = await supabase
+    .from('fabric_orders')
+    .insert([
+      {
+        fabric_po_no: finalPoNo,
+        supplier_name: poData.supplierName,
+        fabric_type: poData.fabricType,
+        color: poData.color,
+        ordered_qty_kg: Number(poData.orderedQtyKg || 0),
+        status: 'pending'
+      }
+    ])
+    .select();
+
+  if (poError) throw poError;
+  const fabricOrderId = newPo[0].id;
+
+  // 3. Seçilen Artikelleri Köprü Tablosuna (fabric_order_items) Kaydet ve orders tablosunda 'kumaş sipariş edildi' yap
+  const itemRows = selectedOrderIds.map(id => ({
+    fabric_order_id: fabricOrderId,
+    order_id: id,
+    allocated_qty_kg: Number(poData.allocatedMap?.[id] || 0)
+  }));
+
+  const { error: itemsError } = await supabase.from('fabric_order_items').insert(itemRows);
+  if (itemsError) throw itemsError;
+
+  // 4. Ana orders tablosundaki bu artikellerin fabric_ordered durumunu güncelle
+  await supabase.from('orders').update({ fabric_ordered: true }).in('id', selectedOrderIds);
+
+  return newPo[0];
+};
+
+// Tüm Geçilen Kumaş Siparişlerini (Yoldaki ve Bitenleri) Getir
+export const getFabricOrders = async () => {
+  const { data, error } = await supabase
+    .from('fabric_orders')
+    .select(`
+      *,
+      fabric_order_items (
+        id,
+        allocated_qty_kg,
+        order_id,
+        orders (order_no, article, model, color, qty_by_size)
+      )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+};
+
+// İrsaliye/Kumaş Girişi Yap (Sadece o Siparişe Bağlı Artikelleri Tetikler!)
+export const receiveFabricDelivery = async (fabricOrderId, receivedKg) => {
+  // 1. Kumaş siparişinin durumunu ve gelen kilosunu güncelle
+  const { data: currentPo, error: fetchError } = await supabase.from('fabric_orders').select('received_qty_kg').eq('id', fabricOrderId).single();
+  if (fetchError) throw fetchError;
+
+  const newTotalReceived = Number(currentPo.received_qty_kg || 0) + Number(receivedKg);
+
+  const { error: poUpdateError } = await supabase
+    .from('fabric_orders')
+    .update({
+      received_qty_kg: newTotalReceived,
+      status: 'completed'
+    })
+    .eq('id', fabricOrderId);
+
+  if (poUpdateError) throw poUpdateError;
+
+  // 2. Bu kumaş siparişine bağlı olan artikelleri bul
+  const { data: items, error: itemsError } = await supabase
+    .from('fabric_order_items')
+    .select('order_id')
+    .eq('fabric_order_id', fabricOrderId);
+
+  if (itemsError) throw itemsError;
+
+  const orderIdsToUpdate = items.map(i => i.order_id);
+
+  // 3. Sadece ve sadece bu bağlı artikellerin aşamasını "KESİM BEKLİYOR" konumuna çek
+  if (orderIdsToUpdate.length > 0) {
+    await supabase
+      .from('orders')
+      .update({ current_stage: 'kesimhanede' }) // Kumaş geldiği için otomatik kesimhaneye paslanır
+      .in('id', orderIdsToUpdate);
+  }
+
+  return true;
 };
