@@ -347,3 +347,19 @@ export const receiveFabricDelivery = async (fabricOrderId, receivedKg) => {
 
   return true;
 };
+// Geçilen Kumaş Siparişini (PO) Güncelle/Düzenle
+export const updateFabricPurchaseOrder = async (poId, updatedData) => {
+  const { data, error } = await supabase
+    .from('fabric_orders')
+    .update({
+      supplier_name: updatedData.supplierName,
+      ordered_qty_kg: Number(updatedData.orderedQtyKg || 0),
+      fabric_type: updatedData.fabricType,
+      color: updatedData.color
+    })
+    .eq('id', poId)
+    .select();
+
+  if (error) throw error;
+  return data[0];
+};

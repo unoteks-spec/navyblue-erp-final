@@ -6,13 +6,15 @@ import {
   Truck, 
   FilePlus, 
   AlertCircle, 
-  Package
+  Package,
+  Edit
 } from 'lucide-react';
 import { 
   getOrdersWaitingForFabric, 
   createFabricPurchaseOrder, 
   getFabricOrders, 
-  receiveFabricDelivery 
+  receiveFabricDelivery,
+  updateFabricPurchaseOrder // 🛠️ Yeni eklediğimiz servis fonksiyonu
 } from '../api/orderService';
 
 export default function FabricManagement() {
@@ -27,11 +29,13 @@ export default function FabricManagement() {
   // Modal State'leri
   const [showPoModal, setShowPoModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false); // 🛠️ Düzenleme Modalı State'i
   const [selectedPo, setSelectedPo] = useState(null);
 
   // Form State'leri
   const [poForm, setPoForm] = useState({ supplierName: '', customQtyKg: '' });
   const [receiveForm, setReceiveForm] = useState({ receivedKg: '' });
+  const [editForm, setEditForm] = useState({ supplierName: '', orderedQtyKg: '', fabricType: '', color: '' }); // 🛠️ Düzenleme Formu State'i
 
   const loadData = async () => {
     setLoading(true);
@@ -153,6 +157,34 @@ export default function FabricManagement() {
       loadData();
     } catch (err) {
       alert("Hata: " + err.message);
+    }
+  };
+
+  // 🛠️ Düzenleme İşlemini Tetikleme
+  const handleOpenEditModal = (po) => {
+    setSelectedPo(po);
+    setEditForm({
+      supplierName: po.supplier_name,
+      orderedQtyKg: po.ordered_qty_kg,
+      fabricType: po.fabric_type,
+      color: po.color
+    });
+    setShowEditModal(true);
+  };
+
+  // 🛠️ Düzenlemeyi Kaydetme
+  const handleUpdatePo = async (e) => {
+    e.preventDefault();
+    if (!selectedPo) return;
+
+    try {
+      await updateFabricPurchaseOrder(selectedPo.id, editForm);
+      alert("Kumaş siparişi başarıyla güncellendi!");
+      setShowEditModal(false);
+      setSelectedPo(null);
+      loadData();
+    } catch (err) {
+      alert("Güncelleme hatası: " + err.message);
     }
   };
 
@@ -291,14 +323,22 @@ export default function FabricManagement() {
                     </div>
                   </div>
 
-                  {po.status !== 'completed' && (
+                  <div className="flex flex-row md:flex-col gap-2 w-full md:w-auto shrink-0">
+                    {po.status !== 'completed' && (
+                      <button 
+                        onClick={() => { setSelectedPo(po); setShowReceiveModal(true); }}
+                        className="flex-1 bg-emerald-600 hover:bg-slate-900 text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-md transition-all"
+                      >
+                        <Truck size={14}/> İrsaliye Girişi
+                      </button>
+                    )}
                     <button 
-                      onClick={() => { setSelectedPo(po); setShowReceiveModal(true); }}
-                      className="w-full md:w-auto bg-emerald-600 hover:bg-slate-900 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg transition-all shrink-0"
+                      onClick={() => handleOpenEditModal(po)}
+                      className="flex-1 bg-slate-100 hover:bg-slate-900 text-slate-700 hover:text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 border border-slate-200 transition-all"
                     >
-                      <Truck size={14}/> İrsaliye / Kumaş Girişi Yap
+                      <Edit size={14}/> Siparişi Düzenle
                     </button>
-                  )}
+                  </div>
                 </div>
               );
             })
@@ -310,7 +350,6 @@ export default function FabricManagement() {
       {showPoModal && (
         <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 text-slate-900">
           <div className="bg-white w-full max-w-md rounded-4xl shadow-2xl p-6 space-y-6">
-            {/* 🛠️ DÜZELTİLMEDEN ÖNCEKİ ÇAKIŞAN SATIR 328: text-slate-900 kaldırıldı, sadece text-blue-600 bırakıldı */}
             <h2 className="text-sm font-black uppercase border-b pb-3 flex items-center gap-2 text-blue-600"><FilePlus size={16}/> Satın Alma Siparişi (PO) Hazırla</h2>
             
             <div className="bg-slate-50 p-4 rounded-2xl border text-xs space-y-2 font-bold text-slate-600">
@@ -326,7 +365,6 @@ export default function FabricManagement() {
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Sipariş Kilosu (Elle Müdahale - Opsiyonel)</label>
-                {/* 🛠️ DÜZELTİLMEDEN ÖNCEKİ ÇAKIŞAN SATIR 343: font-bold kaldırıldı, sadece font-black ve text-blue-600 bırakıldı */}
                 <input type="number" className="w-full h-11 px-3 bg-slate-50 border rounded-xl text-xs font-black text-blue-600 outline-none" placeholder={`Boş bırakılırsa ${autoTotalCalculatedKg} KG yazılır`} value={poForm.customQtyKg} onChange={e => setPoForm({...poForm, customQtyKg: e.target.value})} />
               </div>
 
@@ -343,7 +381,6 @@ export default function FabricManagement() {
       {showReceiveModal && (
         <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 text-slate-900">
           <div className="bg-white w-full max-w-sm rounded-4xl shadow-2xl p-6 space-y-6">
-            {/* 🛠️ DÜZELTİLMEDEN ÖNCEKİ ÇAKIŞAN SATIR 359: text-slate-900 kaldırıldı, sadece text-emerald-600 bırakıldı */}
             <h2 className="text-sm font-black uppercase border-b pb-3 flex items-center gap-2 text-emerald-600"><Truck size={16}/> Fabrikaya Kumaş Girişi</h2>
             
             <div className="bg-slate-50 p-4 rounded-2xl border text-xs space-y-1 font-bold text-slate-600">
@@ -361,6 +398,43 @@ export default function FabricManagement() {
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => { setShowReceiveModal(false); setSelectedPo(null); }} className="flex-1 h-11 bg-slate-100 rounded-xl font-black text-xs uppercase hover:bg-slate-200 transition-colors">Vazgeç</button>
                 <button type="submit" className="flex-1 h-11 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase hover:bg-slate-900 transition-all shadow-lg">Depoya Kabul Et</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------ 🛠️ MODAL 3: SİPARİŞ DÜZENLEME MODALI (YENİ) ------------------ */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 text-slate-900">
+          <div className="bg-white w-full max-w-md rounded-4xl shadow-2xl p-6 space-y-6 animate-in zoom-in duration-150">
+            <h2 className="text-sm font-black uppercase border-b pb-3 flex items-center gap-2 text-amber-600"><Edit size={16}/> Kumaş Siparişini Düzenle ({selectedPo?.fabric_po_no})</h2>
+            
+            <form onSubmit={handleUpdatePo} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Kumaşçı / Tedarikçi</label>
+                <input required type="text" className="w-full h-11 px-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none" value={editForm.supplierName} onChange={e => setEditForm({...editForm, supplierName: e.target.value})} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Kumaş Türü</label>
+                  <input required type="text" className="w-full h-11 px-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none" value={editForm.fabricType} onChange={e => setEditForm({...editForm, fabricType: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Kumaş Rengi</label>
+                  <input required type="text" className="w-full h-11 px-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none" value={editForm.color} onChange={e => setEditForm({...editForm, color: e.target.value})} />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Sipariş Kilosu (KG)</label>
+                <input required type="number" className="w-full h-11 px-3 bg-slate-50 border rounded-xl text-xs font-black text-amber-600 outline-none" value={editForm.orderedQtyKg} onChange={e => setEditForm({...editForm, orderedQtyKg: e.target.value})} />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => { setShowEditModal(false); setSelectedPo(null); }} className="flex-1 h-12 bg-slate-100 rounded-xl font-black text-xs uppercase tracking-wider hover:bg-slate-200 transition-colors">Vazgeç</button>
+                <button type="submit" className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-lg">Değişiklikleri Kaydet</button>
               </div>
             </form>
           </div>
