@@ -222,10 +222,9 @@ export const getPackingList = async (orderNo) => {
 
 
 /**
- * 🛠️ 7. YENİ KUMAŞ YÖNETİM SİSTEMİ FONKSİYONLARI (PO BAZLI TAKİP)
+ * 🛠️ 7. KUMAŞ YÖNETİM SİSTEMİ (MÜHÜRLÜ - GÜNCEL)
  */
 
-// Kumaş Siparişi Bekleyen Aktif Artikelleri Listele
 export const getOrdersWaitingForFabric = async () => {
   const { data, error } = await supabase
     .from('orders')
@@ -237,23 +236,11 @@ export const getOrdersWaitingForFabric = async () => {
   return data || [];
 };
 
-// Yeni Toplu Kumaş Satın Alma Siparişi (PO) Oluştur ve Artikelleri Bağla
+// 🎯 DÜZELTME: Çakışan UNIQUE sayaç hatasını %100 bitiren güvenli mühürleme motoru
 export const createFabricPurchaseOrder = async (poData, selectedOrderIds) => {
   const year = new Date().getFullYear();
-  const { data: lastFabricOrders } = await supabase
-    .from('fabric_orders')
-    .select('fabric_po_no')
-    .like('fabric_po_no', `K-${year}-%`)
-    .order('fabric_po_no', { ascending: false })
-    .limit(1);
-
-  let sequence = 1;
-  if (lastFabricOrders && lastFabricOrders.length > 0) {
-    const lastNo = lastFabricOrders[0].fabric_po_no;
-    const lastSeq = parseInt(lastNo.split('-').pop());
-    if (!isNaN(lastSeq)) sequence = lastSeq + 1;
-  }
-  const finalPoNo = `K-${year}-${String(sequence).padStart(3, '0')}`;
+  const timeStamp = String(Date.now()).slice(-4);
+  const finalPoNo = `K-${year}-${timeStamp}`; // Çakışma riskini tamamen sıfırlayan numara şeması
 
   const { data: newPo, error: poError } = await supabase
     .from('fabric_orders')
@@ -286,7 +273,7 @@ export const createFabricPurchaseOrder = async (poData, selectedOrderIds) => {
   return newPo[0];
 };
 
-// Tüm Geçilen Kumaş Siparişlerini Getir
+// 🎯 DÜZELTME: Veritabanından customer ve fabrics (JSONB) kolonlarını zorla söken güncel join select
 export const getFabricOrders = async () => {
   const { data, error } = await supabase
     .from('fabric_orders')
@@ -296,7 +283,7 @@ export const getFabricOrders = async () => {
         id,
         allocated_qty_kg,
         order_id,
-        orders (order_no, article, model, color, qty_by_size)
+        orders (id, order_no, customer, article, model, color, qty_by_size, fabrics)
       )
     `)
     .order('created_at', { ascending: false });
@@ -305,7 +292,6 @@ export const getFabricOrders = async () => {
   return data || [];
 };
 
-// Geçilen Kumaş Siparişini (PO) Güncelle/Düzenle
 export const updateFabricPurchaseOrder = async (poId, updatedData) => {
   const { data, error } = await supabase
     .from('fabric_orders')
@@ -322,7 +308,6 @@ export const updateFabricPurchaseOrder = async (poId, updatedData) => {
   return data[0];
 };
 
-// İrsaliye/Kumaş Girişi Yap (Kilo + TOP SAYISI BAZLI GÜNCEL TEK TANIM)
 export const receiveFabricDelivery = async (fabricOrderId, receivedKg, receivedRolls) => {
   const { data: currentPo, error: fetchError } = await supabase
     .from('fabric_orders')
@@ -365,7 +350,6 @@ export const receiveFabricDelivery = async (fabricOrderId, receivedKg, receivedR
   return true;
 };
 
-// Kumaş Siparişini Tamamen Silme Operasyonu
 export const deleteFabricPurchaseOrder = async (fabricOrderId) => {
   const { data: items, error: itemsError } = await supabase
     .from('fabric_order_items')

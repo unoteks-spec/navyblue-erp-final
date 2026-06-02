@@ -1,14 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Layers, 
-  CheckSquare, 
-  Square, 
-  Truck, 
-  FilePlus, 
-  AlertCircle, 
-  Package,
-  Edit,
-  Trash2
+  Layers, CheckSquare, Square, Truck, FilePlus, AlertCircle, Package, Edit, Trash2
 } from 'lucide-react';
 import { 
   getOrdersWaitingForFabric, 
@@ -18,21 +10,21 @@ import {
   updateFabricPurchaseOrder,
   deleteFabricPurchaseOrder
 } from '../api/orderService';
+import FabricPoPrint from '../components/orders/FabricPoPrint';
 
 export default function FabricManagement() {
   const [activeTab, setActiveTab] = useState('pool'); // pool | pos
   const [waitingOrders, setWaitingOrders] = useState([]);
   const [fabricOrders, setFabricOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  // Seçilen Kumaş Satırlarının State'i
   const [selectedItems, setSelectedItems] = useState([]);
 
-  // Modal State'leri
+  // Modal ve Yazdırma State'leri
   const [showPoModal, setShowPoModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedPo, setSelectedPo] = useState(null);
+  const [printPo, setPrintPo] = useState(null);
 
   // Form State'leri
   const [poForm, setPoForm] = useState({ supplierName: '', customQtyKg: '' });
@@ -46,8 +38,8 @@ export default function FabricManagement() {
         getOrdersWaitingForFabric(),
         getFabricOrders()
       ]);
-      setWaitingOrders(waiting);
-      setFabricOrders(pos);
+      setWaitingOrders(waiting || []);
+      setFabricOrders(pos || []);
     } catch (err) {
       console.error("Veri yükleme hatası:", err);
     } finally {
@@ -60,6 +52,8 @@ export default function FabricManagement() {
   // Kumaş Kırılım Motoru
   const flattenedFabricPool = useMemo(() => {
     const pool = [];
+    if (!waitingOrders.length) return pool;
+
     waitingOrders.forEach(order => {
       const plannedPcs = Object.values(order.qty_by_size || {}).reduce((a, b) => a + Number(b || 0), 0);
       
@@ -74,7 +68,7 @@ export default function FabricManagement() {
             uniqueKey: `${order.id}_${fabKey}`,
             orderId: order.id,
             orderNo: order.order_no,
-            customer: order.customer,
+            customer: order.customer || '—',
             article: order.article,
             model: order.model,
             color: order.color,
@@ -83,6 +77,9 @@ export default function FabricManagement() {
             fabricKind: fab.kind,
             fabricColor: fab.color || order.color,
             neededKg,
+            gsm: fab.gsm || '—',
+            width: fab.width || fab.widthCm || '190',
+            content: fab.content || '%100 Pamuk',
             isOrdered: order.fabric_ordered
           });
         });
@@ -98,8 +95,8 @@ export default function FabricManagement() {
       const clickedItem = flattenedFabricPool.find(i => i.uniqueKey === uniqueKey);
       const firstSelectedItem = flattenedFabricPool.find(i => selectedItems.includes(i.uniqueKey));
       
-      if (firstSelectedItem && (firstSelectedItem.fabricKind !== clickedItem.fabricKind || firstSelectedItem.fabricColor !== clickedItem.fabricColor)) {
-        alert("🚨 Farklı türde veya farklı renkteki kumaşları tek bir toplu siparişte birleştiremezsiniz! Lütfen sadece aynı kumaş ve renkleri seçin.");
+      if (firstSelectedItem && (firstSelectedItem.fabricColor !== clickedItem.fabricColor)) {
+        alert("🚨 Farklı renkteki kumaşları tek bir toplu siparişte birleştiremezsiniz! Lütfen sadece aynı renkleri seçin.");
         return;
       }
       setSelectedItems([...selectedItems, uniqueKey]);
@@ -118,6 +115,7 @@ export default function FabricManagement() {
     
     const selectedPoolItems = flattenedFabricPool.filter(i => selectedItems.includes(i.uniqueKey));
     const sample = selectedPoolItems[0];
+    const uniqueFabricKinds = [...new Set(selectedPoolItems.map(i => i.fabricKind))].join(' + ');
 
     const allocatedMap = {};
     selectedPoolItems.forEach(item => {
@@ -126,7 +124,7 @@ export default function FabricManagement() {
 
     const poData = {
       supplierName: poForm.supplierName,
-      fabricType: sample.fabricKind,
+      fabricType: uniqueFabricKinds,
       color: sample.fabricColor,
       orderedQtyKg: poForm.customQtyKg || autoTotalCalculatedKg,
       allocatedMap
@@ -200,6 +198,60 @@ export default function FabricManagement() {
     }
   };
 
+  // 🚀 DÜZELTME: Seçilmeyen kumaş türlerinin (Çiçekli vb.) tabloya sızmasını %100 engelleyen akıllı süzgeç motoru
+  const preparedPrintItems = useMemo(() => {
+    if (!printPo || !printPo.fabric_order_items) return [];
+    
+    const itemsList = [];
+    printPo.fabric_order_items.forEach(item => {
+      const rawOrder = item.orders;
+      const dbOrder = Array.isArray(rawOrder) ? rawOrder[0] : (rawOrder || {});
+      const dbFabrics = dbOrder.fabrics || {};
+      
+      if (dbFabrics && typeof dbFabrics === 'object' && Object.keys(dbFabrics).length > 0) {
+        Object.entries(dbFabrics).forEach(([key, fab]) => {
+          if (!fab || !fab.kind) return;
+
+          // 🎯 KRİTİK SÜZGEÇ: Sadece bu PO'da sipariş geçilen kumaş türü (fabric_type) veya rengi ile eşleşenleri listeye al
+          const isKindMatch = String(printPo.fabric_type).toLowerCase().includes(String(fab.kind).toLowerCase());
+          const currentFabricColor = fab.color || dbOrder.color || printPo.color || '—';
+          const isColorMatch = String(printPo.color).toLowerCase().trim() === String(currentFabricColor).toLowerCase().trim();
+
+          if (isKindMatch && isColorMatch) {
+            itemsList.push({
+              customer: dbOrder.customer || '—',
+              fabricKind: fab.kind || '—',
+              gsm: fab.gsm || '—',
+              width: fab.width || fab.widthCm || '190',
+              content: fab.content || '%100 Pamuk',
+              fabricColor: currentFabricColor,
+              allocatedQtyKg: item.allocated_qty_kg
+            });
+          }
+        });
+      }
+    });
+
+    // Eğer süzgeçten dolayı liste boş kalırsa koruma olarak ana kartı ekle
+    if (itemsList.length === 0 && printPo.fabric_order_items.length > 0) {
+      printPo.fabric_order_items.forEach(item => {
+        const rawOrder = item.orders;
+        const dbOrder = Array.isArray(rawOrder) ? rawOrder[0] : (rawOrder || {});
+        itemsList.push({
+          customer: dbOrder.customer || '—',
+          fabricKind: printPo.fabric_type || '—',
+          gsm: '—',
+          width: '190',
+          content: '%100 Pamuk',
+          fabricColor: printPo.color || '—',
+          allocatedQtyKg: item.allocated_qty_kg
+        });
+      });
+    }
+
+    return itemsList;
+  }, [printPo]);
+
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-8 pb-32">
       
@@ -234,7 +286,7 @@ export default function FabricManagement() {
         <div className="text-center py-32 text-slate-300 font-black animate-pulse uppercase tracking-[0.3em]">Kumaş Deposu Yükleniyor...</div>
       ) : activeTab === 'pool' ? (
         
-        /* ------------------ SEKME 1: KUMAŞ BEKLEYENLER HAVUZU ------------------ */
+        /* SEKME 1: KUMAŞ BEKLEYENLER HAVUZU */
         <div className="space-y-4">
           <div className="flex justify-between items-center bg-white border border-slate-100 p-4 rounded-3xl shadow-sm">
             <div className="flex items-center gap-2 text-slate-500">
@@ -260,7 +312,7 @@ export default function FabricManagement() {
                     <th className="py-5 px-4">Sipariş No / Müşteri</th>
                     <th className="py-5 px-4">Artikel / Model</th>
                     <th className="py-5 px-4 text-blue-400">Kumaş Kırılımı (Tür)</th>
-                    <th className="py-5 px-4 text-blue-400 text-center">Kumaş Rengi</th>
+                    <th className="py-5 px-4 text-blue-400 text-left">Kumaş Rengi</th>
                     <th className="py-5 px-4 text-center">İş Adeti</th>
                     <th className="py-5 px-6 text-right text-emerald-400">Hesaplanan İhtiyaç</th>
                   </tr>
@@ -287,7 +339,7 @@ export default function FabricManagement() {
                             <div className="text-[10px] text-slate-400 uppercase font-medium">{item.model}</div>
                           </td>
                           <td className="py-4 px-4 font-black text-blue-600 uppercase text-[11px]">{item.fabricKind}</td>
-                          <td className="py-4 px-4 text-center"><span className="px-2.5 py-1 bg-slate-100 border rounded-lg text-[10px] uppercase font-black text-slate-600">{item.fabricColor}</span></td>
+                          <td className="py-4 px-4 text-left"><span className="px-2.5 py-1 bg-slate-100 border rounded-lg text-[10px] uppercase font-black text-slate-600 inline-block">{item.fabricColor}</span></td>
                           <td className="py-4 px-4 text-center text-slate-500">{item.plannedPcs} Pcs</td>
                           <td className="py-4 px-6 text-right font-black text-emerald-600 text-sm italic">{item.neededKg} <span className="text-[10px] font-bold text-slate-400">KG</span></td>
                         </tr>
@@ -301,7 +353,7 @@ export default function FabricManagement() {
         </div>
       ) : (
         
-        /* ------------------ SEKME 2: GEÇİLEN SİPARİŞLER ------------------ */
+        /* SEKME 2: GEÇİLEN SİPARİŞLER */
         <div className="grid grid-cols-1 gap-4">
           {fabricOrders.length === 0 ? (
             <div className="bg-white border p-20 text-center rounded-[2.5rem] text-slate-300 font-black uppercase tracking-widest">Henüz geçilmiş bir kumaş satın alma siparişi yok.</div>
@@ -325,14 +377,17 @@ export default function FabricManagement() {
                       <div><span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">FİELEN GELEN</span><span className="text-xs font-black text-emerald-600 italic">{po.received_qty_kg || 0} / {po.ordered_qty_kg} KG</span></div>
                     </div>
 
-                    {/* 🛠️ GÜNCELLENEN ROZET ALANI: Sipariş No yanına Artikel İsmi de eklendi */}
                     <div className="flex flex-wrap gap-2 pt-1">
                       <span className="text-[8px] font-black text-slate-400 uppercase flex items-center gap-1"><Package size={10}/> Bağlı Artikeller:</span>
-                      {po.fabric_order_items?.map(item => (
-                        <span key={item.id} className="bg-white border border-slate-200 px-2 py-1 rounded-lg text-[9px] font-black text-slate-700 uppercase shadow-sm">
-                          {item.orders?.order_no} <span className="text-blue-600 font-bold">({item.orders?.article || 'Tanımsız'})</span> - {item.allocated_qty_kg} Kg
-                        </span>
-                      ))}
+                      {po.fabric_order_items?.map(item => {
+                        const rOrd = item.orders;
+                        const singleOrd = Array.isArray(rOrd) ? rOrd[0] : (rOrd || {});
+                        return (
+                          <span key={item.id} className="bg-white border border-slate-200 px-2 py-1 rounded-lg text-[9px] font-black text-slate-700 uppercase shadow-sm">
+                            {singleOrd?.order_no || '—'} <span className="text-blue-600 font-bold">({singleOrd?.article || 'Tanımsız'})</span> - {item.allocated_qty_kg} Kg
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -346,16 +401,22 @@ export default function FabricManagement() {
                       </button>
                     )}
                     <button 
+                      onClick={() => setPrintPo(po)}
+                      className="flex-1 bg-blue-600 text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 border border-blue-600 shadow-md shadow-blue-100 transition-all"
+                    >
+                      Formu PDF İndir
+                    </button>
+                    <button 
                       onClick={() => handleOpenEditModal(po)}
                       className="flex-1 bg-slate-100 hover:bg-slate-900 text-slate-700 hover:text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 border border-slate-200 transition-all"
                     >
-                      <Edit size={14}/> Düzenle
+                      Düzenle
                     </button>
                     <button 
                       onClick={() => handleDeletePo(po.id, po.fabric_po_no)}
                       className="flex-1 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 border border-red-200 transition-all"
                     >
-                      <Trash2 size={14}/> İptal / Sil
+                      İptal / Sil
                     </button>
                   </div>
                 </div>
@@ -370,23 +431,20 @@ export default function FabricManagement() {
         <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 text-slate-900">
           <div className="bg-white w-full max-w-md rounded-4xl shadow-2xl p-6 space-y-6">
             <h2 className="text-sm font-black uppercase border-b pb-3 flex items-center gap-2 text-blue-600"><FilePlus size={16}/> Satın Alma Siparişi (PO) Hazırla</h2>
-            
             <div className="bg-slate-50 p-4 rounded-2xl border text-xs space-y-2 font-bold text-slate-600">
-              <p>Kumaş Türü: <span className="text-blue-600 font-black uppercase">{flattenedFabricPool.find(i => selectedItems.includes(i.uniqueKey))?.fabricKind}</span></p>
+              <p>Kumaş Türü: <span className="text-blue-600 font-black uppercase">{[...new Set(flattenedFabricPool.filter(i => selectedItems.includes(i.uniqueKey)).map(i => i.fabricKind))].join(' + ')}</span></p>
               <p>Kumaş Rengi: <span className="text-slate-900 font-black uppercase">{flattenedFabricPool.find(i => selectedItems.includes(i.uniqueKey))?.fabricColor}</span></p>
               <p>Otomatik Hesaplanan Toplam: <span className="text-emerald-600 font-black italic">{autoTotalCalculatedKg} KG</span></p>
             </div>
-
             <form onSubmit={handleCreatePo} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Kumaşçı / Tedarikçi Adı</label>
-                <input required type="text" className="w-full h-11 px-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none" placeholder="Örn: Örme Tekstil A.Ş." value={poForm.supplierName} onChange={e => setPoForm({...poForm, supplierName: e.target.value})} />
+                <input required type="text" className="w-full h-11 px-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none uppercase" placeholder="Örn: MONNALISA" value={poForm.supplierName} onChange={e => setPoForm({...poForm, supplierName: e.target.value})} />
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Sipariş Kilosu (Elle Müdahale - Opsiyonel)</label>
                 <input type="number" className="w-full h-11 px-3 bg-slate-50 border rounded-xl text-xs font-black text-blue-600 outline-none" placeholder={`Boş bırakılırsa ${autoTotalCalculatedKg} KG yazılır`} value={poForm.customQtyKg} onChange={e => setPoForm({...poForm, customQtyKg: e.target.value})} />
               </div>
-
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowPoModal(false)} className="flex-1 h-12 bg-slate-100 rounded-xl font-black text-xs uppercase tracking-wider hover:bg-slate-200 transition-colors">İptal</button>
                 <button type="submit" className="flex-1 h-12 bg-blue-600 text-white rounded-xl font-black text-xs uppercase tracking-wider hover:bg-slate-900 transition-all shadow-lg">Siparişi Onayla</button>
@@ -401,24 +459,15 @@ export default function FabricManagement() {
         <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 text-slate-900">
           <div className="bg-white w-full max-w-sm rounded-4xl shadow-2xl p-6 space-y-6">
             <h2 className="text-sm font-black uppercase border-b pb-3 flex items-center gap-2 text-emerald-600"><Truck size={16}/> Fabrikaya Kumaş Girişi</h2>
-            
-            <div className="bg-slate-50 p-4 rounded-2xl border text-xs space-y-1 font-bold text-slate-600">
-              <p>Sipariş No: <span className="text-slate-900 font-black">{selectedPo?.fabric_po_no}</span></p>
-              <p>Tedarikçi: <span className="text-slate-900 font-black uppercase">{selectedPo?.supplier_name}</span></p>
-              <p>Beklenen Kilo: <span className="text-blue-600 font-black italic">{selectedPo?.ordered_qty_kg} KG</span></p>
-            </div>
-
             <form onSubmit={handleReceiveDelivery} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Gelen Net İrsaliye Kilosu (KG)</label>
                 <input required type="number" step="0.01" className="w-full h-11 px-4 bg-slate-50 border rounded-xl text-sm font-black text-center text-emerald-600 outline-none" placeholder="0.00" value={receiveForm.receivedKg} onChange={e => setReceiveForm({...receiveForm, receivedKg: e.target.value})} />
               </div>
-
               <div className="space-y-1">
                 <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Gelen Top / Rulo Sayısı</label>
                 <input required type="number" className="w-full h-11 px-4 bg-slate-50 border rounded-xl text-sm font-black text-center text-blue-600 outline-none" placeholder="Örn: 15" value={receiveForm.receivedRolls} onChange={e => setReceiveForm({...receiveForm, receivedRolls: e.target.value})} />
               </div>
-
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => { setShowReceiveModal(false); setSelectedPo(null); }} className="flex-1 h-11 bg-slate-100 rounded-xl font-black text-xs uppercase hover:bg-slate-200 transition-colors">Vazgeç</button>
                 <button type="submit" className="flex-1 h-11 bg-emerald-600 text-white rounded-xl font-black text-xs uppercase hover:bg-slate-900 transition-all shadow-lg">Depoya Kabul Et</button>
@@ -433,13 +482,11 @@ export default function FabricManagement() {
         <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 text-slate-900">
           <div className="bg-white w-full max-w-md rounded-4xl shadow-2xl p-6 space-y-6">
             <h2 className="text-sm font-black uppercase border-b pb-3 flex items-center gap-2 text-amber-600"><Edit size={16}/> Kumaş Siparişini Düzenle ({selectedPo?.fabric_po_no})</h2>
-            
             <form onSubmit={handleUpdatePo} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Kumaşçı / Tedarikçi</label>
                 <input required type="text" className="w-full h-11 px-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none" value={editForm.supplierName} onChange={e => setEditForm({...editForm, supplierName: e.target.value})} />
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Kumaş Türü</label>
@@ -450,12 +497,10 @@ export default function FabricManagement() {
                   <input required type="text" className="w-full h-11 px-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none" value={editForm.color} onChange={e => setEditForm({...editForm, color: e.target.value})} />
                 </div>
               </div>
-
               <div className="space-y-1">
                 <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Sipariş Kilosu (KG)</label>
                 <input required type="number" className="w-full h-11 px-3 bg-slate-50 border rounded-xl text-xs font-black text-amber-600 outline-none" value={editForm.orderedQtyKg} onChange={e => setEditForm({...editForm, orderedQtyKg: e.target.value})} />
               </div>
-
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => { setShowEditModal(false); setSelectedPo(null); }} className="flex-1 h-12 bg-slate-100 rounded-xl font-black text-xs uppercase tracking-wider hover:bg-slate-200 transition-colors">Vazgeç</button>
                 <button type="submit" className="flex-1 h-12 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-lg">Değişiklikleri Kaydet</button>
@@ -463,6 +508,15 @@ export default function FabricManagement() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* SAF PDF MOTORU TETİKLEYİCİ BAĞLANTISI */}
+      {printPo && (
+        <FabricPoPrint 
+          po={printPo} 
+          onClose={() => setPrintPo(null)} 
+          poolItems={preparedPrintItems} 
+        />
       )}
 
     </div>
