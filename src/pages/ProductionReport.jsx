@@ -8,9 +8,9 @@ import {
 export default function ProductionReport() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('pending');
+  const [filter, setFilter] = useState('all');
   const [customerFilter, setCustomerFilter] = useState('');
-  const [orderFilter, setOrderFilter] = useState('');
+  const [articleFilter, setArticleFilter] = useState(''); // 🛠️ Artikel Filtresi
   const [expandedId, setExpandedId] = useState(null);
 
   const sizeOrder = [
@@ -47,6 +47,7 @@ export default function ProductionReport() {
     window.print();
   };
 
+  // 🛠️ GÜNCEL FİLTRELEME MOTORU (Artikel bazlı ve toleranslı)
   const filteredOrders = orders.filter(o => {
     const isArchived = o.status === 'archived' || o.is_archived === true;
     let statusMatch = true;
@@ -55,9 +56,13 @@ export default function ProductionReport() {
     else if (filter === 'archived') statusMatch = isArchived;
     else if (filter === 'all') statusMatch = true;
 
-    const customerMatch = !customerFilter || o.customer?.toLowerCase().includes(customerFilter.toLowerCase());
-    const orderMatch = !orderFilter || o.order_no?.toLowerCase().includes(orderFilter.toLowerCase());
-    return statusMatch && customerMatch && orderMatch;
+    const customerMatch = !customerFilter || 
+      String(o.customer || "").toLowerCase().includes(customerFilter.toLowerCase().trim());
+    
+    const articleMatch = !articleFilter || 
+      String(o.article || "").toLowerCase().includes(articleFilter.toLowerCase().trim());
+      
+    return statusMatch && customerMatch && articleMatch;
   });
 
   const totalPlanned = filteredOrders.reduce((sum, o) => sum + Object.values(o.qty_by_size || {}).reduce((a, b) => a + Number(b || 0), 0), 0);
@@ -97,7 +102,7 @@ export default function ProductionReport() {
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <input type="text" placeholder="Müşteri..." value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-[10px] font-bold outline-none" />
-          <input type="text" placeholder="Grup No..." value={orderFilter} onChange={(e) => setOrderFilter(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-[10px] font-bold outline-none" />
+          <input type="text" placeholder="Artikel..." value={articleFilter} onChange={(e) => setArticleFilter(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-[10px] font-bold outline-none" />
           <select value={filter} onChange={(e) => setFilter(e.target.value)} className="bg-slate-50 border-none rounded-xl px-4 py-2.5 text-[10px] font-black uppercase outline-none cursor-pointer col-span-2">
             <option value="all">Tüm Siparişler</option>
             <option value="pending">Sadece Üretimde Olanlar</option>
@@ -108,7 +113,6 @@ export default function ProductionReport() {
       </div>
 
       <div className="bg-white rounded-4xl border border-[#0f172a] overflow-hidden shadow-none print-area">
-        {/* Başlık Kartı */}
         <div className="p-8 border-b-4 border-[#0f172a] flex justify-between items-end bg-white">
           <div className="space-y-1">
             <h2 className="text-4xl font-black tracking-tighter uppercase text-[#0f172a]">NAVY BLUE</h2>
@@ -120,7 +124,6 @@ export default function ProductionReport() {
           </div>
         </div>
 
-        {/* Özet Kartları */}
         <div className="grid grid-cols-4 border-b border-[#f1f5f9] bg-white">
           <div className="p-6 text-center border-r border-[#f1f5f9]"><div className="text-[9px] font-black text-[#94a3b8] uppercase mb-1 tracking-widest">İş Adedi</div><div className="text-2xl font-black text-[#0f172a]">{filteredOrders.length}</div></div>
           <div className="p-6 text-center border-r border-[#f1f5f9]"><div className="text-[9px] font-black text-[#94a3b8] uppercase mb-1 tracking-widest">Planlanan</div><div className="text-2xl font-black text-blue-600">{totalPlanned.toLocaleString()}</div></div>
@@ -151,7 +154,6 @@ export default function ProductionReport() {
                 const cTotal = Object.values(o.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
                 const sTotal = Object.values(o.shipped_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
                 const diffTotal = sTotal - cTotal;
-
                 const activeSizes = Object.keys(o.qty_by_size || {}).sort((a,b) => sizeOrder.indexOf(a.toUpperCase()) - sizeOrder.indexOf(b.toUpperCase()));
 
                 return (
@@ -174,7 +176,6 @@ export default function ProductionReport() {
                       <td className="py-4 px-2 text-right font-black text-indigo-600 text-sm">{sTotal || '-'}</td>
                       <td className="py-4 px-2 text-center">{isArchived ? <Truck size={16} className="text-indigo-600 mx-auto" /> : <CheckCircle2 size={16} className={cTotal >= pTotal ? "text-emerald-500 mx-auto" : "text-slate-200 mx-auto"} />}</td>
                     </tr>
-
                     {isExpanded && (
                       <tr className="bg-slate-50/50">
                         <td colSpan="9" className="p-6">
@@ -183,32 +184,25 @@ export default function ProductionReport() {
                               <PackageCheck size={14} className="text-blue-400" />
                               <h3 className="text-[10px] font-black text-white uppercase tracking-wider">Beden Dağılım Matrisi</h3>
                             </div>
-                            
                             <table className="w-full text-center text-xs border-collapse">
                               <thead>
                                 <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase">
                                   <th className="py-3 px-4 text-left font-black bg-slate-100 sticky left-0 z-10 w-28 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">AŞAMA</th>
                                   {activeSizes.map(size => <th key={size} className="py-3 px-3 min-w-16 border-l border-slate-200/60 font-black text-slate-800">{size}</th>)}
-                                  {/* 🛠️ YENİ TOPLAM SÜTUNU BAŞLIĞI */}
                                   <th className="py-3 px-4 text-right font-black bg-slate-800 text-white min-w-20">TOPLAM</th>
                                 </tr>
                               </thead>
                               <tbody className="font-bold">
-                                {/* KESİM SATIRI */}
                                 <tr className="border-b border-slate-100">
                                   <td className="py-2.5 px-4 text-left font-black text-emerald-600 bg-slate-50/80 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-[10px]">KESİLEN</td>
                                   {activeSizes.map(size => <td key={size} className="py-2.5 px-3 border-l border-slate-100 text-emerald-700 font-black">{o.cutting_qty?.[size] || 0}</td>)}
-                                  {/* 🛠️ KESİM TOPLAMI */}
                                   <td className="py-2.5 px-4 text-right font-black text-emerald-700 bg-emerald-50">{cTotal}</td>
                                 </tr>
-                                {/* SEVK SATIRI */}
                                 <tr className="border-b border-slate-100">
                                   <td className="py-2.5 px-4 text-left font-black text-indigo-600 bg-slate-50/80 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-[10px]">SEVK EDİLEN</td>
                                   {activeSizes.map(size => <td key={size} className="py-2.5 px-3 border-l border-slate-100 text-indigo-700 font-black">{o.shipped_qty?.[size] || 0}</td>)}
-                                  {/* 🛠️ SEVK TOPLAMI */}
                                   <td className="py-2.5 px-4 text-right font-black text-indigo-700 bg-indigo-50">{sTotal}</td>
                                 </tr>
-                                {/* FARK SATIRI */}
                                 <tr className="bg-slate-50/30">
                                   <td className="py-2.5 px-4 text-left font-black text-slate-500 bg-slate-100/50 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-[10px]">FARK / FİRE</td>
                                   {activeSizes.map(size => {
@@ -221,7 +215,6 @@ export default function ProductionReport() {
                                       </td>
                                     );
                                   })}
-                                  {/* 🛠️ GENEL FARK / FİRE TOPLAMI */}
                                   <td className={`py-2.5 px-4 text-right font-black text-[11px] bg-slate-100 ${diffTotal === 0 ? 'text-slate-500' : diffTotal > 0 ? 'text-blue-600' : 'text-red-500'}`}>
                                     {diffTotal > 0 ? `+${diffTotal}` : diffTotal}
                                   </td>
@@ -239,7 +232,6 @@ export default function ProductionReport() {
           </table>
         </div>
 
-        {/* Alt Bilgi */}
         <div className="p-8 border-t-2 border-[#0f172a] flex justify-between items-center text-[9px] font-black text-[#94a3b8] uppercase tracking-widest bg-white">
           <div>© NAVY BLUE ERP - PRECISION LOGISTICS</div>
           <div className="flex gap-10">
