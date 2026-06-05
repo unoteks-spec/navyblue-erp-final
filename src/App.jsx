@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from './api/orderService'; // Supabase client yolun
-import Login from './pages/Login'; // Yeni oluşturduğumuz Login sayfası
+import { supabase } from './api/orderService';
+import Login from './pages/Login';
 
-// Sayfalar
 import Orders from './pages/Orders';
 import OrderList from './pages/OrderList';
 import Dashboard from './pages/Dashboard';
@@ -10,204 +9,85 @@ import ProductionReport from './pages/ProductionReport';
 import ProductionTrack from './pages/ProductionTrack';
 import ArchivedOrders from './pages/ArchivedOrders';
 import PackingList from './pages/PackingList';
-import FabricManagement from './pages/FabricManagement'; // 🛠️ YENİ: Kumaş Yönetim Sayfası Entegre Edildi
+import FabricManagement from './pages/FabricManagement';
+import Quotation from './pages/Quotation';
+import QuotationHistory from './pages/QuotationHistory';
 
-// İkonlar
 import { 
-  LayoutGrid, 
-  PlusCircle, 
-  PieChart, 
-  FileBarChart, 
-  Activity,
-  Archive,
-  Package,
-  Layers, // 🛠️ YENİ: Kumaş ikonumuz için eklendi
-  LogOut // Çıkış butonu için ekledik
+  LayoutGrid, PlusCircle, PieChart, FileBarChart, Activity,
+  Archive, Package, Layers, LogOut, Calculator, Clock
 } from 'lucide-react';
 
 function App() {
-  const [session, setSession] = useState(null);
+  const [session, setSession]       = useState(null);
   const [activePage, setActivePage] = useState('dashboard');
   const [editingOrder, setEditingOrder] = useState(null);
 
-  // 🛡️ OTURUM KONTROLÜ
   useEffect(() => {
-    // Mevcut oturumu al
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
-
-    // Oturum değişikliklerini dinle
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => subscription.unsubscribe();
   }, []);
 
-  // 🔄 Düzenleme İşlemini Başlat
-  function handleEditOrder(order) {
-    setEditingOrder(order); 
-    setActivePage('create'); 
-  }
+  function handleEditOrder(order) { setEditingOrder(order); setActivePage('create'); }
+  function handleComplete()       { setEditingOrder(null);  setActivePage('list'); }
 
-  // ✅ İşlem Tamamlandığında
-  function handleComplete() {
-    setEditingOrder(null); 
-    setActivePage('list'); 
-  }
-
-  // 🚪 ÇIKIŞ YAPMA FONKSİYONU
   const handleLogout = async () => {
     if (window.confirm("Oturumu kapatmak istediğinize emin misiniz?")) {
       await supabase.auth.signOut();
     }
   };
 
-  // 🛑 EĞER OTURUM YOKSA LOGIN EKRANINI GÖSTER
-  if (!session) {
-    return <Login />;
-  }
+  if (!session) return <Login/>;
 
-  // ✅ OTURUM VARSA ERP İÇERİĞİNİ GÖSTER
+  const navItems = [
+    { key: 'dashboard',         label: 'Panel',   icon: PieChart },
+    { key: 'list',              label: 'Liste',   icon: LayoutGrid },
+    { key: 'track',             label: 'Akış',    icon: Activity },
+    { key: 'archived',          label: 'Arşiv',   icon: Archive },
+    { key: 'report',            label: 'Rapor',   icon: FileBarChart },
+    { key: 'fabric',            label: 'Kumaş',   icon: Layers },
+    { key: 'packing',           label: 'Çeki',    icon: Package },
+    { key: 'quotation',         label: 'Fiyat',   icon: Calculator },
+    { key: 'quotation-history', label: 'Teklifler',icon: Clock },
+    { key: 'create',            label: 'Yeni',    icon: PlusCircle },
+  ];
+
   return (
     <div className="min-h-screen bg-slate-50/50 pb-24">
-      
-      {/* Sayfa İçeriği Yönetimi */}
       <main className="animate-in fade-in duration-500">
-        {activePage === 'dashboard' && <Dashboard />}
-        
-        {activePage === 'list' && (
-          <OrderList onEditOrder={handleEditOrder} />
-        )}
-        
-        {activePage === 'create' && (
-          <Orders 
-            editingOrder={editingOrder} 
-            onComplete={handleComplete} 
-          />
-        )}
-
-        {activePage === 'track' && <ProductionTrack />}
-        {activePage === 'report' && <ProductionReport />}
-        {activePage === 'archived' && <ArchivedOrders />}
-        {activePage === 'packing' && <PackingList />}
-        {activePage === 'fabric' && <FabricManagement />} {/* 🛠️ YENİ: Sayfa render bloğuna eklendi */}
+        {activePage === 'dashboard'         && <Dashboard/>}
+        {activePage === 'list'              && <OrderList onEditOrder={handleEditOrder}/>}
+        {activePage === 'create'            && <Orders editingOrder={editingOrder} onComplete={handleComplete}/>}
+        {activePage === 'track'             && <ProductionTrack/>}
+        {activePage === 'report'            && <ProductionReport/>}
+        {activePage === 'archived'          && <ArchivedOrders/>}
+        {activePage === 'packing'           && <PackingList/>}
+        {activePage === 'fabric'            && <FabricManagement/>}
+        {activePage === 'quotation'         && <Quotation/>}
+        {activePage === 'quotation-history' && <QuotationHistory/>}
       </main>
 
-      {/* Alt Menü (Modern Floating Navigation) */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-xl px-5 py-4 rounded-[2.5rem] shadow-2xl flex items-center gap-4 md:gap-6 z-50 border border-white/10 max-w-[95vw] overflow-x-auto no-scrollbar">
-        
-        {/* 1. Dashboard */}
-        <button 
-          onClick={() => { setEditingOrder(null); setActivePage('dashboard'); }}
-          className={`flex flex-col items-center gap-1 transition-all duration-300 shrink-0 ${
-            activePage === 'dashboard' ? 'text-blue-400 scale-110' : 'text-slate-500 hover:text-slate-300'
-          }`}
-        >
-          <PieChart size={18} strokeWidth={activePage === 'dashboard' ? 2.5 : 2} />
-          <span className="text-[8px] font-black uppercase tracking-tighter">Panel</span>
-        </button>
-
-        <div className="w-px h-5 bg-slate-800"></div>
-
-        {/* 2. Liste */}
-        <button 
-          onClick={() => { setEditingOrder(null); setActivePage('list'); }}
-          className={`flex flex-col items-center gap-1 transition-all duration-300 shrink-0 ${
-            activePage === 'list' ? 'text-blue-400 scale-110' : 'text-slate-500 hover:text-slate-300'
-          }`}
-        >
-          <LayoutGrid size={18} strokeWidth={activePage === 'list' ? 2.5 : 2} />
-          <span className="text-[8px] font-black uppercase tracking-tighter">Liste</span>
-        </button>
-
-        <div className="w-px h-5 bg-slate-800"></div>
-
-        {/* 3. Akış */}
-        <button 
-          onClick={() => { setEditingOrder(null); setActivePage('track'); }}
-          className={`flex flex-col items-center gap-1 transition-all duration-300 shrink-0 ${
-            activePage === 'track' ? 'text-blue-400 scale-110' : 'text-slate-500 hover:text-slate-300'
-          }`}
-        >
-          <Activity size={18} strokeWidth={activePage === 'track' ? 2.5 : 2} />
-          <span className="text-[8px] font-black uppercase tracking-tighter">Akış</span>
-        </button>
-
-        <div className="w-px h-5 bg-slate-800"></div>
-
-        {/* 4. Arşiv */}
-        <button 
-          onClick={() => { setEditingOrder(null); setActivePage('archived'); }}
-          className={`flex flex-col items-center gap-1 transition-all duration-300 shrink-0 ${
-            activePage === 'archived' ? 'text-blue-400 scale-110' : 'text-slate-500 hover:text-slate-300'
-          }`}
-        >
-          <Archive size={18} strokeWidth={activePage === 'archived' ? 2.5 : 2} />
-          <span className="text-[8px] font-black uppercase tracking-tighter">Arşiv</span>
-        </button>
-
-        <div className="w-px h-5 bg-slate-800"></div>
-
-        {/* 5. Rapor */}
-        <button 
-          onClick={() => { setEditingOrder(null); setActivePage('report'); }}
-          className={`flex flex-col items-center gap-1 transition-all duration-300 shrink-0 ${
-            activePage === 'report' ? 'text-blue-400 scale-110' : 'text-slate-500 hover:text-slate-300'
-          }`}
-        >
-          <FileBarChart size={18} strokeWidth={activePage === 'report' ? 2.5 : 2} />
-          <span className="text-[8px] font-black uppercase tracking-tighter">Rapor</span>
-        </button>
-
-        <div className="w-px h-5 bg-slate-800"></div>
-
-        {/* 🛠️ YENİ 6. Kumaş Yönetimi Butonu (Rapor ve Çeki listesi arasına eklendi) */}
-        <button 
-          onClick={() => { setEditingOrder(null); setActivePage('fabric'); }}
-          className={`flex flex-col items-center gap-1 transition-all duration-300 shrink-0 ${
-            activePage === 'fabric' ? 'text-blue-400 scale-110' : 'text-slate-500 hover:text-slate-300'
-          }`}
-        >
-          <Layers size={18} strokeWidth={activePage === 'fabric' ? 2.5 : 2} />
-          <span className="text-[8px] font-black uppercase tracking-tighter">Kumaş</span>
-        </button>
-
-        <div className="w-px h-5 bg-slate-800"></div>
-
-        {/* 7. Çeki Listesi */}
-        <button 
-          onClick={() => { setEditingOrder(null); setActivePage('packing'); }}
-          className={`flex flex-col items-center gap-1 transition-all duration-300 shrink-0 ${
-            activePage === 'packing' ? 'text-blue-400 scale-110' : 'text-slate-500 hover:text-slate-300'
-          }`}
-        >
-          <Package size={18} strokeWidth={activePage === 'packing' ? 2.5 : 2} />
-          <span className="text-[8px] font-black uppercase tracking-tighter">Çeki</span>
-        </button>
-
-        <div className="w-px h-5 bg-slate-800"></div>
-
-        {/* 8. Yeni Kayıt */}
-        <button 
-          onClick={() => { setEditingOrder(null); setActivePage('create'); }}
-          className={`flex flex-col items-center gap-1 transition-all duration-300 shrink-0 ${
-            activePage === 'create' ? 'text-blue-400 scale-110' : 'text-slate-500 hover:text-slate-300'
-          }`}
-        >
-          <PlusCircle size={18} strokeWidth={activePage === 'create' ? 2.5 : 2} />
-          <span className="text-[8px] font-black uppercase tracking-tighter">Yeni</span>
-        </button>
-
-        <div className="w-px h-5 bg-slate-800/50"></div>
-
-        {/* 9. ÇIKIŞ */}
-        <button 
-          onClick={handleLogout}
-          className="flex flex-col items-center gap-1 text-red-500 hover:text-red-400 transition-all duration-300 shrink-0"
-        >
-          <LogOut size={18} />
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-xl px-5 py-4 rounded-[2.5rem] shadow-2xl flex items-center gap-4 md:gap-5 z-50 border border-white/10 max-w-[95vw] overflow-x-auto no-scrollbar">
+        {navItems.map((item, i) => {
+          const Icon = item.icon;
+          const isActive = activePage === item.key;
+          return (
+            <React.Fragment key={item.key}>
+              <button
+                onClick={() => { setEditingOrder(null); setActivePage(item.key); }}
+                className={`flex flex-col items-center gap-1 transition-all duration-300 shrink-0 ${isActive ? 'text-blue-400 scale-110' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                <Icon size={18} strokeWidth={isActive ? 2.5 : 2}/>
+                <span className="text-[8px] font-black uppercase tracking-tighter">{item.label}</span>
+              </button>
+              {i < navItems.length - 1 && <div className="w-px h-5 bg-slate-800 shrink-0"></div>}
+            </React.Fragment>
+          );
+        })}
+        <div className="w-px h-5 bg-slate-800/50 shrink-0"></div>
+        <button onClick={handleLogout} className="flex flex-col items-center gap-1 text-red-500 hover:text-red-400 transition-all duration-300 shrink-0">
+          <LogOut size={18}/>
           <span className="text-[8px] font-black uppercase tracking-tighter">Çıkış</span>
         </button>
       </div>
