@@ -7,7 +7,6 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const labelRefs = useRef([]);
 
-  // 🛠️ Koli numarasına göre tekilleştirilmiş etiket listesi oluşturuluyor
   const generateLabels = () => {
     let allLabels = [];
     boxes.forEach(box => {
@@ -16,8 +15,7 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
       const end = rangeParts[1] || start;
       if (!isNaN(start)) {
         for (let i = start; i <= end; i++) {
-          const labelData = { boxNo: i, ...box };
-          allLabels.push(labelData);
+          allLabels.push({ boxNo: i, ...box });
         }
       }
     });
@@ -29,7 +27,7 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
   const downloadPDF = async () => {
     if (labels.length === 0) return;
     setIsGenerating(true);
-    
+
     const pdf = new jsPDF({
       orientation: 'landscape',
       unit: 'mm',
@@ -41,10 +39,10 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
       for (let i = 0; i < labels.length; i++) {
         const element = labelRefs.current[i];
         if (element) {
-          const canvas = await html2canvas(element, { 
-            scale: 2.5, 
-            useCORS: true, 
-            backgroundColor: "#ffffff",
+          const canvas = await html2canvas(element, {
+            scale: 2.5,
+            useCORS: true,
+            backgroundColor: '#ffffff',
             logging: false,
             onclone: (clonedDoc) => {
               const el = clonedDoc.body.querySelector(`[data-label-id="${i}"]`);
@@ -61,16 +59,39 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
       }
       pdf.save(`Argox_Final_Etiketler_${Date.now()}.pdf`);
     } catch (err) {
-      console.error("PDF Hatası:", err);
-      alert("Hata oluştu. Lütfen tekrar deneyin.");
+      console.error('PDF Hatası:', err);
+      alert('Hata oluştu. Lütfen tekrar deneyin.');
     } finally {
       setIsGenerating(false);
     }
   };
 
   const renderLabelContent = (label, index) => {
+    const itemCount = label.items?.length || 0;
+
+    // ✅ DÜZELTİLDİ: Beden sayısına göre font boyutu ve satır yüksekliği dinamik ayarlanıyor
+    const getFontSize = () => {
+      if (itemCount <= 4) return '11px';
+      if (itemCount <= 7) return '10px';
+      if (itemCount <= 10) return '9px';
+      return '8px';
+    };
+
+    const getContentHeight = () => {
+      if (itemCount <= 4) return '80px';
+      if (itemCount <= 7) return '100px';
+      if (itemCount <= 10) return '115px';
+      return '125px';
+    };
+
+    // Çok fazla beden varsa TOTAL PCS alanını küçült
+    const getTotalFontSize = () => {
+      if (itemCount <= 6) return '42px';
+      return '32px';
+    };
+
     return (
-      <div 
+      <div
         data-label-id={index}
         style={{
           width: '200mm',
@@ -105,37 +126,56 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
 
         {/* ORTA SÜTUN */}
         <div style={{ display: 'table-cell', width: '30%', borderRight: '5px solid #000000', paddingLeft: '15px', paddingRight: '15px', verticalAlign: 'top' }}>
-          <div style={{ height: '175px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', height: itemCount > 4 ? '185px' : '175px' }}>
             <div>
               <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', lineHeight: '1' }}>MODEL</p>
-              <h2 style={{ margin: '4px 0 0 0', fontSize: '18px', fontWeight: '900', lineHeight: '1.1' }}>{label.article || '---'}</h2>
+              <h2 style={{ margin: '3px 0 0 0', fontSize: '16px', fontWeight: '900', lineHeight: '1.1' }}>{label.article || '---'}</h2>
             </div>
             <div>
               <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', color: '#0000FF', lineHeight: '1' }}>COLOR / RENK</p>
-              <h2 style={{ margin: '4px 0 0 0', fontSize: '16px', fontWeight: '900', fontStyle: 'italic', lineHeight: '1.1' }}>{label.color || '---'}</h2>
+              <h2 style={{ margin: '3px 0 0 0', fontSize: '14px', fontWeight: '900', fontStyle: 'italic', lineHeight: '1.1' }}>{label.color || '---'}</h2>
             </div>
-            {/* 🛠️ BİRLİŞTİRİLMİŞ İÇERİK: Koli içindeki tüm beden kırılımları alt alta şık bir liste olarak listelenir */}
+
+            {/* ✅ DÜZELTİLDİ: İçerik alanı dinamik yükseklik ve font boyutu */}
             <div style={{ flex: 1, overflow: 'hidden' }}>
               <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', lineHeight: '1', marginBottom: '4px' }}>CONTENT / İÇERİK</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '75px', overflow: 'hidden' }}>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1px',
+                maxHeight: getContentHeight(),
+                overflow: 'hidden'
+              }}>
                 {label.items && label.items.length > 0 ? (
                   label.items.map((item, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyBetween: 'space-between', fontSize: '11px', fontWeight: '900', borderBottom: '1px dashed #eee', paddingBottom: '2px' }}>
+                    <div key={idx} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: getFontSize(),
+                      fontWeight: '900',
+                      borderBottom: '1px dashed #eee',
+                      paddingBottom: '1px',
+                      lineHeight: '1.4'
+                    }}>
                       <span style={{ textTransform: 'uppercase' }}>{item.detail}:</span>
-                      <span style={{ marginLeft: 'auto', color: '#2563eb' }}>{item.qty} Pcs</span>
+                      <span style={{ marginLeft: '8px', color: '#2563eb', whiteSpace: 'nowrap' }}>{item.qty} Pcs</span>
                     </div>
                   ))
                 ) : (
-                  <div style={{ fontSize: '11px', fontWeight: '900' }}>
-                    {label.type === 'LOT' ? `${label.lotSizes} (${label.lotRatio}) ${label.lotQty ? `x ${label.lotQty} LOT` : ''}` : (label.size || '---')}
+                  <div style={{ fontSize: getFontSize(), fontWeight: '900' }}>
+                    {label.type === 'LOT'
+                      ? `${label.lotSizes} (${label.lotRatio}) ${label.lotQty ? `x ${label.lotQty} LOT` : ''}`
+                      : (label.size || '---')}
                   </div>
                 )}
               </div>
             </div>
           </div>
-          <div style={{ backgroundColor: '#ffffff', color: '#000000', padding: '5px 5px', textAlign: 'center', borderTop: '2px solid #000' }}>
+
+          {/* TOTAL PCS */}
+          <div style={{ backgroundColor: '#ffffff', color: '#000000', padding: '4px 5px', textAlign: 'center', borderTop: '2px solid #000' }}>
             <p style={{ margin: 0, fontSize: '9px', fontWeight: '700', lineHeight: '1' }}>TOTAL PCS</p>
-            <p style={{ margin: '2px 0 0 0', fontSize: '42px', fontWeight: '900', lineHeight: '1' }}>{label.totalPcs}</p>
+            <p style={{ margin: '2px 0 0 0', fontSize: getTotalFontSize(), fontWeight: '900', lineHeight: '1' }}>{label.totalPcs}</p>
           </div>
         </div>
 
@@ -146,8 +186,12 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
             <h1 style={{ margin: '15px 0', fontSize: '80px', fontWeight: '900', lineHeight: '0.7' }}>{label.boxNo}</h1>
           </div>
           <div style={{ borderTop: '4px solid #000000', borderBottom: '4px solid #000000', padding: '10px 0', textAlign: 'left', marginBottom: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '900', lineHeight: '1' }}><span>NET:</span><span>{label.net} KG</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '900', lineHeight: '1', marginTop: '4px' }}><span>GRS:</span><span>{label.gross} KG</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '900', lineHeight: '1' }}>
+              <span>NET:</span><span>{label.net} KG</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '900', lineHeight: '1', marginTop: '4px' }}>
+              <span>GRS:</span><span>{label.gross} KG</span>
+            </div>
           </div>
           <div style={{ border: '4px solid #000000', padding: '6px 0', fontSize: '11px', fontWeight: '900', fontStyle: 'italic', backgroundColor: '#ffffff', lineHeight: '1' }}>
             MADE IN TURKEY
@@ -162,32 +206,36 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
       <div className="max-w-350 mx-auto">
         <div className="bg-white p-10 rounded-[4rem] shadow-2xl mb-12 flex justify-between items-center sticky top-0 z-50 border border-slate-100">
           <div className="flex items-center gap-8">
-            <div className="w-20 h-20 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center shadow-2xl"><Package size={40}/></div>
+            <div className="w-20 h-20 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center shadow-2xl">
+              <Package size={40} />
+            </div>
             <div>
               <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter italic leading-none">Lojistik Baskı Hattı</h2>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Argox 200x100mm • {labels.length} Toplam Etiket</p>
             </div>
           </div>
           <div className="flex gap-4">
-            <button 
-              onClick={downloadPDF} 
+            <button
+              onClick={downloadPDF}
               disabled={isGenerating}
               className="bg-slate-900 text-white px-12 py-5 rounded-[2.5rem] font-black text-sm uppercase shadow-2xl hover:bg-blue-600 transition-all flex items-center gap-3 disabled:bg-slate-400"
             >
-              {isGenerating ? <Loader2 className="animate-spin" size={20}/> : <FileDown size={20}/>}
+              {isGenerating ? <Loader2 className="animate-spin" size={20} /> : <FileDown size={20} />}
               {isGenerating ? 'PDF Hazırlanıyor...' : 'PDF İndir'}
             </button>
-            <button onClick={onClose} className="p-5 bg-slate-50 text-slate-400 rounded-[2.5rem] hover:text-red-500 shadow-sm transition-colors"><X size={32}/></button>
+            <button onClick={onClose} className="p-5 bg-slate-50 text-slate-400 rounded-[2.5rem] hover:text-red-500 shadow-sm transition-colors">
+              <X size={32} />
+            </button>
           </div>
         </div>
 
         <div className="space-y-24 pb-48 flex flex-col items-center">
           {labels.map((label, idx) => (
             <div key={idx} className="bg-white shadow-2xl overflow-hidden rounded-sm transform border border-slate-100">
-               {renderLabelContent(label, idx)}
-               <div ref={(el) => (labelRefs.current[idx] = el)} style={{ position: 'absolute', left: '-9999px' }}>
-                 {renderLabelContent(label, idx)}
-               </div>
+              {renderLabelContent(label, idx)}
+              <div ref={(el) => (labelRefs.current[idx] = el)} style={{ position: 'absolute', left: '-9999px' }}>
+                {renderLabelContent(label, idx)}
+              </div>
             </div>
           ))}
         </div>

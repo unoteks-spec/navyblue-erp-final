@@ -2,30 +2,24 @@ import React, { useMemo } from 'react';
 import { SIZE_GROUPS } from '../../constants/sizes';
 
 export default function SizeMatrix({ register, watch }) {
-  const [selectedGroup, setSelectedGroup] = React.useState('STANDART');
+  const [selectedGroup, setSelectedGroup] = React.useState(Object.keys(SIZE_GROUPS)[0]);
   const sizes = SIZE_GROUPS[selectedGroup];
 
-  // 🔄 watch("qtyBySize") ile tüm bedenlerin değerlerini anlık izliyoruz
   const currentValues = watch("qtyBySize") || {};
 
-  // 📊 Toplam Adet Hesaplama (Daha kararlı bir mantıkla)
+  // 📊 Toplam Adet Hesaplama
   const total = useMemo(() => {
     return Object.values(currentValues).reduce((acc, curr) => {
-      // Eğer değer boşsa veya sayı değilse 0 kabul et
       const val = parseFloat(curr);
       return acc + (isNaN(val) ? 0 : val);
     }, 0);
-    // currentValues içeriği her değiştiğinde (string bazlı kontrolle) tetiklenir
-  }, [JSON.stringify(currentValues)]);
+  }, [currentValues]);
 
   return (
     <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
-      {/* no-spinner CSS: Ok tuşlarını gizler, modern görünüm sağlar */}
       <style>{`
         .no-spinner::-webkit-inner-spin-button, 
-        .no-spinner::-webkit-outer-spin-button { 
-          -webkit-appearance: none; margin: 0; 
-        }
+        .no-spinner::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         .no-spinner { -moz-appearance: textfield; }
       `}</style>
 
@@ -48,7 +42,7 @@ export default function SizeMatrix({ register, watch }) {
       </div>
 
       {/* BEDEN GRUBU SEÇİMİ (TABLAR) */}
-      <div className="flex gap-2 p-1.5 bg-slate-50 rounded-2xl w-fit border border-slate-100">
+      <div className="flex flex-wrap gap-2 p-1.5 bg-slate-50 rounded-2xl w-fit border border-slate-100">
         {Object.keys(SIZE_GROUPS).map(group => (
           <button
             key={group}
@@ -67,23 +61,27 @@ export default function SizeMatrix({ register, watch }) {
 
       {/* BEDEN GİRİŞ GRID'İ */}
       <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-4">
-        {sizes.map(size => (
-          <div 
-            key={size} 
-            className="flex flex-col gap-2 p-3 bg-slate-50 rounded-3xl border border-transparent hover:border-blue-200 hover:bg-white transition-all group"
-          >
-            <span className="text-[10px] font-black text-slate-400 text-center uppercase tracking-tighter group-hover:text-blue-600">
-              {size}
-            </span>
-            <input
-              type="number"
-              // valueAsNumber: true -> Verinin veritabanına her zaman sayı gitmesini sağlar
-              {...register(`qtyBySize.${size}`, { valueAsNumber: true })}
-              placeholder="0"
-              className="h-10 text-center rounded-xl border-none bg-white shadow-sm focus:ring-4 focus:ring-blue-50 outline-none text-sm font-black text-slate-900 no-spinner"
-            />
-          </div>
-        ))}
+        {sizes.map(size => {
+          // 🛠️ Harf önekini kaldırıp ekranda temiz beden bilgisini gösteriyoruz (Örn: B3M -> 3M)
+          const displayLabel = size.substring(1); 
+          
+          return (
+            <div 
+              key={size} 
+              className="flex flex-col gap-2 p-3 bg-slate-50 rounded-3xl border border-transparent hover:border-blue-200 hover:bg-white transition-all group"
+            >
+              <label className="text-[9px] font-black text-slate-400 text-center uppercase tracking-tighter group-hover:text-blue-600">
+                {displayLabel}
+              </label>
+              <input
+                type="number"
+                {...register(`qtyBySize.${size}`, { valueAsNumber: true })}
+                placeholder="0"
+                className="h-10 text-center rounded-xl border-none bg-white shadow-sm focus:ring-4 focus:ring-blue-50 outline-none text-sm font-black text-slate-900 no-spinner"
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

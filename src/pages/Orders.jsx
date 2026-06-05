@@ -8,6 +8,7 @@ import { Input, TextArea } from '../components/ui/Input';
 import SizeMatrix from '../components/orders/SizeMatrix';
 import AddOrderModal from '../components/orders/AddOrderModal';
 import { saveOrder, uploadModelImage } from '../api/orderService';
+import { DEFAULT_QTY_BY_SIZE } from '../constants/sizes';
 
 // --- YARDIMCI FONKSİYONLAR ---
 const capitalizeTR = (str) => {
@@ -25,7 +26,15 @@ const GARNI_KEYS = [
   { id: 'g4', label: 'Garni Kumaş 4' },
 ];
 
-// --- KUMAŞ KARTI BİLEŞENİ (DIŞARI TAŞINDI) ---
+const DEFAULT_FABRICS = {
+  main: { unit: 'Kg', type: 'Örme' },
+  g1: { unit: 'Kg', type: 'Örme' },
+  g2: { unit: 'Kg', type: 'Örme' },
+  g3: { unit: 'Kg', type: 'Örme' },
+  g4: { unit: 'Kg', type: 'Örme' }
+};
+
+// --- KUMAŞ KARTI BİLEŞENİ ---
 const FabricCard = ({ id, label, isMain, register, watch, setValue, handleCapitalize }) => {
   const unitValue = watch(`fabrics.${id}.unit`) || 'Kg';
 
@@ -82,25 +91,12 @@ export default function Orders({ editingOrder, onComplete }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrderNo, setSelectedOrderNo] = useState(null);
 
-  // 🛠️ HARFLİ ÇOCUK BEDENLERİ (XS, S, M, L) VE NUMERİKLER TEK BİR VARSAYILAN ŞABLONDA BİRLEŞTİRİLDİ
-  const defaultQtyBySize = { 
-    XS: 0, S: 0, M: 0, L: 0, XL: 0, // Standart ve Çocuk harfli tabanı ortak karşılar
-    "2": 0, "3": 0,
-    "3M": 0, "6M": 0, "9M": 0, "12M": 0, "18M": 0, "24M": 0, 
-    "3Y": 0, "4Y": 0, "5Y": 0, "6Y": 0 
-  };
-
   const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm({
     defaultValues: {
       extraPercent: 5,
-      qtyBySize: defaultQtyBySize,
-      fabrics: {
-        main: { unit: 'Kg', type: 'Örme' },
-        g1: { unit: 'Kg', type: 'Örme' },
-        g2: { unit: 'Kg', type: 'Örme' },
-        g3: { unit: 'Kg', type: 'Örme' },
-        g4: { unit: 'Kg', type: 'Örme' }
-      }
+      // ✅ DÜZELTİLDİ: DEFAULT_QTY_BY_SIZE artık constants/sizes'dan geliyor
+      qtyBySize: DEFAULT_QTY_BY_SIZE,
+      fabrics: DEFAULT_FABRICS
     }
   });
 
@@ -115,8 +111,10 @@ export default function Orders({ editingOrder, onComplete }) {
         color: editingOrder.color,
         due: editingOrder.due,
         extraPercent: editingOrder.extra_percent || 5,
-        qtyBySize: { ...defaultQtyBySize, ...editingOrder.qty_by_size },
-        fabrics: editingOrder.fabrics || {},
+        // ✅ Mevcut siparişin qty_by_size'ı DEFAULT üzerine merge ediliyor
+        // Yeni eklenen bedenler de formda sıfır olarak görünür
+        qtyBySize: { ...DEFAULT_QTY_BY_SIZE, ...editingOrder.qty_by_size },
+        fabrics: editingOrder.fabrics || DEFAULT_FABRICS,
         postProcesses: editingOrder.post_processes || "",
         modelImage: editingOrder.model_image || null
       });
@@ -124,14 +122,8 @@ export default function Orders({ editingOrder, onComplete }) {
     } else {
       reset({
         extraPercent: 5,
-        qtyBySize: defaultQtyBySize,
-        fabrics: {
-          main: { unit: 'Kg', type: 'Örme' },
-          g1: { unit: 'Kg', type: 'Örme' },
-          g2: { unit: 'Kg', type: 'Örme' },
-          g3: { unit: 'Kg', type: 'Örme' },
-          g4: { unit: 'Kg', type: 'Örme' }
-        }
+        qtyBySize: DEFAULT_QTY_BY_SIZE,
+        fabrics: DEFAULT_FABRICS
       });
       setSelectedOrderNo(null);
     }

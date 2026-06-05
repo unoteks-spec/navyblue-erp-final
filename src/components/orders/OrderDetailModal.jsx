@@ -1,11 +1,18 @@
 import React, { useMemo } from 'react';
 import { X, Printer, Calculator, Scissors, CheckCircle } from 'lucide-react';
 import FabricRequirement from './FabricRequirement';
+import { SIZE_ORDER } from '../../constants/sizes';
 
 export default function OrderDetailModal({ order, isOpen, onClose }) {
   if (!isOpen || !order) return null;
 
-  // 🛠️ Toplam Hesaplamaları (cutting_qty ile tam senkronize)
+  // 🛠️ AKILLI LABEL FONKSİYONU: Önek varsa sil, yoksa aynen bırak
+  const getDisplayLabel = (s) => {
+    const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
+    return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
+  };
+
+  // 🛠️ Toplam Hesaplamaları
   const totals = useMemo(() => {
     const orderQty = Object.values(order.qty_by_size || {}).reduce((a, b) => a + Number(b || 0), 0);
     const cutQty = Object.values(order.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
@@ -13,25 +20,16 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
     return { orderQty, cutQty, diffQty };
   }, [order]);
 
-  // 🛠️ TÜM BEDEN GRUPLARI KRONOLOJİK SIRAYLA TANIMLANDI
-  const SIZE_ORDER = [
-    '3M', '6M', '9M', '12M', '18M', '24M', // Bebek Grubu
-    '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', // Çocuk Grubu (Numerik)
-    'XS', 'S', 'M', 'L', // Çocuk Grubu (Harfli)
-    '3Y', '4Y', '5Y', '6Y', // Çocuk Grubu (Yaş bazlı)
-    '3XS', '2XS', 'XXS', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', // Standart Yetişkin Varyantları
-    '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60', '62' // Numerik Yetişkin Grubu
-  ];
-
+  // ✅ DÜZELTİLDİ: SIZE_ORDER artık constants/sizes'dan geliyor (prefix'li key'ler)
   const sortedSizes = useMemo(() => {
     const allSizes = new Set([
       ...Object.keys(order.qty_by_size || {}),
       ...Object.keys(order.cutting_qty || {})
     ]);
-    
+
     return Array.from(allSizes).sort((a, b) => {
-      const indexA = SIZE_ORDER.indexOf(a.toUpperCase());
-      const indexB = SIZE_ORDER.indexOf(b.toUpperCase());
+      const indexA = SIZE_ORDER.indexOf(a);
+      const indexB = SIZE_ORDER.indexOf(b);
       return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
     });
   }, [order]);
@@ -39,7 +37,7 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-5xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        
+
         {/* Header */}
         <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
           <div>
@@ -61,7 +59,7 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
 
         {/* Content */}
         <div className="p-8 overflow-y-auto space-y-8 custom-scrollbar">
-          
+
           {/* 1. Genel Özet Kartları */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-slate-50 border border-slate-100 p-6 rounded-4xl flex items-center gap-6">
@@ -88,20 +86,23 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
           {/* 2. Kumaş İhtiyaç Analizi */}
           <FabricRequirement order={order} />
 
-          {/* 3. RAPOR SAYFASINDAKİ GİBİ LİSTE HALİNDE MATRİS TABLOSU */}
+          {/* 3. Beden Dağılım Matrisi */}
           <div className="bg-slate-900 rounded-[2.5rem] overflow-hidden shadow-2xl">
             <div className="p-6 bg-slate-950 flex items-center gap-3">
-               <CheckCircle className="text-blue-400" size={18} />
-               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Beden Dağılım Matrisi</h3>
+              <CheckCircle className="text-blue-400" size={18} />
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Beden Dağılım Matrisi</h3>
             </div>
-            
+
             <div className="max-w-full overflow-x-auto custom-scrollbar">
               <table className="w-full text-center text-xs border-collapse min-w-180">
                 <thead>
                   <tr className="bg-slate-800/40 border-b border-slate-800 text-[10px] font-black text-slate-400 uppercase">
                     <th className="py-4 px-6 text-left font-black bg-slate-900 sticky left-0 z-10 w-28 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] text-[10px]">AŞAMA</th>
+                    {/* ✅ DÜZELTİLDİ: prefix kaldırılarak temiz beden etiketi gösteriliyor */}
                     {sortedSizes.map(size => (
-                      <th key={size} className="py-4 px-3 min-w-16 border-l border-slate-800/60 font-black text-slate-200">{size}</th>
+                      <th key={size} className="py-4 px-3 min-w-16 border-l border-slate-800/60 font-black text-slate-200">
+                        {getDisplayLabel(size)}
+                      </th>
                     ))}
                     <th className="py-4 px-6 text-right font-black bg-slate-950 text-blue-400 min-w-24">TOPLAM</th>
                   </tr>
@@ -111,7 +112,9 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
                   <tr className="border-b border-slate-800/40 hover:bg-slate-800/20 transition-colors">
                     <td className="py-3 px-6 text-left font-black text-blue-400 bg-slate-900/90 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] text-[10px]">SİPARİŞ</td>
                     {sortedSizes.map(size => (
-                      <td key={size} className="py-3 px-3 border-l border-slate-800/30 text-slate-300 font-bold">{order.qty_by_size?.[size] || 0}</td>
+                      <td key={size} className="py-3 px-3 border-l border-slate-800/30 text-slate-300 font-bold">
+                        {order.qty_by_size?.[size] || 0}
+                      </td>
                     ))}
                     <td className="py-3 px-6 text-right font-black text-blue-400 bg-slate-950/40">{totals.orderQty}</td>
                   </tr>
@@ -120,7 +123,9 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
                   <tr className="border-b border-slate-800/40 hover:bg-slate-800/20 transition-colors">
                     <td className="py-3 px-6 text-left font-black text-emerald-400 bg-slate-900/90 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] text-[10px]">KESİLEN</td>
                     {sortedSizes.map(size => (
-                      <td key={size} className="py-3 px-3 border-l border-slate-800/30 text-emerald-400 font-black">{order.cutting_qty?.[size] || 0}</td>
+                      <td key={size} className="py-3 px-3 border-l border-slate-800/30 text-emerald-400 font-black">
+                        {order.cutting_qty?.[size] || 0}
+                      </td>
                     ))}
                     <td className="py-3 px-6 text-right font-black text-emerald-400 bg-slate-950/40">{totals.cutQty}</td>
                   </tr>

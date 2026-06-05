@@ -15,11 +15,12 @@ import { supabase } from '../api/orderService';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import ShippingLabelModal from '../components/orders/ShippingLabelModal';
+import { SIZE_ORDER } from '../constants/sizes';
 
 export default function PackingList() {
   const [orders, setOrders] = useState([]);
   const [consignee, setConsignee] = useState({ name: '', address: '' });
-  const [customers, setCustomers] = useState([]); // Kayıtlı müşteriler için state
+  const [customers, setCustomers] = useState([]);
   const [unitWeights, setUnitWeights] = useState({});
   const [boxTare, setBoxTare] = useState(0.5); 
   const [defaultDims, setDefaultDims] = useState('60x40x40');
@@ -39,16 +40,12 @@ export default function PackingList() {
     }
   ]);
 
-  // Yeni Bebek, Çocuk ve Standart Beden Sıralama Matrisi Entegre Edildi
-  const sizeOrder = [
-    '3M', '6M', '9M', '12M', '18M', '24M', 
-    '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 
-    'XS', 'S', 'M', 'L', 
-    '3Y', '4Y', '5Y', '6Y', 
-    '3XS', '2XS', 'XXS', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', 
-    '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60', '62'
-  ];
-  
+  // ✅ DÜZELTİLDİ: Akıllı label fonksiyonu — prefix varsa sil, yoksa aynen bırak
+  const getDisplayLabel = (s) => {
+    const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
+    return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
+  };
+
   const today = new Date().toLocaleDateString('en-GB');
 
   useEffect(() => {
@@ -62,14 +59,12 @@ export default function PackingList() {
       setOrders(data || []);
     };
     
-    // LocalStorage üzerinden kayıtlı hızlı müşterileri yükle
     const savedCust = localStorage.getItem('navyblue_saved_customers');
     if (savedCust) setCustomers(JSON.parse(savedCust));
 
     fetchOrders();
   }, []);
 
-  // Müşteri adını ve adresini hızlıca kaydetme fonksiyonu
   const handleSaveCustomer = () => {
     if (!consignee.name.trim()) return;
     const updated = [...customers.filter(c => c.name !== consignee.name), { name: consignee.name, address: consignee.address }];
@@ -78,7 +73,6 @@ export default function PackingList() {
     alert("Müşteri hızlı seçim listesine kaydedildi!");
   };
 
-  // Seçilen müşterinin bilgilerini otomatik doldurma
   const handleSelectCustomer = (e) => {
     const cust = customers.find(c => c.name === e.target.value);
     if (cust) {
@@ -88,14 +82,15 @@ export default function PackingList() {
 
   const activeOrder = useMemo(() => orders.find(o => o.id === activeRefOrderId), [activeRefOrderId, orders]);
 
+  // ✅ DÜZELTİLDİ: SIZE_ORDER prefix'li key'lerle eşleşiyor
   const activeOrderSizes = useMemo(() => {
     if (!activeOrder) return [];
     return Object.entries(activeOrder.qty_by_size || {})
       .filter(([size, qty]) => Number(qty) > 0)
       .map(([size]) => size)
       .sort((a, b) => {
-        const indexA = sizeOrder.indexOf(a.toUpperCase());
-        const indexB = sizeOrder.indexOf(b.toUpperCase());
+        const indexA = SIZE_ORDER.indexOf(a);
+        const indexB = SIZE_ORDER.indexOf(b);
         return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
       });
   }, [activeOrder]);
@@ -127,7 +122,7 @@ export default function PackingList() {
     return { net: Number(calcNet).toFixed(2), gross: Number(calcGross).toFixed(2), totalPcs: calcQty };
   };
 
-  // Excel ve Raporlama için beden kırılımlı genel toplam hesabı
+  // ✅ DÜZELTİLDİ: Excel beden sıralaması SIZE_ORDER ile yapılıyor
   const sizeTotals = useMemo(() => {
     const breakdown = {};
     boxes.forEach((b) => {
@@ -182,7 +177,6 @@ export default function PackingList() {
     };
   }, [boxes, boxTare, unitWeights]);
 
-  // Koli Numarası Aynı Olan Bedenleri Argox için Tek Kolide Birleştirme Mantığı
   const mergedLabelsData = useMemo(() => {
     const grouped = {};
     boxes.forEach((b, idx) => {
@@ -301,21 +295,25 @@ export default function PackingList() {
       c.alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
-    // Excel Çıktısının En Altına Beden Kırılımlı Yükleme Toplamlarını Ekliyoruz
     worksheet.addRow([]);
     const sizeHeaderRow = worksheet.addRow(['BEDEN DAĞILIM MATRİS TOPLAMLARI (SIZE BREAKDOWN GRAND TOTALS)']);
     sizeHeaderRow.font = { bold: true, size: 11 };
     
-    const activeSizeKeys = Object.keys(sizeTotals).sort((a,b) => sizeOrder.indexOf(a) - sizeOrder.indexOf(b));
+    // ✅ DÜZELTİLDİ: Beden sıralaması SIZE_ORDER ile yapılıyor
+    const activeSizeKeys = Object.keys(sizeTotals).sort((a, b) => {
+      const indexA = SIZE_ORDER.indexOf(a);
+      const indexB = SIZE_ORDER.indexOf(b);
+      return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+    });
+
     activeSizeKeys.forEach(sz => {
-      const szRow = worksheet.addRow([sz, `${sizeTotals[sz]} PCS`]);
+      // ✅ DÜZELTİLDİ: Excel'de de temiz beden etiketi gösteriliyor
+      const szRow = worksheet.addRow([getDisplayLabel(sz), `${sizeTotals[sz]} PCS`]);
       szRow.getCell(1).font = { bold: true };
       szRow.getCell(1).alignment = { horizontal: 'left' };
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
-    
-    // 🛠️ 1. DEĞİŞİKLİK: Excel Dosya adı dinamik formata uyarlandı (packing list - müşteri ismi - tarih)
     const safeCustomerName = consignee.name.trim() ? consignee.name.trim().replace(/[^a-zA-Z0-9şŞçÇgGğĞüÜöÖıİ-]/g, '_') : 'Bilinmeyen-Musteri';
     const safeDate = today.replace(/\//g, '-');
     saveAs(new Blob([buffer]), `packing list - ${safeCustomerName} - ${safeDate}.xlsx`);
@@ -328,7 +326,7 @@ export default function PackingList() {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-10 space-y-10 pb-32 bg-white no-print">
       
-      {/* ÜST MÜŞTERİ KARTI (OTOMATİK SEÇİM ÖZELLİKLİ) */}
+      {/* ÜST MÜŞTERİ KARTI */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-10 p-10 border-2 border-slate-50 rounded-[3rem] shadow-sm relative">
         <div className="space-y-4">
           <div className="flex items-center gap-3 text-blue-600">
@@ -386,7 +384,8 @@ export default function PackingList() {
           <div className="pt-8 border-t border-white/10 flex flex-wrap gap-4">
             {activeOrderSizes.map(sz => (
               <div key={sz} className="flex-1 min-w-20 text-center">
-                <span className="text-[9px] font-black uppercase block opacity-60 mb-2">{sz}</span>
+                {/* ✅ DÜZELTİLDİ: prefix kaldırılarak temiz beden etiketi gösteriliyor */}
+                <span className="text-[9px] font-black uppercase block opacity-60 mb-2">{getDisplayLabel(sz)}</span>
                 <input type="number" step="0.001" className="w-full bg-white text-slate-900 rounded-2xl p-3 text-xs font-black text-center outline-none"
                   value={unitWeights[activeRefOrderId]?.[sz] || ''} 
                   onChange={(e) => setUnitWeights({...unitWeights, [activeRefOrderId]: {...unitWeights[activeRefOrderId], [sz]: e.target.value}})} 

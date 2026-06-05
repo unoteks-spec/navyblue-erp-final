@@ -4,23 +4,21 @@ import {
   MapPin, CheckCircle2, FileBarChart, Printer, Truck, 
   ChevronDown, ChevronUp, PackageCheck
 } from 'lucide-react';
+import { SIZE_ORDER } from '../constants/sizes';
 
 export default function ProductionReport() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [customerFilter, setCustomerFilter] = useState('');
-  const [articleFilter, setArticleFilter] = useState(''); // 🛠️ Artikel Filtresi
+  const [articleFilter, setArticleFilter] = useState('');
   const [expandedId, setExpandedId] = useState(null);
 
-  const sizeOrder = [
-    '3M', '6M', '9M', '12M', '18M', '24M', 
-    '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 
-    'XS', 'S', 'M', 'L', 
-    '3Y', '4Y', '5Y', '6Y', 
-    '3XS', '2XS', 'XXS', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', 
-    '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60', '62'
-  ];
+  // ✅ DÜZELTİLDİ: Akıllı label fonksiyonu
+  const getDisplayLabel = (s) => {
+    const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
+    return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
+  };
 
   useEffect(() => {
     getAllOrders().then(data => {
@@ -43,11 +41,8 @@ export default function ProductionReport() {
     return stageMap[key] || 'KESİM BEKLİYOR';
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => { window.print(); };
 
-  // 🛠️ GÜNCEL FİLTRELEME MOTORU (Artikel bazlı ve toleranslı)
   const filteredOrders = orders.filter(o => {
     const isArchived = o.status === 'archived' || o.is_archived === true;
     let statusMatch = true;
@@ -73,7 +68,6 @@ export default function ProductionReport() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32">
-      
       <style>{`
         @media print {
           body { background: white !important; padding: 0 !important; margin: 0 !important; }
@@ -85,7 +79,6 @@ export default function ProductionReport() {
         }
       `}</style>
       
-      {/* KONTROL PANELİ */}
       <div className="bg-white p-5 rounded-4xl border border-slate-100 shadow-sm space-y-4 no-print">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -154,7 +147,11 @@ export default function ProductionReport() {
                 const cTotal = Object.values(o.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
                 const sTotal = Object.values(o.shipped_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
                 const diffTotal = sTotal - cTotal;
-                const activeSizes = Object.keys(o.qty_by_size || {}).sort((a,b) => sizeOrder.indexOf(a.toUpperCase()) - sizeOrder.indexOf(b.toUpperCase()));
+
+                // ✅ DÜZELTİLDİ: SIZE_ORDER prefix'li key'lerle eşleşiyor
+                const activeSizes = SIZE_ORDER.filter(s => 
+                  Number(o.qty_by_size?.[s] || 0) > 0 || Number(o.cutting_qty?.[s] || 0) > 0
+                );
 
                 return (
                   <React.Fragment key={o.id}>
@@ -176,6 +173,7 @@ export default function ProductionReport() {
                       <td className="py-4 px-2 text-right font-black text-indigo-600 text-sm">{sTotal || '-'}</td>
                       <td className="py-4 px-2 text-center">{isArchived ? <Truck size={16} className="text-indigo-600 mx-auto" /> : <CheckCircle2 size={16} className={cTotal >= pTotal ? "text-emerald-500 mx-auto" : "text-slate-200 mx-auto"} />}</td>
                     </tr>
+
                     {isExpanded && (
                       <tr className="bg-slate-50/50">
                         <td colSpan="9" className="p-6">
@@ -184,33 +182,37 @@ export default function ProductionReport() {
                               <PackageCheck size={14} className="text-blue-400" />
                               <h3 className="text-[10px] font-black text-white uppercase tracking-wider">Beden Dağılım Matrisi</h3>
                             </div>
+                            
                             <table className="w-full text-center text-xs border-collapse">
                               <thead>
                                 <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase">
                                   <th className="py-3 px-4 text-left font-black bg-slate-100 sticky left-0 z-10 w-28 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">AŞAMA</th>
-                                  {activeSizes.map(size => <th key={size} className="py-3 px-3 min-w-16 border-l border-slate-200/60 font-black text-slate-800">{size}</th>)}
+                                  {/* ✅ DÜZELTİLDİ: getDisplayLabel ile temiz beden etiketi */}
+                                  {activeSizes.map(s => (
+                                    <th key={s} className="py-3 px-3 min-w-16 border-l border-slate-200/60 font-black text-slate-800">
+                                      {getDisplayLabel(s)}
+                                    </th>
+                                  ))}
                                   <th className="py-3 px-4 text-right font-black bg-slate-800 text-white min-w-20">TOPLAM</th>
                                 </tr>
                               </thead>
                               <tbody className="font-bold">
                                 <tr className="border-b border-slate-100">
                                   <td className="py-2.5 px-4 text-left font-black text-emerald-600 bg-slate-50/80 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-[10px]">KESİLEN</td>
-                                  {activeSizes.map(size => <td key={size} className="py-2.5 px-3 border-l border-slate-100 text-emerald-700 font-black">{o.cutting_qty?.[size] || 0}</td>)}
+                                  {activeSizes.map(s => <td key={s} className="py-2.5 px-3 border-l border-slate-100 text-emerald-700 font-black">{o.cutting_qty?.[s] || 0}</td>)}
                                   <td className="py-2.5 px-4 text-right font-black text-emerald-700 bg-emerald-50">{cTotal}</td>
                                 </tr>
                                 <tr className="border-b border-slate-100">
                                   <td className="py-2.5 px-4 text-left font-black text-indigo-600 bg-slate-50/80 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-[10px]">SEVK EDİLEN</td>
-                                  {activeSizes.map(size => <td key={size} className="py-2.5 px-3 border-l border-slate-100 text-indigo-700 font-black">{o.shipped_qty?.[size] || 0}</td>)}
+                                  {activeSizes.map(s => <td key={s} className="py-2.5 px-3 border-l border-slate-100 text-indigo-700 font-black">{o.shipped_qty?.[s] || 0}</td>)}
                                   <td className="py-2.5 px-4 text-right font-black text-indigo-700 bg-indigo-50">{sTotal}</td>
                                 </tr>
                                 <tr className="bg-slate-50/30">
                                   <td className="py-2.5 px-4 text-left font-black text-slate-500 bg-slate-100/50 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-[10px]">FARK / FİRE</td>
-                                  {activeSizes.map(size => {
-                                    const c = Number(o.cutting_qty?.[size] || 0);
-                                    const s = Number(o.shipped_qty?.[size] || 0);
-                                    const diff = s - c;
+                                  {activeSizes.map(s => {
+                                    const diff = (Number(o.shipped_qty?.[s] || 0) - Number(o.cutting_qty?.[s] || 0));
                                     return (
-                                      <td key={size} className={`py-2.5 px-3 border-l border-slate-100 font-black text-[11px] ${diff === 0 ? 'text-slate-400' : diff > 0 ? 'text-blue-600' : 'text-red-500'}`}>
+                                      <td key={s} className={`py-2.5 px-3 border-l border-slate-100 font-black text-[11px] ${diff === 0 ? 'text-slate-400' : diff > 0 ? 'text-blue-600' : 'text-red-500'}`}>
                                         {diff > 0 ? `+${diff}` : diff}
                                       </td>
                                     );
@@ -234,10 +236,6 @@ export default function ProductionReport() {
 
         <div className="p-8 border-t-2 border-[#0f172a] flex justify-between items-center text-[9px] font-black text-[#94a3b8] uppercase tracking-widest bg-white">
           <div>© NAVY BLUE ERP - PRECISION LOGISTICS</div>
-          <div className="flex gap-10">
-            <div>KESİM/SEVK FARKI: <span className={totalShipped - totalCut >= 0 ? 'text-emerald-600' : 'text-red-500'}>{totalShipped - totalCut} ADET</span></div>
-            <div className="font-black text-[#0f172a]">ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.</div>
-          </div>
         </div>
       </div>
     </div>

@@ -1,30 +1,32 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, Scissors, Calculator, Calendar, Ruler } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { X, Scissors, Calculator } from 'lucide-react';
 import { updateCuttingResults } from '../../api/orderService';
+import { SIZE_ORDER } from '../../constants/sizes';
 
 export default function CuttingResultModal({ order, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
-  
-  // 🛠️ TÜM YENİ BEDEN GRUPLARI KRONOLOJİK SIRAYLA KORUNDU
-  const SIZE_ORDER = [
-    '3M', '6M', '9M', '12M', '18M', '24M', // Bebek Grubu
-    '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', // Çocuk Grubu (Numerik)
-    'XS', 'S', 'M', 'L', // Çocuk Grubu (Harfli - Numerik çocukların ardına alındı)
-    '3Y', '4Y', '5Y', '6Y', // Çocuk Grubu (Yaş bazlı)
-    '3XS', '2XS', 'XXS', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL', // Standart Yetişkin Varyantları
-    '34', '36', '38', '40', '42', '44', '46', '48', '50', '52', '54', '56', '58', '60', '62' // Numerik Yetişkin Grubu
-  ];
 
-  const sortedSizes = Object.keys(order.qty_by_size || {}).sort((a, b) => {
-    const indexA = SIZE_ORDER.indexOf(a.toUpperCase());
-    const indexB = SIZE_ORDER.indexOf(b.toUpperCase());
-    return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
-  });
+  // 🛠️ AKILLI LABEL FONKSİYONU: Önek varsa sil, yoksa aynen bırak
+  const getDisplayLabel = (s) => {
+    const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
+    const firstChar = s.charAt(0);
+    return prefixes.includes(firstChar) && s.length > 1 ? s.substring(1) : s;
+  };
+
+  // ✅ DÜZELTİLDİ: SIZE_ORDER artık constants/sizes'dan geliyor
+  const sortedSizes = useMemo(() => {
+    return Object.keys(order.qty_by_size || {})
+      .filter(key => Number(order.qty_by_size[key] || 0) > 0)
+      .sort((a, b) => {
+        const indexA = SIZE_ORDER.indexOf(a);
+        const indexB = SIZE_ORDER.indexOf(b);
+        return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+      });
+  }, [order.qty_by_size]);
 
   const [results, setResults] = useState({});
   const [details, setDetails] = useState({ cuttingDate: "", markerWidth: "" });
 
-  // ✅ VERİYİ ZORLA TAZELE: Modal açıldığında DB'den gelen veriyi state'e yazar
   useEffect(() => {
     if (order) {
       const saved = order.cutting_qty || {};
@@ -36,7 +38,7 @@ export default function CuttingResultModal({ order, onClose, onSuccess }) {
         markerWidth: order.marker_width || ""
       });
     }
-  }, [order.id]);
+  }, [order, sortedSizes]);
 
   const currentTotal = useMemo(() => Object.values(results).reduce((a, b) => a + (Number(b) || 0), 0), [results]);
 
@@ -45,17 +47,15 @@ export default function CuttingResultModal({ order, onClose, onSuccess }) {
     setLoading(true);
     try {
       await updateCuttingResults(order.id, results, details);
-      onSuccess(); 
+      onSuccess();
       onClose();
     } catch (err) { alert("Hata: " + err.message); } finally { setLoading(false); }
   };
 
   return (
     <div className="fixed inset-0 z-200 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 text-slate-900">
-      {/* 🛠️ 1. DEĞİŞİKLİK: Küçük ekranlarda taşmayı önlemek için max-h-[90vh] ve flex-col yapısı eklendi */}
       <div className="bg-white w-full max-w-md max-h-[90vh] rounded-4xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in duration-200">
-        
-        {/* MODAL HEADER */}
+
         <div className="bg-emerald-600 px-6 py-4 flex justify-between items-center text-white shrink-0">
           <div className="flex items-center gap-2 text-white">
             <Scissors size={18} />
@@ -64,14 +64,12 @@ export default function CuttingResultModal({ order, onClose, onSuccess }) {
           <button onClick={onClose}><X size={20} /></button>
         </div>
 
-        {/* MODAL FORM VE İÇERİK SARMALAYICI */}
-        {/* 🛠️ 2. DEĞİŞİKLİK: flex-1 ve overflow-y-auto ile form alanının kendi içinde kayması sağlandı */}
         <form id="cutting-form" onSubmit={handleSubmit} className="p-6 space-y-4 flex-1 overflow-y-auto custom-scrollbar">
           <div className="bg-slate-900 rounded-2xl p-4 flex justify-between items-center">
             <div className="flex items-center gap-3">
               <Calculator className="text-emerald-400" size={20} />
               <div>
-                <p className="text-[8px] font-black text-slate-500 uppercase">Toplam Üretim</p>
+                <p className="text-[8px] font-black text-slate-500 uppercase">Toplam Kesim</p>
                 <div className="text-xl font-black text-white italic">{currentTotal} ADET</div>
               </div>
             </div>
@@ -91,26 +89,30 @@ export default function CuttingResultModal({ order, onClose, onSuccess }) {
           <div className="grid grid-cols-3 gap-2">
             {sortedSizes.map(size => (
               <div key={size} className="p-2 bg-slate-50 rounded-xl border border-slate-100">
-                <label className="text-[8px] font-black text-slate-400 uppercase block mb-1 text-center">{size}</label>
-                <input type="number" className="w-full bg-white rounded-lg p-2 font-black text-center text-sm outline-none text-slate-900" value={results[size] ?? ""} onChange={e => setResults({...results, [size]: e.target.value})} />
+                <label className="text-[8px] font-black text-slate-400 uppercase block mb-1 text-center">
+                  {getDisplayLabel(size)}
+                </label>
+                <input
+                  type="number"
+                  className="w-full bg-white rounded-lg p-2 font-black text-center text-sm outline-none text-slate-900"
+                  value={results[size] ?? ""}
+                  onChange={e => setResults({...results, [size]: e.target.value})}
+                />
               </div>
             ))}
           </div>
         </form>
 
-        {/* MODAL FOOTER (KAYDET BUTONU) */}
-        {/* 🛠️ 3. DEĞİŞİKLİK: Form dışına çıkartılıp shrink-0 ile tabana çivilendi */}
         <div className="p-6 bg-white border-t border-slate-50 shrink-0">
-          <button 
-            type="submit" 
-            form="cutting-form" 
-            disabled={loading} 
+          <button
+            type="submit"
+            form="cutting-form"
+            disabled={loading}
             className="w-full bg-emerald-600 text-white h-12 rounded-2xl font-black text-xs uppercase shadow-lg hover:bg-slate-900 transition-all"
           >
             {loading ? "GÜNCELLENİYOR..." : "KAYDET VE KAPAT"}
           </button>
         </div>
-
       </div>
     </div>
   );

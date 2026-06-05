@@ -13,20 +13,18 @@ import {
 import FabricPoPrint from '../components/orders/FabricPoPrint';
 
 export default function FabricManagement() {
-  const [activeTab, setActiveTab] = useState('pool'); // pool | pos
+  const [activeTab, setActiveTab] = useState('pool');
   const [waitingOrders, setWaitingOrders] = useState([]);
   const [fabricOrders, setFabricOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedItems, setSelectedItems] = useState([]);
 
-  // Modal ve Yazdırma State'leri
   const [showPoModal, setShowPoModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedPo, setSelectedPo] = useState(null);
   const [printPo, setPrintPo] = useState(null);
 
-  // Form State'leri
   const [poForm, setPoForm] = useState({ supplierName: '', customQtyKg: '' });
   const [receiveForm, setReceiveForm] = useState({ receivedKg: '', receivedRolls: '' });
   const [editForm, setEditForm] = useState({ supplierName: '', orderedQtyKg: '', fabricType: '', color: '' });
@@ -62,7 +60,7 @@ export default function FabricManagement() {
           if (!fab.kind) return;
           
           const extraMultiplier = 1 + (Number(order.extra_percent || 5) / 100);
-          const neededKg = Math.ceil(plannedPcs * extraMultiplier * Number(fab.perPieceKg || 0));
+          const neededQty = Math.ceil(plannedPcs * extraMultiplier * Number(fab.perPieceKg || 0));
 
           pool.push({
             uniqueKey: `${order.id}_${fabKey}`,
@@ -76,7 +74,9 @@ export default function FabricManagement() {
             fabricKey: fabKey,
             fabricKind: fab.kind,
             fabricColor: fab.color || order.color,
-            neededKg,
+            neededQty,
+            // ✅ DÜZELTİLDİ: Birim artık fabric'ten geliyor
+            unit: fab.unit || 'KG',
             gsm: fab.gsm || '—',
             width: fab.width || fab.widthCm || '190',
             content: fab.content || '%100 Pamuk',
@@ -103,10 +103,16 @@ export default function FabricManagement() {
     }
   };
 
-  const autoTotalCalculatedKg = useMemo(() => {
+  const autoTotalCalculatedQty = useMemo(() => {
     return flattenedFabricPool
       .filter(i => selectedItems.includes(i.uniqueKey))
-      .reduce((sum, item) => sum + item.neededKg, 0);
+      .reduce((sum, item) => sum + item.neededQty, 0);
+  }, [selectedItems, flattenedFabricPool]);
+
+  // Seçili item'ların birimi (hepsi aynı renk seçildiği için unit da aynı olacak)
+  const selectedUnit = useMemo(() => {
+    const first = flattenedFabricPool.find(i => selectedItems.includes(i.uniqueKey));
+    return first?.unit || 'KG';
   }, [selectedItems, flattenedFabricPool]);
 
   const handleCreatePo = async (e) => {
@@ -119,14 +125,14 @@ export default function FabricManagement() {
 
     const allocatedMap = {};
     selectedPoolItems.forEach(item => {
-      allocatedMap[item.orderId] = item.neededKg;
+      allocatedMap[item.orderId] = item.neededQty;
     });
 
     const poData = {
       supplierName: poForm.supplierName,
       fabricType: uniqueFabricKinds,
       color: sample.fabricColor,
-      orderedQtyKg: poForm.customQtyKg || autoTotalCalculatedKg,
+      orderedQtyKg: poForm.customQtyKg || autoTotalCalculatedQty,
       allocatedMap
     };
 
@@ -198,7 +204,6 @@ export default function FabricManagement() {
     }
   };
 
-  // 🚀 DÜZELTME: Seçilmeyen kumaş türlerinin (Çiçekli vb.) tabloya sızmasını %100 engelleyen akıllı süzgeç motoru
   const preparedPrintItems = useMemo(() => {
     if (!printPo || !printPo.fabric_order_items) return [];
     
@@ -212,7 +217,6 @@ export default function FabricManagement() {
         Object.entries(dbFabrics).forEach(([key, fab]) => {
           if (!fab || !fab.kind) return;
 
-          // 🎯 KRİTİK SÜZGEÇ: Sadece bu PO'da sipariş geçilen kumaş türü (fabric_type) veya rengi ile eşleşenleri listeye al
           const isKindMatch = String(printPo.fabric_type).toLowerCase().includes(String(fab.kind).toLowerCase());
           const currentFabricColor = fab.color || dbOrder.color || printPo.color || '—';
           const isColorMatch = String(printPo.color).toLowerCase().trim() === String(currentFabricColor).toLowerCase().trim();
@@ -232,7 +236,6 @@ export default function FabricManagement() {
       }
     });
 
-    // Eğer süzgeçten dolayı liste boş kalırsa koruma olarak ana kartı ekle
     if (itemsList.length === 0 && printPo.fabric_order_items.length > 0) {
       printPo.fabric_order_items.forEach(item => {
         const rawOrder = item.orders;
@@ -265,7 +268,6 @@ export default function FabricManagement() {
           </div>
         </div>
 
-        {/* Tab Butonları */}
         <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
           <button 
             onClick={() => setActiveTab('pool')}
@@ -314,6 +316,7 @@ export default function FabricManagement() {
                     <th className="py-5 px-4 text-blue-400">Kumaş Kırılımı (Tür)</th>
                     <th className="py-5 px-4 text-blue-400 text-left">Kumaş Rengi</th>
                     <th className="py-5 px-4 text-center">İş Adeti</th>
+                    {/* ✅ DÜZELTİLDİ: Başlık KG yerine dinamik */}
                     <th className="py-5 px-6 text-right text-emerald-400">Hesaplanan İhtiyaç</th>
                   </tr>
                 </thead>
@@ -339,9 +342,14 @@ export default function FabricManagement() {
                             <div className="text-[10px] text-slate-400 uppercase font-medium">{item.model}</div>
                           </td>
                           <td className="py-4 px-4 font-black text-blue-600 uppercase text-[11px]">{item.fabricKind}</td>
-                          <td className="py-4 px-4 text-left"><span className="px-2.5 py-1 bg-slate-100 border rounded-lg text-[10px] uppercase font-black text-slate-600 inline-block">{item.fabricColor}</span></td>
+                          <td className="py-4 px-4 text-left">
+                            <span className="px-2.5 py-1 bg-slate-100 border rounded-lg text-[10px] uppercase font-black text-slate-600 inline-block">{item.fabricColor}</span>
+                          </td>
                           <td className="py-4 px-4 text-center text-slate-500">{item.plannedPcs} Pcs</td>
-                          <td className="py-4 px-6 text-right font-black text-emerald-600 text-sm italic">{item.neededKg} <span className="text-[10px] font-bold text-slate-400">KG</span></td>
+                          {/* ✅ DÜZELTİLDİ: Birim artık item.unit'ten geliyor */}
+                          <td className="py-4 px-6 text-right font-black text-emerald-600 text-sm italic">
+                            {item.neededQty} <span className="text-[10px] font-bold text-slate-400">{item.unit}</span>
+                          </td>
                         </tr>
                       );
                     })
@@ -374,7 +382,8 @@ export default function FabricManagement() {
                       <div><span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">KUMAŞ / GARNİ</span><span className="text-xs font-black text-blue-600 uppercase">{po.fabric_type}</span></div>
                       <div><span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">RENK</span><span className="text-xs font-black text-slate-700 uppercase">{po.color}</span></div>
                       <div><span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">SİPARİŞ EDİLEN</span><span className="text-xs font-black text-slate-900 italic">{po.ordered_qty_kg} KG</span></div>
-                      <div><span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">FİELEN GELEN</span><span className="text-xs font-black text-emerald-600 italic">{po.received_qty_kg || 0} / {po.ordered_qty_kg} KG</span></div>
+                      {/* ✅ DÜZELTİLDİ: "FİELEN" → "FİİLEN" */}
+                      <div><span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">FİİLEN GELEN</span><span className="text-xs font-black text-emerald-600 italic">{po.received_qty_kg || 0} / {po.ordered_qty_kg} KG</span></div>
                     </div>
 
                     <div className="flex flex-wrap gap-2 pt-1">
@@ -434,7 +443,8 @@ export default function FabricManagement() {
             <div className="bg-slate-50 p-4 rounded-2xl border text-xs space-y-2 font-bold text-slate-600">
               <p>Kumaş Türü: <span className="text-blue-600 font-black uppercase">{[...new Set(flattenedFabricPool.filter(i => selectedItems.includes(i.uniqueKey)).map(i => i.fabricKind))].join(' + ')}</span></p>
               <p>Kumaş Rengi: <span className="text-slate-900 font-black uppercase">{flattenedFabricPool.find(i => selectedItems.includes(i.uniqueKey))?.fabricColor}</span></p>
-              <p>Otomatik Hesaplanan Toplam: <span className="text-emerald-600 font-black italic">{autoTotalCalculatedKg} KG</span></p>
+              {/* ✅ DÜZELTİLDİ: Birim dinamik gösteriliyor */}
+              <p>Otomatik Hesaplanan Toplam: <span className="text-emerald-600 font-black italic">{autoTotalCalculatedQty} {selectedUnit}</span></p>
             </div>
             <form onSubmit={handleCreatePo} className="space-y-4">
               <div className="space-y-1">
@@ -442,8 +452,8 @@ export default function FabricManagement() {
                 <input required type="text" className="w-full h-11 px-3 bg-slate-50 border rounded-xl text-xs font-bold outline-none uppercase" placeholder="Örn: MONNALISA" value={poForm.supplierName} onChange={e => setPoForm({...poForm, supplierName: e.target.value})} />
               </div>
               <div className="space-y-1">
-                <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Sipariş Kilosu (Elle Müdahale - Opsiyonel)</label>
-                <input type="number" className="w-full h-11 px-3 bg-slate-50 border rounded-xl text-xs font-black text-blue-600 outline-none" placeholder={`Boş bırakılırsa ${autoTotalCalculatedKg} KG yazılır`} value={poForm.customQtyKg} onChange={e => setPoForm({...poForm, customQtyKg: e.target.value})} />
+                <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Sipariş Miktarı (Elle Müdahale - Opsiyonel)</label>
+                <input type="number" className="w-full h-11 px-3 bg-slate-50 border rounded-xl text-xs font-black text-blue-600 outline-none" placeholder={`Boş bırakılırsa ${autoTotalCalculatedQty} ${selectedUnit} yazılır`} value={poForm.customQtyKg} onChange={e => setPoForm({...poForm, customQtyKg: e.target.value})} />
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowPoModal(false)} className="flex-1 h-12 bg-slate-100 rounded-xl font-black text-xs uppercase tracking-wider hover:bg-slate-200 transition-colors">İptal</button>
@@ -510,7 +520,6 @@ export default function FabricManagement() {
         </div>
       )}
 
-      {/* SAF PDF MOTORU TETİKLEYİCİ BAĞLANTISI */}
       {printPo && (
         <FabricPoPrint 
           po={printPo} 
@@ -518,7 +527,6 @@ export default function FabricManagement() {
           poolItems={preparedPrintItems} 
         />
       )}
-
     </div>
   );
 }

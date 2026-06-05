@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getFabricsByOrderNo } from '../../api/orderService';
-import { ShoppingCart, CheckCircle2 } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 
 export default function GlobalFabricSummary({ orderNo }) {
   const [summary, setSummary] = useState([]);
@@ -31,8 +31,10 @@ export default function GlobalFabricSummary({ orderNo }) {
               </div>
             </div>
             <div className="text-right">
+              {/* ✅ DÜZELTİLDİ: totalKg → totalAmount, birim fabric.unit'ten geliyor */}
               <div className="text-2xl font-black text-blue-400 leading-none">
-                {fabric.totalKg.toFixed(1)} <span className="text-xs">KG</span>
+                {Number(fabric.totalAmount || 0).toFixed(1)}{' '}
+                <span className="text-xs">{fabric.unit?.toUpperCase() || 'KG'}</span>
               </div>
             </div>
           </div>

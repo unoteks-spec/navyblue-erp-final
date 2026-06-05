@@ -3,6 +3,7 @@ import {
   Search, Hash, CheckCircle, LayoutGrid, RefreshCcw, X, Calendar, Activity, Copy, Calculator, Scissors, Edit3, Trash2
 } from 'lucide-react';
 import { getAllOrders, deleteOrder, supabase } from "../api/orderService";
+import { SIZE_ORDER } from '../constants/sizes';
 
 import CuttingOrderModal from '../components/orders/CuttingOrderModal';
 import CuttingOrderPrint from '../components/orders/CuttingOrderPrint';
@@ -17,12 +18,12 @@ export default function OrderList({ onEditOrder }) {
   const [cuttingResultOrder, setCuttingResultOrder] = useState(null);
   const [selectedOrderDetail, setSelectedOrderDetail] = useState(null);
 
-  const sizeOrder = [
-    'XXS', 'XS', 'S', 'M', 'L', 'XL', 
-    'XXL', '2XL', 
-    '3XL', '4XL', '5XL', 
-    '36', '38', '40', '42', '44', '46', '48'
-  ];
+  // ✅ DÜZELTİLDİ: Merkezi constants/sizes'dan geliyor
+  // ✅ DÜZELTİLDİ: Akıllı label fonksiyonu — prefix varsa sil, yoksa aynen bırak
+  const getDisplayLabel = (s) => {
+    const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
+    return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
+  };
 
   useEffect(() => {
     if (selectedOrderDetail) {
@@ -33,7 +34,6 @@ export default function OrderList({ onEditOrder }) {
     return () => { document.body.style.overflow = 'unset'; };
   }, [selectedOrderDetail]);
 
-  // 🔄 VERİLERİ YÜKLE
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -48,7 +48,6 @@ export default function OrderList({ onEditOrder }) {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // 🛠️ SİPARİŞİ SİL
   const handleDeleteOrder = async (orderId) => {
     if (!window.confirm('Bu iş emrini silmek istediğinizden emin misiniz?')) return;
     try {
@@ -62,30 +61,28 @@ export default function OrderList({ onEditOrder }) {
     }
   };
 
-  // 🛠️ SİPARİŞİ KLONLA
   const handleCloneOrder = async (originalOrder) => {
     try {
       const { id, created_at, updated_at, ...clonedData } = originalOrder;
       const finalData = {
         ...clonedData,
         order_no: `${originalOrder.order_no}-KOPYA`,
-        status: 'draft', 
+        status: 'draft',
         is_archived: false,
         fabric_ordered: false,
-        cutting_qty: {}, 
+        cutting_qty: {},
         current_stage: 'kesim_bekliyor'
       };
       const { error } = await supabase.from('orders').insert([finalData]);
       if (error) throw error;
       alert('Sipariş başarıyla kopyalandı! Listeden düzenleyebilirsiniz.');
-      loadData(); 
+      loadData();
     } catch (err) {
       console.error("Klonlama hatası:", err.message);
       alert("Kopyalama sırasında bir sorun oluştu.");
     }
   };
 
-  // 🛠️ İLERLEME HESAPLAMA
   const calculateProgress = (order) => {
     if (order.current_stage === 'kesim_bekliyor' && !order.fabric_ordered) {
       return { percent: 0 };
@@ -97,7 +94,16 @@ export default function OrderList({ onEditOrder }) {
   };
 
   const getStageLabel = (key) => {
-    const stageMap = { 'kesimhanede': 'KESİMHANE', 'baski': 'BASKI / NAKIŞ', 'nakis': 'NAKIŞ', 'dikim': 'DİKİM HATTI', 'ilik_dugme': 'İLİK-DÜĞME', 'yikama_boyama': 'YIKAMA-BOYAMA', 'utu_ambalaj': 'ÜTÜ-PAKET', 'yuklendi': 'YÜKLENDİ' };
+    const stageMap = {
+      'kesimhanede': 'KESİMHANE',
+      'baski': 'BASKI / NAKIŞ',
+      'nakis': 'NAKIŞ',
+      'dikim': 'DİKİM HATTI',
+      'ilik_dugme': 'İLİK-DÜĞME',
+      'yikama_boyama': 'YIKAMA-BOYAMA',
+      'utu_ambalaj': 'ÜTÜ-PAKET',
+      'yuklendi': 'YÜKLENDİ'
+    };
     return stageMap[key] || 'KESİM BEKLİYOR';
   };
 
@@ -105,17 +111,17 @@ export default function OrderList({ onEditOrder }) {
     .filter(o => {
       const isArchived = o.status === 'archived' || o.is_archived === true;
       if (isArchived) return false;
-      const matchesSearch = 
+      return (
         o.order_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         o.customer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.article?.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesSearch;
+        o.article?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     })
     .sort((a, b) => (a.due ? new Date(a.due) : new Date('9999-12-31')) - (b.due ? new Date(b.due) : new Date('9999-12-31')));
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32">
-      
+
       {/* 1. ÜST BAR */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
@@ -125,15 +131,17 @@ export default function OrderList({ onEditOrder }) {
             <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase mt-1">Navy Blue ERP</p>
           </div>
         </div>
-        <button onClick={loadData} className="p-2.5 bg-white border border-slate-100 rounded-xl hover:bg-slate-50"><RefreshCcw size={18} className={loading ? 'animate-spin' : ''} /></button>
+        <button onClick={loadData} className="p-2.5 bg-white border border-slate-100 rounded-xl hover:bg-slate-50">
+          <RefreshCcw size={18} className={loading ? 'animate-spin' : ''} />
+        </button>
       </div>
 
       {/* 2. ARAMA */}
       <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-100">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-          <input 
-            type="text" 
+          <input
+            type="text"
             placeholder="Grup, Müşteri veya Artikel Ara..."
             className="w-full pl-11 pr-4 py-3 bg-slate-50 border-transparent rounded-xl outline-none focus:bg-white text-[11px] font-bold transition-all"
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -157,7 +165,7 @@ export default function OrderList({ onEditOrder }) {
               <div className="absolute -top-3 -right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all z-30">
                 <button onClick={(e) => { e.stopPropagation(); handleCloneOrder(order); }} className="w-10 h-10 bg-white text-indigo-500 hover:text-indigo-700 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110" title="Kopyala"><Copy size={16} /></button>
                 <button onClick={(e) => { e.stopPropagation(); onEditOrder(order); }} className="w-10 h-10 bg-white text-blue-500 hover:text-blue-700 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110" title="Düzenle"><Edit3 size={16} /></button>
-                <button onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order.id); }} className="w-10 h-10 bg-whitetext-red-500 hover:text-red-700 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110" title="Sil"><Trash2 size={16} /></button>
+                <button onClick={(e) => { e.stopPropagation(); handleDeleteOrder(order.id); }} className="w-10 h-10 bg-white text-red-500 hover:text-red-700 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110" title="Sil"><Trash2 size={16} /></button>
               </div>
 
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -194,7 +202,6 @@ export default function OrderList({ onEditOrder }) {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {/* 🛠️ SADECE KESİM ODALAKLI BUTONLAR BIRAKILDI */}
                   <button onClick={() => setPreparingOrder(order)} className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg hover:bg-blue-600 transition-colors">Kesim Emri</button>
                   <button onClick={() => setCuttingResultOrder(order)} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter transition-all ${isCut ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white'}`}>
                     {isCut ? <CheckCircle size={14} /> : <Scissors size={14} />} {isCut ? 'Kesildi' : 'Sonuç Gir'}
@@ -253,24 +260,26 @@ export default function OrderList({ onEditOrder }) {
                   </div>
                 </div>
 
-                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                   <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2"><CheckCircle size={14}/> Beden Denge Matrisi</h3>
-                </div>
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                  <CheckCircle size={14}/> Beden Denge Matrisi
+                </h3>
 
                 <div className="flex gap-3 overflow-x-auto pb-6 custom-scrollbar min-w-full">
                   {Object.entries(selectedOrderDetail.qty_by_size || {})
                     .filter(([size, qty]) => Number(qty) > 0 || Number(selectedOrderDetail.cutting_qty?.[size] || 0) > 0)
                     .sort((a, b) => {
-                      const indexA = sizeOrder.indexOf(a[0].toUpperCase());
-                      const indexB = sizeOrder.indexOf(b[0].toUpperCase());
+                      const indexA = SIZE_ORDER.indexOf(a[0]);
+                      const indexB = SIZE_ORDER.indexOf(b[0]);
                       return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
                     })
                     .map(([size, qty]) => {
                       const cut = selectedOrderDetail.cutting_qty?.[size] || 0;
                       const diff = Number(cut) - Number(qty);
+                      // ✅ DÜZELTİLDİ: Akıllı label fonksiyonu kullanılıyor
+                      const displayLabel = getDisplayLabel(size);
                       return (
                         <div key={size} className="shrink-0 w-28 bg-white border border-slate-100 rounded-[2.5rem] overflow-hidden shadow-sm flex flex-col transition-all hover:border-blue-200">
-                          <div className="bg-slate-900 py-2.5 text-center text-[10px] font-black text-white uppercase">{size}</div>
+                          <div className="bg-slate-900 py-2.5 text-center text-[10px] font-black text-white uppercase">{displayLabel}</div>
                           <div className="p-4 text-center space-y-3">
                             <div className="space-y-0.5"><span className="text-[8px] font-bold text-slate-400 uppercase block">Sipariş</span><span className="text-lg font-black text-slate-900">{qty}</span></div>
                             <div className="h-px bg-slate-50 w-full" />
@@ -285,7 +294,7 @@ export default function OrderList({ onEditOrder }) {
             </div>
 
             <div className="p-6 md:p-8 bg-white border-t border-slate-100">
-               <button onClick={() => setSelectedOrderDetail(null)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-blue-600 transition-colors">Kapat</button>
+              <button onClick={() => setSelectedOrderDetail(null)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-blue-600 transition-colors">Kapat</button>
             </div>
           </div>
         </div>
