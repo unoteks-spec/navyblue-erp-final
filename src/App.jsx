@@ -10,12 +10,10 @@ import ProductionTrack from './pages/ProductionTrack';
 import ArchivedOrders from './pages/ArchivedOrders';
 import PackingList from './pages/PackingList';
 import FabricManagement from './pages/FabricManagement';
-import Quotation from './pages/Quotation';
-import QuotationHistory from './pages/QuotationHistory';
 
 import { 
   LayoutGrid, PlusCircle, PieChart, FileBarChart, Activity,
-  Archive, Package, Layers, LogOut, Calculator, Clock
+  Archive, Package, Layers, LogOut
 } from 'lucide-react';
 
 function App() {
@@ -41,31 +39,27 @@ function App() {
   if (!session) return <Login/>;
 
   const navItems = [
-    { key: 'dashboard',         label: 'Panel',   icon: PieChart },
-    { key: 'list',              label: 'Liste',   icon: LayoutGrid },
-    { key: 'track',             label: 'Akış',    icon: Activity },
-    { key: 'archived',          label: 'Arşiv',   icon: Archive },
-    { key: 'report',            label: 'Rapor',   icon: FileBarChart },
-    { key: 'fabric',            label: 'Kumaş',   icon: Layers },
-    { key: 'packing',           label: 'Çeki',    icon: Package },
-    { key: 'quotation',         label: 'Fiyat',   icon: Calculator },
-    { key: 'quotation-history', label: 'Teklifler',icon: Clock },
-    { key: 'create',            label: 'Yeni',    icon: PlusCircle },
+    { key: 'dashboard', label: 'Panel',  icon: PieChart },
+    { key: 'list',      label: 'Liste',  icon: LayoutGrid },
+    { key: 'track',     label: 'Akış',   icon: Activity },
+    { key: 'archived',  label: 'Arşiv',  icon: Archive },
+    { key: 'report',    label: 'Rapor',  icon: FileBarChart },
+    { key: 'fabric',    label: 'Kumaş',  icon: Layers },
+    { key: 'packing',   label: 'Çeki',   icon: Package },
+    { key: 'create',    label: 'Yeni',   icon: PlusCircle },
   ];
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-24">
       <main className="animate-in fade-in duration-500">
-        {activePage === 'dashboard'         && <Dashboard/>}
-        {activePage === 'list'              && <OrderList onEditOrder={handleEditOrder}/>}
-        {activePage === 'create'            && <Orders editingOrder={editingOrder} onComplete={handleComplete}/>}
-        {activePage === 'track'             && <ProductionTrack/>}
-        {activePage === 'report'            && <ProductionReport/>}
-        {activePage === 'archived'          && <ArchivedOrders/>}
-        {activePage === 'packing'           && <PackingList/>}
-        {activePage === 'fabric'            && <FabricManagement/>}
-        {activePage === 'quotation'         && <Quotation/>}
-        {activePage === 'quotation-history' && <QuotationHistory/>}
+        {activePage === 'dashboard' && <Dashboard/>}
+        {activePage === 'list'      && <OrderList onEditOrder={handleEditOrder}/>}
+        {activePage === 'create'    && <Orders editingOrder={editingOrder} onComplete={handleComplete}/>}
+        {activePage === 'track'     && <ProductionTrack/>}
+        {activePage === 'report'    && <ProductionReport/>}
+        {activePage === 'archived'  && <ArchivedOrders/>}
+        {activePage === 'packing'   && <PackingList/>}
+        {activePage === 'fabric'    && <FabricManagement/>}
       </main>
 
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-xl px-5 py-4 rounded-[2.5rem] shadow-2xl flex items-center gap-4 md:gap-5 z-50 border border-white/10 max-w-[95vw] overflow-x-auto no-scrollbar">
