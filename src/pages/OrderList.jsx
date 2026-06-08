@@ -84,12 +84,14 @@ export default function OrderList({ onEditOrder }) {
   };
 
   const calculateProgress = (order) => {
-    // Tüm fabKey'leri bul (main, g1, g2...)
-    const allFabKeys = Object.keys(order.fabrics || { main: true });
+    // ✅ Sadece kind dolu olan fabKey'leri say — boş g2/g3/g4 hariç
+    const allFabKeys = Object.entries(order.fabrics || {})
+      .filter(([key, fab]) => fab && fab.kind && fab.kind.trim() !== '')
+      .map(([key]) => key);
+
     const totalFabrics = allFabKeys.length;
     if (totalFabrics === 0) return { percent: 0, label: 'Kumaş Tanımsız' };
 
-    // Sipariş edilen ve irsaliyesi gelen fabKey'leri say
     const orderItems = order.fabric_order_items || [];
     const orderedFabKeys = new Set(orderItems.map(i => i.fab_key || 'main'));
     
@@ -107,7 +109,7 @@ export default function OrderList({ onEditOrder }) {
 
     // Kesim tamamsa %100
     const totalCut = Object.values(order.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
-    if (totalCut > 0 || order.current_stage === 'kesimhanede' || order.current_stage !== 'kesim_bekliyor') {
+    if (totalCut > 0 || (order.current_stage && order.current_stage !== 'kesim_bekliyor')) {
       return { percent: 100, label: 'Kesime Hazır' };
     }
 
