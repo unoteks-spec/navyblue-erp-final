@@ -4,7 +4,7 @@ import {
   Save, Link2, CheckCircle, AlertCircle, Loader2, RefreshCcw, 
   UploadCloud, PlusCircle 
 } from 'lucide-react';
-import { Input, TextArea } from '../components/ui/Input';
+import { Input } from '../components/ui/Input';
 import SizeMatrix from '../components/orders/SizeMatrix';
 import AddOrderModal from '../components/orders/AddOrderModal';
 import { saveOrder, uploadModelImage } from '../api/orderService';
@@ -260,7 +260,7 @@ export default function Orders({ editingOrder, onComplete }) {
           </div>
         </section>
 
-        <SizeMatrix register={register} watch={watch} />
+        <SizeMatrix register={register} watch={watch} control={control} />
 
         <section className="space-y-6">
           <div className="flex items-center gap-2 ml-4">
@@ -276,7 +276,18 @@ export default function Orders({ editingOrder, onComplete }) {
         </section>
 
         <section className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-          <TextArea label="Kesim Sonrası İşlemler" {...register("postProcesses")} placeholder="Baskı, Nakış, Yıkama vb. detayları buraya yazınız..." />
+          <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-semibold text-slate-700 ml-1">Notlar</label>
+              <textarea
+                {...register("postProcesses")}
+                rows={5}
+                placeholder="Notlarınızı buraya yazınız..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.stopPropagation();
+                }}
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-50 focus:bg-white transition-all text-sm font-medium resize-none leading-relaxed"
+              />
+            </div>
         </section>
       </form>
     </div>

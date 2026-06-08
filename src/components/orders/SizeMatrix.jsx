@@ -1,19 +1,25 @@
-import React, { useMemo } from 'react';
+import React from 'react';
+import { useWatch } from 'react-hook-form';
 import { SIZE_GROUPS } from '../../constants/sizes';
 
-export default function SizeMatrix({ register, watch }) {
+export default function SizeMatrix({ register, watch, control }) {
   const [selectedGroup, setSelectedGroup] = React.useState(Object.keys(SIZE_GROUPS)[0]);
   const sizes = SIZE_GROUPS[selectedGroup];
 
-  const currentValues = watch("qtyBySize") || {};
+  // ✅ DÜZELTİLDİ: useWatch ile anlık takip — toplam doğru çalışıyor
+  const currentValues = useWatch({ control, name: 'qtyBySize' }) || {};
 
-  // 📊 Toplam Adet Hesaplama
-  const total = useMemo(() => {
+  const total = React.useMemo(() => {
     return Object.values(currentValues).reduce((acc, curr) => {
       const val = parseFloat(curr);
       return acc + (isNaN(val) ? 0 : val);
     }, 0);
   }, [currentValues]);
+
+  const getDisplayLabel = (size) => {
+    const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
+    return prefixes.includes(size.charAt(0)) && size.length > 1 ? size.substring(1) : size;
+  };
 
   return (
     <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
@@ -59,12 +65,10 @@ export default function SizeMatrix({ register, watch }) {
         ))}
       </div>
 
-      {/* BEDEN GİRİŞ GRID'İ */}
+      {/* BEDEN GİRİŞ GRİD'İ */}
       <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 gap-4">
         {sizes.map(size => {
-          // 🛠️ Harf önekini kaldırıp ekranda temiz beden bilgisini gösteriyoruz (Örn: B3M -> 3M)
-          const displayLabel = size.substring(1); 
-          
+          const displayLabel = getDisplayLabel(size);
           return (
             <div 
               key={size} 
