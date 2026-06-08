@@ -513,6 +513,12 @@ export default function FabricManagement() {
         <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 text-slate-900">
           <div className="bg-white w-full max-w-sm rounded-4xl shadow-2xl p-6 space-y-6">
             <h2 className="text-sm font-black uppercase border-b pb-3 flex items-center gap-2 text-emerald-600"><Truck size={16}/> Fabrikaya Kumaş Girişi</h2>
+            <div className="bg-slate-50 p-4 rounded-2xl border text-xs space-y-2 font-bold text-slate-600">
+              <p>PO No: <span className="text-slate-900 font-black">{selectedPo?.fabric_po_no}</span></p>
+              <p>Tedarikçi: <span className="text-slate-900 font-black uppercase">{selectedPo?.supplier_name}</span></p>
+              <p>Kumaş / Renk: <span className="text-blue-600 font-black uppercase">{selectedPo?.fabric_type} / {selectedPo?.color}</span></p>
+              <p>Beklenen Miktar: <span className="text-emerald-600 font-black italic">{selectedPo?.ordered_qty_kg} KG</span></p>
+            </div>
             <form onSubmit={handleReceiveDelivery} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Gelen Net İrsaliye Kilosu (KG)</label>
