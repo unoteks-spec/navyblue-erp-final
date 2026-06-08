@@ -84,13 +84,47 @@ export default function OrderList({ onEditOrder }) {
   };
 
   const calculateProgress = (order) => {
-    if (order.current_stage === 'kesim_bekliyor' && !order.fabric_ordered) {
-      return { percent: 0 };
+    // Tüm fabKey'leri bul (main, g1, g2...)
+    const allFabKeys = Object.keys(order.fabrics || { main: true });
+    const totalFabrics = allFabKeys.length;
+    if (totalFabrics === 0) return { percent: 0, label: 'Kumaş Tanımsız' };
+
+    // Sipariş edilen ve irsaliyesi gelen fabKey'leri say
+    const orderItems = order.fabric_order_items || [];
+    const orderedFabKeys = new Set(orderItems.map(i => i.fab_key || 'main'));
+    
+    const receivedFabKeys = new Set(
+      orderItems
+        .filter(i => {
+          const fo = Array.isArray(i.fabric_orders) ? i.fabric_orders[0] : i.fabric_orders;
+          return fo && Number(fo.received_qty_kg || 0) > 0;
+        })
+        .map(i => i.fab_key || 'main')
+    );
+
+    const orderedCount  = allFabKeys.filter(k => orderedFabKeys.has(k)).length;
+    const receivedCount = allFabKeys.filter(k => receivedFabKeys.has(k)).length;
+
+    // Kesim tamamsa %100
+    const totalCut = Object.values(order.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
+    if (totalCut > 0 || order.current_stage === 'kesimhanede' || order.current_stage !== 'kesim_bekliyor') {
+      return { percent: 100, label: 'Kesime Hazır' };
     }
-    if (order.fabric_ordered && order.current_stage === 'kesim_bekliyor') {
-      return { percent: 50 };
-    }
-    return { percent: 100 };
+
+    // Tümü geldi → %100
+    if (receivedCount === totalFabrics) return { percent: 100, label: 'Tümü Geldi' };
+
+    // Bir kısmı geldi → %75
+    if (receivedCount > 0) return { percent: 75, label: `${receivedCount}/${totalFabrics} Kumaş Geldi` };
+
+    // Tümü sipariş edildi → %50
+    if (orderedCount === totalFabrics) return { percent: 50, label: 'Tümü Sipariş Edildi' };
+
+    // Bir kısmı sipariş edildi → %25
+    if (orderedCount > 0) return { percent: 25, label: `${orderedCount}/${totalFabrics} Sipariş Edildi` };
+
+    // Hiç sipariş yok → %0
+    return { percent: 0, label: 'Kumaş Bekleniyor' };
   };
 
   const getStageLabel = (key) => {
@@ -193,11 +227,16 @@ export default function OrderList({ onEditOrder }) {
 
                 <div className="flex-1 w-full lg:max-w-60">
                   <div className="flex justify-between items-end mb-1.5">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Kumaş Durumu</span>
-                    <span className={`text-[10px] font-black ${stats.percent === 100 ? 'text-emerald-500' : 'text-blue-600'}`}>%{stats.percent}</span>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{stats.label || 'Kumaş Durumu'}</span>
+                    <span className={`text-[10px] font-black ${stats.percent === 100 ? 'text-emerald-500' : stats.percent >= 75 ? 'text-blue-500' : stats.percent >= 50 ? 'text-amber-500' : stats.percent > 0 ? 'text-orange-400' : 'text-slate-300'}`}>%{stats.percent}</span>
                   </div>
                   <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full transition-all duration-1000 ${stats.percent === 100 ? 'bg-emerald-500' : 'bg-blue-500'}`} style={{ width: `${stats.percent}%` }} />
+                    <div className={`h-full rounded-full transition-all duration-1000 ${
+                      stats.percent === 100 ? 'bg-emerald-500' :
+                      stats.percent >= 75 ? 'bg-blue-500' :
+                      stats.percent >= 50 ? 'bg-amber-400' :
+                      stats.percent > 0  ? 'bg-orange-400' : 'bg-slate-200'
+                    }`} style={{ width: `${stats.percent}%` }} />
                   </div>
                 </div>
 

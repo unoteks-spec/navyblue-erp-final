@@ -159,7 +159,23 @@ export const getFabricsByOrderNo = async (orderNo) => {
  * 5. DİĞER TÜM YARDIMCI İŞLEMLER
  */
 export const getAllOrders = () =>
-  supabase.from('orders').select('*').order('created_at', { ascending: false }).then(res => res.data);
+  supabase.from('orders')
+    .select(`
+      *,
+      fabric_order_items (
+        id,
+        fab_key,
+        allocated_qty_kg,
+        fabric_orders (
+          id,
+          received_qty_kg,
+          ordered_qty_kg,
+          status
+        )
+      )
+    `)
+    .order('created_at', { ascending: false })
+    .then(res => res.data);
 
 export const deleteOrder = (id) => supabase.from('orders').delete().eq('id', id);
 
