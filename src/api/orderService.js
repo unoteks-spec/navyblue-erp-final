@@ -259,7 +259,8 @@ export const getOrdersWaitingForFabric = async () => {
   return data || [];
 };
 
-export const createFabricPurchaseOrder = async (poData, selectedOrderIds) => {
+export const createFabricPurchaseOrder = async (poData, selectedItems) => {
+  // selectedItems: [{ orderId, fabKey, allocatedQty }, ...]
   const year = new Date().getFullYear();
   const timeStamp = String(Date.now()).slice(-4);
   const finalPoNo = `K-${year}-${timeStamp}`;
@@ -279,16 +280,49 @@ export const createFabricPurchaseOrder = async (poData, selectedOrderIds) => {
   if (poError) throw poError;
   const fabricOrderId = newPo[0].id;
 
-  const itemRows = selectedOrderIds.map(id => ({
+  // ✅ Her seçili item için orderId + fabKey birlikte kaydediliyor
+  const itemRows = selectedItems.map(item => ({
     fabric_order_id: fabricOrderId,
-    order_id: id,
-    allocated_qty_kg: Number(poData.allocatedMap?.[id] || 0)
+    order_id: item.orderId,
+    fab_key: item.fabKey,
+    allocated_qty_kg: Number(item.allocatedQty || 0)
   }));
 
   const { error: itemsError } = await supabase.from('fabric_order_items').insert(itemRows);
   if (itemsError) throw itemsError;
 
-  await supabase.from('orders').update({ fabric_ordered: true }).in('id', selectedOrderIds);
+  // ✅ fabric_ordered'ı artık set ETMIYORUZ — havuz filtresi fabric_order_items üzerinden çalışacak
+  // Sadece tüm fabKey'leri sipariş edilmiş olan order'ları işaretle
+  // Her order için hangi fabKey'lerin sipariş edildiğini kontrol et
+  const orderFabKeyMap = {};
+  selectedItems.forEach(({ orderId, fabKey }) => {
+    if (!orderFabKeyMap[orderId]) orderFabKeyMap[orderId] = [];
+    orderFabKeyMap[orderId].push(fabKey);
+  });
+
+  // Mevcut sipariş edilen fabKey'leri çek
+  const orderIds = Object.keys(orderFabKeyMap);
+  const { data: existingItems } = await supabase
+    .from('fabric_order_items')
+    .select('order_id, fab_key')
+    .in('order_id', orderIds);
+
+  // Her order'ın tüm fabKey'leri sipariş edilmişse fabric_ordered = true yap
+  const { data: orders } = await supabase
+    .from('orders')
+    .select('id, fabrics')
+    .in('id', orderIds);
+
+  for (const order of (orders || [])) {
+    const allFabKeys = Object.keys(order.fabrics || {});
+    const orderedFabKeys = (existingItems || [])
+      .filter(i => i.order_id === order.id)
+      .map(i => i.fab_key);
+    const allOrdered = allFabKeys.every(k => orderedFabKeys.includes(k));
+    if (allOrdered) {
+      await supabase.from('orders').update({ fabric_ordered: true }).eq('id', order.id);
+    }
+  }
 
   return newPo[0];
 };
@@ -363,11 +397,13 @@ export const receiveFabricDelivery = async (fabricOrderId, receivedKg, receivedR
 export const deleteFabricPurchaseOrder = async (fabricOrderId) => {
   const { data: items, error: itemsError } = await supabase
     .from('fabric_order_items')
-    .select('order_id')
+    .select('order_id, fab_key')
     .eq('fabric_order_id', fabricOrderId);
   if (itemsError) throw itemsError;
 
-  const connectedOrderIds = items.map(i => i.order_id);
+  // Silinen PO'nun order'larını fabric_ordered = false yap
+  // (çünkü artık tüm fabKey'leri sipariş edilmiş olmayacak)
+  const connectedOrderIds = [...new Set(items.map(i => i.order_id))];
   if (connectedOrderIds.length > 0) {
     await supabase.from('orders').update({ fabric_ordered: false }).in('id', connectedOrderIds);
   }
