@@ -22,6 +22,8 @@ export default function FabricManagement() {
   // ✅ YENİ: Hangi orderId+fabKey kombinasyonları zaten sipariş edilmiş
   const [orderedKeys, setOrderedKeys] = useState(new Set());
 
+  const [filterKind, setFilterKind] = useState('');
+  const [filterColor, setFilterColor] = useState('');
   const [showPoModal, setShowPoModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -104,6 +106,19 @@ export default function FabricManagement() {
     });
     return pool;
   }, [waitingOrders, orderedKeys]);
+
+  // Mevcut tüm kumaş türleri ve renkler
+  const allKinds = useMemo(() => [...new Set(flattenedFabricPool.map(i => i.fabricKind))].sort(), [flattenedFabricPool]);
+  const allColors = useMemo(() => [...new Set(flattenedFabricPool.map(i => i.fabricColor))].sort(), [flattenedFabricPool]);
+
+  // Filtreli havuz
+  const filteredPool = useMemo(() => {
+    return flattenedFabricPool.filter(item => {
+      if (filterKind && item.fabricKind !== filterKind) return false;
+      if (filterColor && item.fabricColor !== filterColor) return false;
+      return true;
+    });
+  }, [flattenedFabricPool, filterKind, filterColor]);
 
   const toggleSelect = (uniqueKey) => {
     if (selectedItems.includes(uniqueKey)) {
@@ -306,6 +321,48 @@ export default function FabricManagement() {
             )}
           </div>
 
+          {/* KUMAŞ TÜRÜ FİLTRESİ */}
+          {(allKinds.length > 0 || allColors.length > 0) && (
+            <div className="bg-white border border-slate-100 rounded-3xl p-4 shadow-sm space-y-3">
+              {allKinds.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">Kumaş Türü:</span>
+                  <button onClick={() => setFilterKind('')}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${!filterKind ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-400'}`}>
+                    Tümü
+                  </button>
+                  {allKinds.map(kind => (
+                    <button key={kind} onClick={() => setFilterKind(filterKind === kind ? '' : kind)}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${filterKind === kind ? 'bg-blue-600 text-white border-blue-600' : 'bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-600 hover:text-white'}`}>
+                      {kind}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {allColors.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">Renk:</span>
+                  <button onClick={() => setFilterColor('')}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${!filterColor ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-400'}`}>
+                    Tümü
+                  </button>
+                  {allColors.map(color => (
+                    <button key={color} onClick={() => setFilterColor(filterColor === color ? '' : color)}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${filterColor === color ? 'bg-amber-500 text-white border-amber-500' : 'bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-500 hover:text-white'}`}>
+                      {color}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {(filterKind || filterColor) && (
+                <div className="text-[9px] font-black text-slate-400 uppercase">
+                  {filteredPool.length} / {flattenedFabricPool.length} satır gösteriliyor
+                  {selectedItems.length > 0 && <span className="ml-2 text-blue-600">· {selectedItems.length} satır seçili (filtre dışındakiler dahil)</span>}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="bg-white border border-slate-100 rounded-[2.5rem] overflow-hidden shadow-xl">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
@@ -324,7 +381,7 @@ export default function FabricManagement() {
                   {flattenedFabricPool.length === 0 ? (
                     <tr><td colSpan="7" className="text-center py-20 text-slate-300 uppercase tracking-widest font-black">Kumaş bekleyen yeni artikel bulunamadı.</td></tr>
                   ) : (
-                    flattenedFabricPool.map(item => {
+                    filteredPool.map(item => {
                       const isChecked = selectedItems.includes(item.uniqueKey);
                       return (
                         <tr key={item.uniqueKey} className={`hover:bg-blue-50/40 transition-colors ${isChecked ? 'bg-blue-50/70' : ''}`}>
