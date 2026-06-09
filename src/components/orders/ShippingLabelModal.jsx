@@ -79,11 +79,15 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
 
     // BOX NO (sağ üst)
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(7);
     pdf.setFontSize(8);
-    pdf.text('BOX NO', leftW + rightW / 2, 7, { align: 'center' });
-    pdf.setFontSize(34);
-    pdf.text(String(label.boxNo), leftW + rightW / 2, topH - 2, { align: 'center' });
+    pdf.text('BOX NO', leftW + rightW / 2, 6, { align: 'center' });
+    pdf.setFontSize(28);
+    pdf.text(String(label.boxNo), leftW + rightW / 2, topH - 7, { align: 'center' });
+    if (label.dimensions) {
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(7);
+      pdf.text(label.dimensions, leftW + rightW / 2, topH - 1.5, { align: 'center' });
+    }
 
     // ─── ORTA ALAN ───────────────────────────────
     // Sağ sütun: TOTAL PCS büyük alan, MADE IN TURKEY alt bantla eşit yükseklik
@@ -116,48 +120,48 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
         pdf.line(cx, topH, cx, topH + midH);
       }
 
-      let cy = topH + 5;
+      let cy = topH + 4;
 
-      // Article
+      // Article + Color yan yana
+      const artFS = gc === 1 ? 13 : gc === 2 ? 12 : gc <= 4 ? 10 : 9;
+      const colFS = gc === 1 ? 10 : gc === 2 ? 9 : 8;
+      const halfW = (colW - 6) / 2;
+
+      // Article sol
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(7);
+      pdf.setFontSize(6);
       pdf.text('ARTICLE', cx + 3, cy);
-      cy += 5.5;
+      // Color sağ
+      pdf.text('COLOR', cx + 3 + halfW, cy);
+      cy += 3.5;
 
-      const artFS = gc === 1 ? 17 : gc === 2 ? 15 : gc <= 4 ? 12 : 11;
       pdf.setFontSize(artFS);
       pdf.text(trToLatin((grp.article || '---').toUpperCase()), cx + 3, cy);
-      cy += artFS * 0.42 + 2;
-
-      // Color
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(7);
-      pdf.text('COLOR', cx + 3, cy);
-      cy += 4;
-
-      const colFS = gc === 1 ? 14 : gc === 2 ? 13 : 11;
       pdf.setFont('helvetica', 'bolditalic');
       pdf.setFontSize(colFS);
-      const colorLines = pdf.splitTextToSize(grp.color || '---', colW - 6);
-      pdf.text(colorLines.slice(0, 2), cx + 3, cy);
-      cy += colorLines.slice(0, 2).length * colFS * 0.42 + 3;
+      const colorLines = pdf.splitTextToSize(grp.color || '---', halfW - 2);
+      pdf.text(colorLines.slice(0, 2), cx + 3 + halfW, cy);
+      cy += Math.max(artFS * 0.42, colorLines.slice(0,2).length * colFS * 0.42) + 3;
 
       // Content başlık
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(7);
+      pdf.setFontSize(6);
       pdf.text('CONTENT', cx + 3, cy);
-      cy += 4;
+      cy += 3.5;
 
-      // Items
-      const itemFS = gc === 1 ? 12 : gc === 2 ? 11 : 10;
+      // Items — font boyutunu item sayısına göre dinamik ayarla
+      const itemCount = grp.items.length;
+      const availH = topH + midH - cy - 12; // toplam çizgisi için 12mm bırak
+      const lineH = itemCount > 0 ? Math.min(5.5, availH / itemCount) : 5.5;
+      const itemFS = Math.max(7, Math.min(11, lineH * 1.8));
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(itemFS);
-      const maxItemY = topH + midH - 10;
+      const maxItemY = topH + midH - 11;
       grp.items.forEach(item => {
         if (cy >= maxItemY) return;
         pdf.text(`${(item.detail || '').toUpperCase()}:`, cx + 3, cy);
-        pdf.text(`${item.qty} Pcs`, cx + colW - 3, cy, { align: 'right' });
-        cy += itemFS * 0.42 + 1;
+        pdf.text(`${item.qty} Pcs`, cx + 3 + halfW, cy);
+        cy += lineH;
       });
 
       // Grup toplam çizgisi
@@ -185,9 +189,10 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
     pdf.line(42, botY, 42, H);
 
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(11);
-    pdf.text(`NET: ${label.net} KG`, 3, botY + 6);
-    pdf.text(`GRS: ${label.gross} KG`, 3, botY + 12);
+    pdf.setFontSize(8);
+    pdf.text(`NET: ${label.net} KG`, 3, botY + 5);
+    pdf.text(`GRS: ${label.gross} KG`, 3, botY + 10);
+
 
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(8);
