@@ -80,12 +80,6 @@ export default function CuttingOrderPrint({ order, onClose }) {
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 
-  // Ortak stil sabitleri
-  const FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
-  const BLACK = '#000000';
-  const GRAY = '#4a4a4a';
-  const LIGHT = '#f0f0f0';
-
   return (
     <div className="fixed inset-0 z-500 bg-black/80 flex items-start justify-center p-0 md:p-8 overflow-y-auto no-print">
 
@@ -95,14 +89,20 @@ export default function CuttingOrderPrint({ order, onClose }) {
           onClick={handleDownloadPDF}
           disabled={isGenerating}
           style={{
-            background: '#0f172a', color: '#fff',
-            border: '1.5px solid rgba(255,255,255,0.15)',
-            borderRadius: '12px', padding: '10px 24px',
-            fontFamily: FONT, fontWeight: '700',
-            fontSize: '12px', letterSpacing: '0.1em',
-            textTransform: 'uppercase', display: 'flex',
-            alignItems: 'center', gap: '8px',
-            cursor: 'pointer', boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            background: '#000',
+            color: '#fff',
+            border: '1.5px solid #000',
+            borderRadius: '8px',
+            padding: '10px 24px',
+            fontFamily: 'Helvetica, Arial, sans-serif',
+            fontWeight: 'bold',
+            fontSize: '13px',
+            letterSpacing: '0.05em',
+            textTransform: 'uppercase',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            cursor: 'pointer',
           }}
         >
           {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
@@ -111,9 +111,12 @@ export default function CuttingOrderPrint({ order, onClose }) {
         <button
           onClick={onClose}
           style={{
-            background: '#fff', color: '#0f172a',
-            border: '1.5px solid rgba(0,0,0,0.1)',
-            borderRadius: '12px', padding: '10px 14px', cursor: 'pointer',
+            background: '#fff',
+            color: '#000',
+            border: '1.5px solid #000',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            cursor: 'pointer',
           }}
         >
           <X size={18} />
@@ -125,10 +128,10 @@ export default function CuttingOrderPrint({ order, onClose }) {
         ref={printRef}
         style={{
           backgroundColor: '#ffffff',
-          color: BLACK,
+          color: '#000000',
           width: '210mm',
           minHeight: '297mm',
-          fontFamily: FONT,
+          fontFamily: "'Helvetica', 'Arial', sans-serif",
           padding: '14mm 14mm 10mm 14mm',
           position: 'relative',
           display: 'flex',
@@ -136,51 +139,56 @@ export default function CuttingOrderPrint({ order, onClose }) {
           boxSizing: 'border-box',
         }}
       >
-
         {/* ÜST BÖLÜM */}
         <div style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-start',
-          paddingBottom: '14px',
-          borderBottom: `3px solid ${BLACK}`,
-          marginBottom: '18px',
+          paddingBottom: '16px',
+          borderBottom: '2px solid #000000',
+          marginBottom: '20px',
         }}>
           {/* Sol: Başlık + Bilgiler */}
           <div style={{ flex: 1 }}>
-            <div style={{
-              fontSize: '11px',
-              fontWeight: '700',
-              color: BLACK,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              marginBottom: '4px',
-            }}>
-              ALFA SPOR GİYİM TEKSTİL LTD. ŞTİ.
-            </div>
-            <div style={{
-              fontSize: '36px',
-              fontWeight: '900',
-              color: BLACK,
-              textTransform: 'uppercase',
-              letterSpacing: '-0.01em',
-              lineHeight: '1',
-              marginBottom: '6px',
-            }}>
-              KESİM EMRİ
-            </div>
-            <div style={{
-              fontSize: '11px',
-              fontWeight: '700',
-              color: BLACK,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}>
-              SİPARİŞ NO: {order.order_no}
+            <div style={{ marginBottom: '4px' }}>
+              <div style={{
+                fontSize: '11px',
+                fontWeight: 'bold',
+                letterSpacing: '0.1em',
+                color: '#000000',
+                textTransform: 'uppercase',
+                marginBottom: '4px',
+              }}>
+                ALFA SPOR GİYİM TEKSTİL LTD. ŞTİ.
+              </div>
+              <div style={{
+                fontSize: '36px',
+                fontWeight: 'bold',
+                letterSpacing: '-0.02em',
+                lineHeight: '1',
+                textTransform: 'uppercase',
+                color: '#000000',
+              }}>
+                KESİM EMRİ
+              </div>
+              <div style={{
+                fontSize: '12px',
+                fontWeight: 'bold',
+                letterSpacing: '0.1em',
+                color: '#000000',
+                marginTop: '10px',
+                textTransform: 'uppercase',
+              }}>
+                SİPARİŞ: {order.order_no}
+              </div>
             </div>
 
             {/* Bilgi tablosu */}
-            <table style={{ marginTop: '16px', borderCollapse: 'separate', borderSpacing: '0 5px' }}>
+            <table style={{
+              marginTop: '20px',
+              borderCollapse: 'separate',
+              borderSpacing: '0 8px',
+            }}>
               <tbody>
                 {[
                   ['MÜŞTERİ', order.customer],
@@ -191,18 +199,18 @@ export default function CuttingOrderPrint({ order, onClose }) {
                 ].map(([label, value]) => (
                   <tr key={label}>
                     <td style={{
-                      fontSize: '11px',
-                      fontWeight: '700',
-                      color: BLACK,
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      letterSpacing: '0.05em',
+                      color: '#000000',
                       textTransform: 'uppercase',
-                      paddingRight: '16px',
+                      paddingRight: '20px',
                       whiteSpace: 'nowrap',
-                      verticalAlign: 'top',
                     }}>{label}:</td>
                     <td style={{
-                      fontSize: '12px',
-                      fontWeight: '400',
-                      color: BLACK,
+                      fontSize: '13px',
+                      fontWeight: 'normal',
+                      color: '#000000',
                       textTransform: 'uppercase',
                     }}>{value}</td>
                   </tr>
@@ -219,42 +227,41 @@ export default function CuttingOrderPrint({ order, onClose }) {
             gap: '12px',
             marginLeft: '20px',
           }}>
-            {/* Artikel kutusu */}
             <div style={{
-              border: `2.5px solid ${BLACK}`,
+              border: '2px solid #000000',
+              borderRadius: '4px',
               padding: '10px 16px',
               textAlign: 'center',
               minWidth: '160px',
             }}>
               <div style={{
-                fontSize: '10px',
-                fontWeight: '700',
-                color: BLACK,
+                fontSize: '9px',
+                fontWeight: 'bold',
+                letterSpacing: '0.1em',
+                color: '#000000',
                 textTransform: 'uppercase',
-                letterSpacing: '0.15em',
-                borderBottom: `1px solid ${BLACK}`,
+                borderBottom: '1px solid #000000',
                 paddingBottom: '5px',
-                marginBottom: '6px',
+                marginBottom: '5px',
               }}>ARTİKEL NO</div>
               <div style={{
-                fontSize: '22px',
-                fontWeight: '900',
-                color: BLACK,
-                letterSpacing: '0.03em',
-                textTransform: 'uppercase',
+                fontSize: '24px',
+                fontWeight: 'bold',
+                letterSpacing: '0.05em',
+                color: '#000000',
               }}>{order.article}</div>
             </div>
 
-            {/* Model resim */}
             <div style={{
               width: '160px',
               height: '160px',
-              border: `2px solid ${BLACK}`,
+              border: '1px solid #000000',
+              borderRadius: '4px',
               overflow: 'hidden',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: '#f8f8f8',
+              backgroundColor: '#fff',
             }}>
               {order.model_image ? (
                 <img
@@ -264,9 +271,9 @@ export default function CuttingOrderPrint({ order, onClose }) {
                 />
               ) : (
                 <span style={{
-                  fontSize: '10px',
-                  fontWeight: '700',
-                  color: BLACK,
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  color: '#000000',
                   textTransform: 'uppercase',
                 }}>RESİM YOK</span>
               )}
@@ -275,40 +282,43 @@ export default function CuttingOrderPrint({ order, onClose }) {
         </div>
 
         {/* 1. KUMAŞ DETAYLARI */}
-        <div style={{ marginBottom: '18px' }}>
+        <div style={{ marginBottom: '20px' }}>
           <div style={{
             fontSize: '11px',
-            fontWeight: '700',
-            color: BLACK,
-            textTransform: 'uppercase',
+            fontWeight: 'bold',
             letterSpacing: '0.1em',
+            color: '#000000',
+            textTransform: 'uppercase',
             marginBottom: '8px',
           }}>
             1. KUMAŞ VE MALZEME DETAYLARI
           </div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', border: `2px solid ${BLACK}` }}>
+          <table style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            border: '2px solid #000000',
+          }}>
             <thead>
-              <tr style={{ backgroundColor: LIGHT }}>
+              <tr style={{ background: '#f0f0f0' }}>
                 {['CİNS', 'RENK / VARYANT', 'SARFİYAT (KG/MT)'].map(h => (
                   <th key={h} style={{
                     padding: '8px 10px',
                     fontSize: '11px',
-                    fontWeight: '700',
-                    color: BLACK,
+                    fontWeight: 'bold',
+                    color: '#000000',
                     textTransform: 'uppercase',
                     textAlign: h === 'SARFİYAT (KG/MT)' ? 'right' : 'left',
-                    borderBottom: `2px solid ${BLACK}`,
-                    borderRight: h !== 'SARFİYAT (KG/MT)' ? `1px solid ${BLACK}` : 'none',
+                    border: '1px solid #000000',
                   }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {fabrics.map((f, i) => (
-                <tr key={i} style={{ borderBottom: `1px solid #cccccc` }}>
-                  <td style={{ padding: '8px 10px', fontSize: '12px', fontWeight: '400', textTransform: 'uppercase', borderRight: `1px solid #cccccc` }}>{f.kind}</td>
-                  <td style={{ padding: '8px 10px', fontSize: '12px', fontWeight: '400', textTransform: 'uppercase', borderRight: `1px solid #cccccc` }}>{f.color || order.color}</td>
-                  <td style={{ padding: '8px 10px', fontSize: '12px', fontWeight: '700', textAlign: 'right' }}>{f.perPieceKg} {f.unit}</td>
+                <tr key={i}>
+                  <td style={{ padding: '8px 10px', fontSize: '12px', fontWeight: 'normal', color: '#000000', border: '1px solid #000000' }}>{f.kind}</td>
+                  <td style={{ padding: '8px 10px', fontSize: '12px', fontWeight: 'normal', color: '#000000', border: '1px solid #000000' }}>{f.color || order.color}</td>
+                  <td style={{ padding: '8px 10px', fontSize: '12px', fontWeight: 'bold', color: '#000000', textAlign: 'right', border: '1px solid #000000' }}>{f.perPieceKg} {f.unit}</td>
                 </tr>
               ))}
             </tbody>
@@ -316,13 +326,13 @@ export default function CuttingOrderPrint({ order, onClose }) {
         </div>
 
         {/* 2. BEDEN DAĞILIMI */}
-        <div style={{ marginBottom: '18px' }}>
+        <div style={{ marginBottom: '20px' }}>
           <div style={{
             fontSize: '11px',
-            fontWeight: '700',
-            color: BLACK,
-            textTransform: 'uppercase',
+            fontWeight: 'bold',
             letterSpacing: '0.1em',
+            color: '#000000',
+            textTransform: 'uppercase',
             marginBottom: '8px',
           }}>
             2. BEDEN DAĞILIM MATRİSİ
@@ -330,161 +340,111 @@ export default function CuttingOrderPrint({ order, onClose }) {
           <table style={{
             width: '100%',
             borderCollapse: 'collapse',
-            border: `2px solid ${BLACK}`,
+            border: '2px solid #000000',
             tableLayout: 'fixed',
           }}>
             <thead>
-              <tr style={{ backgroundColor: LIGHT, borderBottom: `2px solid ${BLACK}` }}>
+              <tr style={{ background: '#f0f0f0' }}>
                 <th style={{
-                  padding: '8px',
-                  fontSize: '10px',
-                  fontWeight: '700',
-                  color: BLACK,
+                  padding: '8px 8px',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
                   textAlign: 'left',
                   textTransform: 'uppercase',
-                  width: '90px',
-                  borderRight: `1px solid ${BLACK}`,
+                  width: '120px',
+                  border: '1px solid #000000',
                 }}>AŞAMA</th>
                 {sortedSizes.map(s => (
                   <th key={s} style={{
                     padding: '8px 4px',
                     fontSize: '11px',
-                    fontWeight: '700',
-                    color: BLACK,
+                    fontWeight: 'bold',
                     textAlign: 'center',
-                    borderRight: `1px solid #cccccc`,
+                    border: '1px solid #000000',
                   }}>{getDisplayLabel(s)}</th>
                 ))}
                 <th style={{
-                  padding: '8px',
-                  fontSize: '10px',
-                  fontWeight: '700',
+                  padding: '8px 8px',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
                   textAlign: 'center',
-                  backgroundColor: BLACK,
+                  background: '#000000',
                   color: '#ffffff',
                   width: '70px',
-                  textTransform: 'uppercase',
                 }}>TOPLAM</th>
               </tr>
             </thead>
-            <tbody style={{ fontSize: '12px' }}>
-              {/* SİPARİŞ */}
-              <tr style={{ borderBottom: `1px solid #cccccc` }}>
-                <td style={{
-                  padding: '8px',
-                  fontSize: '10px',
-                  fontWeight: '700',
-                  color: BLACK,
-                  textTransform: 'uppercase',
-                  borderRight: `1px solid ${BLACK}`,
-                }}>SİPARİŞ</td>
+            <tbody style={{ fontSize: '12px', fontWeight: 'normal' }}>
+              <tr>
+                <td style={{ padding: '8px 8px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', border: '1px solid #000000' }}>SİPARİŞ</td>
                 {sortedSizes.map(s => (
-                  <td key={s} style={{ padding: '8px 4px', textAlign: 'center', fontWeight: '400', borderRight: `1px solid #cccccc` }}>
+                  <td key={s} style={{ padding: '8px 4px', textAlign: 'center', border: '1px solid #000000' }}>
                     {order.qty_by_size[s]}
                   </td>
                 ))}
-                <td style={{ padding: '8px', textAlign: 'center', backgroundColor: LIGHT, fontWeight: '700' }}>
+                <td style={{ padding: '8px 8px', textAlign: 'center', fontWeight: 'bold', border: '1px solid #000000' }}>
                   {totalSiparis}
                 </td>
               </tr>
-              {/* PLAN */}
-              <tr style={{ borderBottom: `2px solid ${BLACK}` }}>
-                <td style={{
-                  padding: '8px',
-                  fontSize: '10px',
-                  fontWeight: '700',
-                  color: BLACK,
-                  textTransform: 'uppercase',
-                  borderRight: `1px solid ${BLACK}`,
-                }}>PLAN (+%{extraPercent})</td>
+              <tr style={{ fontWeight: 'bold' }}>
+                <td style={{ padding: '8px 8px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', border: '1px solid #000000' }}>PLAN (+%{extraPercent})</td>
                 {sortedSizes.map(s => (
-                  <td key={s} style={{ padding: '8px 4px', textAlign: 'center', fontWeight: '700', borderRight: `1px solid #cccccc` }}>
+                  <td key={s} style={{ padding: '8px 4px', textAlign: 'center', border: '1px solid #000000' }}>
                     {plannedQtys[s]}
                   </td>
                 ))}
-                <td style={{ padding: '8px', textAlign: 'center', backgroundColor: BLACK, color: '#ffffff', fontWeight: '900' }}>
+                <td style={{ padding: '8px 8px', textAlign: 'center', background: '#000000', color: '#ffffff', border: '1px solid #000000' }}>
                   {sumOfPlanned}
                 </td>
               </tr>
-              {/* GERÇEKLEŞEN */}
-              <tr style={{ height: '50px' }}>
-                <td style={{
-                  padding: '8px',
-                  fontSize: '10px',
-                  fontWeight: '700',
-                  color: BLACK,
-                  textTransform: 'uppercase',
-                  borderRight: `1px solid ${BLACK}`,
-                  verticalAlign: 'top',
-                }}>GERÇEKLEŞEN</td>
+              <tr style={{ height: '60px' }}>
+                <td style={{ padding: '8px 8px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', border: '1px solid #000000' }}>GERÇEKLEŞEN KESİM</td>
                 {sortedSizes.map(s => (
-                  <td key={s} style={{ borderRight: `1px solid #cccccc` }}></td>
+                  <td key={s} style={{ border: '1px solid #000000' }}></td>
                 ))}
-                <td style={{ backgroundColor: LIGHT }}></td>
+                <td style={{ border: '1px solid #000000' }}></td>
               </tr>
             </tbody>
           </table>
         </div>
 
         {/* ALT BÖLÜM */}
-        <div style={{ marginTop: 'auto', paddingTop: '14px', borderTop: `2px solid ${BLACK}` }}>
+        <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '2px solid #000000' }}>
           <div style={{ display: 'flex', gap: '20px' }}>
-            {/* Talimatlar */}
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: '1' }}>
               <div style={{
                 fontSize: '11px',
-                fontWeight: '700',
-                color: BLACK,
+                fontWeight: 'bold',
+                color: '#000000',
                 textTransform: 'uppercase',
-                letterSpacing: '0.1em',
                 marginBottom: '8px',
               }}>ÖZEL KESİM TALİMATLARI:</div>
               <div style={{
-                border: `1.5px solid #cccccc`,
+                border: '1.5px solid #000000',
+                borderRadius: '4px',
                 padding: '10px 12px',
-                minHeight: '90px',
-                fontSize: '11px',
-                fontWeight: '400',
-                color: BLACK,
-                lineHeight: '1.7',
+                minHeight: '80px',
+                fontSize: '12px',
+                fontWeight: 'normal',
                 textTransform: 'uppercase',
+                color: '#000000',
+                lineHeight: '1.4',
               }}>
                 {order.post_processes || 'BELİRTİLMİŞ ÖZEL BİR TALİMAT BULUNMAMAKTADIR.'}
               </div>
             </div>
 
-            {/* İmza */}
-            <div style={{ width: '200px', flexShrink: 0 }}>
-              <div style={{ display: 'flex', gap: '16px', marginBottom: '14px' }}>
+            <div style={{ width: '220px', flexShrink: 0 }}>
+              <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
                 {['KESİM ŞEFİ', 'ÜRETİM MÜDÜRÜ'].map(label => (
                   <div key={label} style={{ flex: 1, textAlign: 'center' }}>
-                    <div style={{
-                      height: '40px',
-                      borderBottom: `1.5px solid ${BLACK}`,
-                      marginBottom: '6px',
-                    }}></div>
-                    <div style={{
-                      fontSize: '9px',
-                      fontWeight: '700',
-                      color: BLACK,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                    }}>{label}</div>
+                    <div style={{ height: '40px', borderBottom: '1.5px solid #000000', marginBottom: '6px' }}></div>
+                    <div style={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase' }}>{label}</div>
                   </div>
                 ))}
               </div>
-              <div style={{
-                border: `2.5px solid ${BLACK}`,
-                padding: '12px',
-                textAlign: 'center',
-              }}>
-                <div style={{
-                  fontSize: '12px',
-                  fontWeight: '700',
-                  color: BLACK,
-                  letterSpacing: '0.15em',
-                  textTransform: 'uppercase',
-                }}>ÜRETİM ONAYI</div>
+              <div style={{ border: '2px solid #000000', borderRadius: '4px', padding: '10px', textAlign: 'center' }}>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase' }}>ÜRETİM ONAYI</div>
               </div>
             </div>
           </div>
@@ -492,14 +452,14 @@ export default function CuttingOrderPrint({ order, onClose }) {
 
         {/* Footer */}
         <div style={{
-          marginTop: '14px',
+          marginTop: '20px',
           textAlign: 'center',
           fontSize: '9px',
-          fontWeight: '400',
-          color: BLACK,
-          letterSpacing: '0.15em',
+          fontWeight: 'bold',
+          color: '#000000',
+          letterSpacing: '0.1em',
           textTransform: 'uppercase',
-          borderTop: `1px solid #cccccc`,
+          borderTop: '1px solid #000000',
           paddingTop: '8px',
         }}>
           ALFA SPOR ERP / NAVY BLUE LOJİSTİK SİSTEMİ — 2026
