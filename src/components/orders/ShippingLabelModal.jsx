@@ -132,7 +132,7 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
               <h2 style={{ margin: '3px 0 0 0', fontSize: '16px', fontWeight: '900', lineHeight: '1.1' }}>{label.article || '---'}</h2>
             </div>
             <div>
-              <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', color: '#0000FF', lineHeight: '1' }}>COLOR / RENK</p>
+              <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', color: '#000000', lineHeight: '1' }}>COLOR / RENK</p>
               <h2 style={{ margin: '3px 0 0 0', fontSize: '14px', fontWeight: '900', fontStyle: 'italic', lineHeight: '1.1' }}>{label.color || '---'}</h2>
             </div>
 
@@ -158,7 +158,7 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
                       lineHeight: '1.4'
                     }}>
                       <span style={{ textTransform: 'uppercase' }}>{item.detail}:</span>
-                      <span style={{ marginLeft: '8px', color: '#2563eb', whiteSpace: 'nowrap' }}>{item.qty} Pcs</span>
+                      <span style={{ marginLeft: '8px', color: '#000000', whiteSpace: 'nowrap' }}>{item.qty} Pcs</span>
                     </div>
                   ))
                 ) : (

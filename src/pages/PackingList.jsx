@@ -41,6 +41,22 @@ export default function PackingList() {
   ]);
 
   // ✅ DÜZELTİLDİ: Akıllı label fonksiyonu — prefix varsa sil, yoksa aynen bırak
+  // ✅ Kullanıcı "3M" yazınca "B3M" olarak eşleştir
+  const normalizeSize = (input, orderSizes) => {
+    if (!input) return input;
+    const upper = input.toUpperCase().trim();
+    // Direkt eşleşme var mı?
+    if (orderSizes.includes(upper)) return upper;
+    // Prefix ekleyerek ara
+    const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
+    for (const p of prefixes) {
+      const candidate = p + upper;
+      if (orderSizes.includes(candidate)) return candidate;
+    }
+    // Bulunamazsa olduğu gibi döndür
+    return upper;
+  };
+
   const getDisplayLabel = (s) => {
     const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
     return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
@@ -106,13 +122,14 @@ export default function PackingList() {
       const ratioSum = ratios.reduce((a, b) => a + (isNaN(b) ? 0 : b), 0);
       calcQty = ratioSum * Number(box.qtyPerBox || 0);
       ratios.forEach((r, i) => {
-        const sz = sizes[i];
+        const sz = normalizeSize(sizes[i], Object.keys(orderWeights));
         const uw = Number(orderWeights[sz] || 0);
         calcNet += (r * uw * Number(box.qtyPerBox || 0));
       });
     } else {
       calcQty = Number(box.qtyPerBox || 0);
-      const uw = Number(orderWeights[box.size?.toUpperCase()] || 0);
+      const normalizedSize = normalizeSize(box.size, Object.keys(orderWeights));
+      const uw = Number(orderWeights[normalizedSize] || 0);
       calcNet = calcQty * uw;
     }
 
@@ -122,15 +139,18 @@ export default function PackingList() {
     return { net: Number(calcNet).toFixed(2), gross: Number(calcGross).toFixed(2), totalPcs: calcQty };
   };
 
-  // ✅ DÜZELTİLDİ: Excel beden sıralaması SIZE_ORDER ile yapılıyor
-  const sizeTotals = useMemo(() => {
-    const breakdown = {};
+  // ✅ Renk bazında size breakdown
+  const sizeTotalsByColor = useMemo(() => {
+    const byColor = {}; // { color: { size: qty } }
     boxes.forEach((b) => {
+      const ord = orders.find(o => o.id === b.orderId);
+      const color = ord?.color || 'DİĞER';
       const rangeParts = b.range.split('-').map(Number);
       const start = rangeParts[0];
       const end = rangeParts[1] || start;
       if (isNaN(start)) return;
       const boxCount = (end - start + 1) || 1;
+      if (!byColor[color]) byColor[color] = {};
 
       if (b.type === 'LOT' && b.lotRatio) {
         const ratios = b.lotRatio.split('-').map(Number);
@@ -139,16 +159,27 @@ export default function PackingList() {
           const sz = sizes[i];
           if (!sz) return;
           const qty = r * Number(b.qtyPerBox || 0) * boxCount;
-          breakdown[sz] = (breakdown[sz] || 0) + qty;
+          byColor[color][sz] = (byColor[color][sz] || 0) + qty;
         });
       } else if (b.size) {
-        const sz = b.size.toUpperCase();
+        const sz = b.size.toUpperCase().trim();
         const qty = Number(b.qtyPerBox || 0) * boxCount;
-        breakdown[sz] = (breakdown[sz] || 0) + qty;
+        byColor[color][sz] = (byColor[color][sz] || 0) + qty;
       }
     });
+    return byColor;
+  }, [boxes, orders]);
+
+  // Geriye dönük uyumluluk için toplam
+  const sizeTotals = useMemo(() => {
+    const breakdown = {};
+    Object.values(sizeTotalsByColor).forEach(colorBreakdown => {
+      Object.entries(colorBreakdown).forEach(([sz, qty]) => {
+        breakdown[sz] = (breakdown[sz] || 0) + qty;
+      });
+    });
     return breakdown;
-  }, [boxes]);
+  }, [sizeTotalsByColor]);
 
   const totals = useMemo(() => {
     const uniqueBoxNumbers = new Set();
@@ -296,21 +327,28 @@ export default function PackingList() {
     });
 
     worksheet.addRow([]);
-    const sizeHeaderRow = worksheet.addRow(['BEDEN DAĞILIM MATRİS TOPLAMLARI (SIZE BREAKDOWN GRAND TOTALS)']);
+    const sizeHeaderRow = worksheet.addRow(['SIZE BREAKDOWN GRAND TOTALS']);
     sizeHeaderRow.font = { bold: true, size: 11 };
-    
-    // ✅ DÜZELTİLDİ: Beden sıralaması SIZE_ORDER ile yapılıyor
-    const activeSizeKeys = Object.keys(sizeTotals).sort((a, b) => {
-      const indexA = SIZE_ORDER.indexOf(a);
-      const indexB = SIZE_ORDER.indexOf(b);
-      return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
-    });
 
-    activeSizeKeys.forEach(sz => {
-      // ✅ DÜZELTİLDİ: Excel'de de temiz beden etiketi gösteriliyor
-      const szRow = worksheet.addRow([getDisplayLabel(sz), `${sizeTotals[sz]} PCS`]);
-      szRow.getCell(1).font = { bold: true };
-      szRow.getCell(1).alignment = { horizontal: 'left' };
+    // Renk bazında yaz
+    Object.entries(sizeTotalsByColor).forEach(([color, breakdown]) => {
+      const colorRow = worksheet.addRow([`COLOR: ${color}`]);
+      colorRow.font = { bold: true, italic: true, size: 10 };
+      colorRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+
+      const activeSizeKeys = Object.keys(breakdown).sort((a, b) => {
+        const indexA = SIZE_ORDER.indexOf(a);
+        const indexB = SIZE_ORDER.indexOf(b);
+        return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+      });
+
+      activeSizeKeys.forEach(sz => {
+        const szRow = worksheet.addRow([`  ${getDisplayLabel(sz)}`, `${breakdown[sz]} PCS`]);
+        szRow.getCell(1).font = { bold: true };
+        szRow.getCell(1).alignment = { horizontal: 'left' };
+      });
+
+      worksheet.addRow([]);
     });
 
     const buffer = await workbook.xlsx.writeBuffer();
