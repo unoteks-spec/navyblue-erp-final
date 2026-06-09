@@ -209,12 +209,14 @@ export default function PackingList() {
   }, [boxes, boxTare, unitWeights]);
 
   const mergedLabelsData = useMemo(() => {
+    // range bazında grupla
     const grouped = {};
     boxes.forEach((b, idx) => {
       if (!b.range) return;
       const boxCalc = getBoxData(b, idx, boxes);
       const ord = orders.find(o => o.id === b.orderId);
-      
+      const articleKey = `${ord?.article || ''}__${ord?.color || ''}`;
+
       if (!grouped[b.range]) {
         grouped[b.range] = {
           range: b.range,
@@ -222,27 +224,44 @@ export default function PackingList() {
           net: 0,
           gross: 0,
           totalPcs: 0,
-          article: ord?.article || '---',
-          color: ord?.color || '---',
-          items: [] 
+          // artikel+renk bazında gruplu içerik
+          articleGroups: {}
         };
       }
-      
+
       grouped[b.range].net += Number(boxCalc.net);
       grouped[b.range].gross += Number(boxCalc.gross);
       grouped[b.range].totalPcs += boxCalc.totalPcs;
 
+      if (!grouped[b.range].articleGroups[articleKey]) {
+        grouped[b.range].articleGroups[articleKey] = {
+          article: ord?.article || '---',
+          color:   ord?.color   || '---',
+          qty: 0,
+          items: []
+        };
+      }
+
+      grouped[b.range].articleGroups[articleKey].qty += boxCalc.totalPcs;
+
       if (b.type === 'LOT') {
-        grouped[b.range].items.push({ detail: `${b.lotSizes} (${b.lotRatio})`, qty: `${b.qtyPerBox} Lot` });
+        grouped[b.range].articleGroups[articleKey].items.push({
+          detail: `${b.lotSizes} (${b.lotRatio})`,
+          qty: `${b.qtyPerBox} Lot`
+        });
       } else {
-        grouped[b.range].items.push({ detail: b.size, qty: b.qtyPerBox });
+        grouped[b.range].articleGroups[articleKey].items.push({
+          detail: b.size,
+          qty: b.qtyPerBox
+        });
       }
     });
 
     return Object.values(grouped).map(g => ({
       ...g,
       net: g.net.toFixed(2),
-      gross: g.gross.toFixed(2)
+      gross: g.gross.toFixed(2),
+      articleGroups: Object.values(g.articleGroups)
     }));
   }, [boxes, orders, unitWeights]);
 
@@ -251,7 +270,7 @@ export default function PackingList() {
     const worksheet = workbook.addWorksheet('Packing List');
     
     worksheet.columns = [
-      { width: 15 }, { width: 45 }, { width: 12 }, { width: 22 }, { width: 10 }, { width: 12 }, { width: 12 }, { width: 15 }
+      { width: 18 }, { width: 45 }, { width: 12 }, { width: 22 }, { width: 10 }, { width: 12 }, { width: 12 }, { width: 15 }
     ];
 
     worksheet.mergeCells('A1:H2');
@@ -301,9 +320,10 @@ export default function PackingList() {
         Number(gross),
         b.dimensions
       ]);
-      row.eachCell((c) => {
+      row.eachCell((c, colNumber) => {
         c.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
-        c.alignment = { horizontal: 'center', vertical: 'middle' };
+        // Description (col 2) sola yaslı, diğerleri ortalı
+        c.alignment = { horizontal: colNumber === 2 ? 'left' : 'center', vertical: 'middle' };
       });
     });
 
@@ -334,7 +354,6 @@ export default function PackingList() {
     Object.entries(sizeTotalsByColor).forEach(([color, breakdown]) => {
       const colorRow = worksheet.addRow([`COLOR: ${color}`]);
       colorRow.font = { bold: true, italic: true, size: 10 };
-      colorRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
 
       const activeSizeKeys = Object.keys(breakdown).sort((a, b) => {
         const indexA = SIZE_ORDER.indexOf(a);

@@ -7,15 +7,18 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const labelRefs = useRef([]);
 
+  // Her range için bireysel kutu etiketleri oluştur, her birinden 2 kopya
   const generateLabels = () => {
-    let allLabels = [];
+    const allLabels = [];
     boxes.forEach(box => {
       const rangeParts = String(box.range).split('-').map(Number);
       const start = rangeParts[0];
       const end = rangeParts[1] || start;
       if (!isNaN(start)) {
         for (let i = start; i <= end; i++) {
-          allLabels.push({ boxNo: i, ...box });
+          // Her etiketten 2 kopya
+          allLabels.push({ boxNo: i, ...box, _copy: 1 });
+          allLabels.push({ boxNo: i, ...box, _copy: 2 });
         }
       }
     });
@@ -27,7 +30,6 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
   const downloadPDF = async () => {
     if (labels.length === 0) return;
     setIsGenerating(true);
-
     const pdf = new jsPDF({
       orientation: 'landscape',
       unit: 'mm',
@@ -44,157 +46,210 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
             useCORS: true,
             backgroundColor: '#ffffff',
             logging: false,
-            onclone: (clonedDoc) => {
-              const el = clonedDoc.body.querySelector(`[data-label-id="${i}"]`);
-              if (el) {
-                el.style.width = '200mm';
-                el.style.height = '100mm';
-              }
-            }
           });
           const imgData = canvas.toDataURL('image/png');
           if (i > 0) pdf.addPage([200, 100], 'landscape');
           pdf.addImage(imgData, 'PNG', 0, 0, 200, 100);
         }
       }
-      pdf.save(`Argox_Final_Etiketler_${Date.now()}.pdf`);
+      pdf.save(`Argox_Etiketler_${Date.now()}.pdf`);
     } catch (err) {
       console.error('PDF Hatası:', err);
-      alert('Hata oluştu. Lütfen tekrar deneyin.');
+      alert('Hata oluştu.');
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const renderLabelContent = (label, index) => {
-    const itemCount = label.items?.length || 0;
+  const renderLabel = (label, index) => {
+    const groups = label.articleGroups || [];
+    const groupCount = groups.length;
 
-    // ✅ DÜZELTİLDİ: Beden sayısına göre font boyutu ve satır yüksekliği dinamik ayarlanıyor
-    const getFontSize = () => {
-      if (itemCount <= 4) return '11px';
-      if (itemCount <= 7) return '10px';
-      if (itemCount <= 10) return '9px';
-      return '8px';
-    };
-
-    const getContentHeight = () => {
-      if (itemCount <= 4) return '80px';
-      if (itemCount <= 7) return '100px';
-      if (itemCount <= 10) return '115px';
-      return '125px';
-    };
-
-    // Çok fazla beden varsa TOTAL PCS alanını küçült
-    const getTotalFontSize = () => {
-      if (itemCount <= 6) return '42px';
-      return '32px';
-    };
+    // Artikel sayısına göre dinamik font
+    const articleFontSize = groupCount <= 1 ? '13px' : groupCount <= 2 ? '12px' : groupCount <= 3 ? '11px' : '10px';
+    const colorFontSize  = groupCount <= 1 ? '12px' : groupCount <= 2 ? '11px' : '10px';
+    const itemFontSize   = groupCount <= 1 ? '10px' : groupCount <= 2 ? '9px'  : '8px';
 
     return (
       <div
-        data-label-id={index}
+        ref={el => labelRefs.current[index] = el}
         style={{
           width: '200mm',
           height: '100mm',
           backgroundColor: '#ffffff',
           color: '#000000',
-          padding: '25px',
+          fontFamily: 'Arial, sans-serif',
           boxSizing: 'border-box',
-          display: 'table',
-          tableLayout: 'fixed',
           overflow: 'hidden',
-          fontFamily: 'Arial, sans-serif'
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        {/* SOL SÜTUN */}
-        <div style={{ display: 'table-cell', width: '48%', borderRight: '5px solid #000000', paddingRight: '15px', verticalAlign: 'top' }}>
-          <div style={{ height: '185px' }}>
-            <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', marginBottom: '8px', lineHeight: '1' }}>CONSIGNEE / ALICI</p>
-            <h1 style={{ margin: '5px 0', fontSize: '28px', fontWeight: '900', lineHeight: '1.1', textTransform: 'uppercase' }}>
+        {/* ÜST BANT: CONSIGNEE + BOX NO */}
+        <div style={{
+          display: 'flex',
+          borderBottom: '3px solid #000',
+          flexShrink: 0,
+        }}>
+          {/* Consignee */}
+          <div style={{
+            flex: 1,
+            padding: '8px 12px',
+            borderRight: '3px solid #000',
+          }}>
+            <div style={{ fontSize: '8px', fontWeight: '900', letterSpacing: '0.1em', marginBottom: '3px' }}>CONSIGNEE / ALICI</div>
+            <div style={{ fontSize: '16px', fontWeight: '900', textTransform: 'uppercase', lineHeight: '1.1' }}>
               {consignee.name || '---'}
-            </h1>
-            <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', lineHeight: '1.3' }}>
+            </div>
+            <div style={{ fontSize: '9px', fontWeight: '700', textTransform: 'uppercase', lineHeight: '1.2', marginTop: '2px' }}>
               {consignee.address || '---'}
-            </p>
+            </div>
           </div>
-          <div style={{ borderTop: '3px solid #000000', paddingTop: '8px' }}>
-            <p style={{ margin: 0, fontSize: '9px', fontWeight: '900', opacity: '0.6', lineHeight: '1' }}>SENDER / GÖNDEREN</p>
-            <p style={{ margin: '2px 0', fontSize: '10px', fontWeight: '900', lineHeight: '1' }}>ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ.</p>
-            <p style={{ margin: 0, fontSize: '9px', fontWeight: '700', lineHeight: '1' }}>Bornova, İzmir, Turkey</p>
+          {/* Box No */}
+          <div style={{
+            width: '80px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '6px',
+          }}>
+            <div style={{ fontSize: '8px', fontWeight: '900', letterSpacing: '0.1em' }}>BOX NO</div>
+            <div style={{ fontSize: '52px', fontWeight: '900', lineHeight: '1' }}>{label.boxNo}</div>
           </div>
         </div>
 
-        {/* ORTA SÜTUN */}
-        <div style={{ display: 'table-cell', width: '30%', borderRight: '5px solid #000000', paddingLeft: '15px', paddingRight: '15px', verticalAlign: 'top' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', height: itemCount > 4 ? '185px' : '175px' }}>
-            <div>
-              <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', lineHeight: '1' }}>MODEL</p>
-              <h2 style={{ margin: '3px 0 0 0', fontSize: '16px', fontWeight: '900', lineHeight: '1.1' }}>{label.article || '---'}</h2>
-            </div>
-            <div>
-              <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', color: '#000000', lineHeight: '1' }}>COLOR / RENK</p>
-              <h2 style={{ margin: '3px 0 0 0', fontSize: '14px', fontWeight: '900', fontStyle: 'italic', lineHeight: '1.1' }}>{label.color || '---'}</h2>
-            </div>
-
-            {/* ✅ DÜZELTİLDİ: İçerik alanı dinamik yükseklik ve font boyutu */}
-            <div style={{ flex: 1, overflow: 'hidden' }}>
-              <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', lineHeight: '1', marginBottom: '4px' }}>CONTENT / İÇERİK</p>
-              <div style={{
+        {/* ORTA: İÇERİK */}
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          overflow: 'hidden',
+          borderBottom: '3px solid #000',
+        }}>
+          {/* Artikel grupları */}
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: groupCount <= 2 ? 'row' : 'row',
+            flexWrap: 'wrap',
+            overflow: 'hidden',
+          }}>
+            {groups.map((grp, gi) => (
+              <div key={gi} style={{
+                flex: groupCount <= 2 ? 1 : `0 0 ${groupCount <= 4 ? '50%' : '33%'}`,
+                borderRight: gi < groups.length - 1 ? '2px solid #000' : 'none',
+                padding: '6px 10px',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '1px',
-                maxHeight: getContentHeight(),
-                overflow: 'hidden'
+                gap: '3px',
+                overflow: 'hidden',
               }}>
-                {label.items && label.items.length > 0 ? (
-                  label.items.map((item, idx) => (
-                    <div key={idx} style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      fontSize: getFontSize(),
-                      fontWeight: '900',
-                      borderBottom: '1px dashed #eee',
-                      paddingBottom: '1px',
-                      lineHeight: '1.4'
-                    }}>
-                      <span style={{ textTransform: 'uppercase' }}>{item.detail}:</span>
-                      <span style={{ marginLeft: '8px', color: '#000000', whiteSpace: 'nowrap' }}>{item.qty} Pcs</span>
-                    </div>
-                  ))
-                ) : (
-                  <div style={{ fontSize: getFontSize(), fontWeight: '900' }}>
-                    {label.type === 'LOT'
-                      ? `${label.lotSizes} (${label.lotRatio}) ${label.lotQty ? `x ${label.lotQty} LOT` : ''}`
-                      : (label.size || '---')}
+                {/* Artikel + Renk */}
+                <div>
+                  <div style={{ fontSize: '8px', fontWeight: '700', letterSpacing: '0.05em', color: '#555' }}>ARTICLE</div>
+                  <div style={{ fontSize: articleFontSize, fontWeight: '900', textTransform: 'uppercase', lineHeight: '1.1' }}>
+                    {grp.article}
                   </div>
-                )}
+                  <div style={{ fontSize: '7px', fontWeight: '700', color: '#555', marginTop: '1px' }}>COLOR</div>
+                  <div style={{ fontSize: colorFontSize, fontWeight: '900', fontStyle: 'italic', lineHeight: '1.1' }}>
+                    {grp.color}
+                  </div>
+                </div>
+
+                {/* Beden/içerik listesi */}
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <div style={{ fontSize: '7px', fontWeight: '700', color: '#555', marginBottom: '2px' }}>CONTENT</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                    {grp.items.map((item, ii) => (
+                      <div key={ii} style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontSize: itemFontSize,
+                        fontWeight: '900',
+                        lineHeight: '1.3',
+                        borderBottom: '1px dashed #ddd',
+                      }}>
+                        <span style={{ textTransform: 'uppercase' }}>{item.detail}:</span>
+                        <span style={{ marginLeft: '6px' }}>{item.qty} Pcs</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Grup toplamı */}
+                <div style={{
+                  borderTop: '1.5px solid #000',
+                  paddingTop: '2px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}>
+                  <span style={{ fontSize: '8px', fontWeight: '700' }}>TOTAL</span>
+                  <span style={{ fontSize: groupCount <= 2 ? '18px' : '14px', fontWeight: '900' }}>{grp.qty} PCS</span>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
 
-          {/* TOTAL PCS */}
-          <div style={{ backgroundColor: '#ffffff', color: '#000000', padding: '4px 5px', textAlign: 'center', borderTop: '2px solid #000' }}>
-            <p style={{ margin: 0, fontSize: '9px', fontWeight: '700', lineHeight: '1' }}>TOTAL PCS</p>
-            <p style={{ margin: '2px 0 0 0', fontSize: getTotalFontSize(), fontWeight: '900', lineHeight: '1' }}>{label.totalPcs}</p>
+          {/* TOPLAM ALAN */}
+          <div style={{
+            width: '65px',
+            borderLeft: '3px solid #000',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '4px',
+            textAlign: 'center',
+            flexShrink: 0,
+          }}>
+            <div style={{ fontSize: '7px', fontWeight: '900', letterSpacing: '0.05em' }}>TOTAL PCS</div>
+            <div style={{ fontSize: groupCount <= 2 ? '28px' : '22px', fontWeight: '900', lineHeight: '1' }}>{label.totalPcs}</div>
           </div>
         </div>
 
-        {/* SAĞ SÜTUN */}
-        <div style={{ display: 'table-cell', width: '22%', textAlign: 'center', paddingLeft: '15px', verticalAlign: 'top' }}>
-          <div style={{ height: '155px' }}>
-            <p style={{ margin: 0, fontSize: '10px', fontWeight: '900', lineHeight: '1' }}>BOX NO</p>
-            <h1 style={{ margin: '15px 0', fontSize: '80px', fontWeight: '900', lineHeight: '0.7' }}>{label.boxNo}</h1>
-          </div>
-          <div style={{ borderTop: '4px solid #000000', borderBottom: '4px solid #000000', padding: '10px 0', textAlign: 'left', marginBottom: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '900', lineHeight: '1' }}>
-              <span>NET:</span><span>{label.net} KG</span>
+        {/* ALT BANT: AĞIRLIK + SENDER + MADE IN TURKEY */}
+        <div style={{
+          display: 'flex',
+          flexShrink: 0,
+          height: '26px',
+        }}>
+          {/* Ağırlık */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            padding: '0 12px',
+            borderRight: '2px solid #000',
+          }}>
+            <div style={{ fontSize: '11px', fontWeight: '900' }}>
+              NET: <span>{label.net} KG</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '900', lineHeight: '1', marginTop: '4px' }}>
-              <span>GRS:</span><span>{label.gross} KG</span>
+            <div style={{ fontSize: '11px', fontWeight: '900' }}>
+              GRS: <span>{label.gross} KG</span>
             </div>
           </div>
-          <div style={{ border: '4px solid #000000', padding: '6px 0', fontSize: '11px', fontWeight: '900', fontStyle: 'italic', backgroundColor: '#ffffff', lineHeight: '1' }}>
-            MADE IN TURKEY
+          {/* Sender */}
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 10px',
+            borderRight: '2px solid #000',
+          }}>
+            <span style={{ fontSize: '8px', fontWeight: '700', textTransform: 'uppercase' }}>
+              ALFA SPOR GİYİM SAN. TİC. LTD. ŞTİ. — BORNOVA, İZMİR, TURKEY
+            </span>
+          </div>
+          {/* Made in Turkey */}
+          <div style={{
+            width: '90px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <span style={{ fontSize: '10px', fontWeight: '900', fontStyle: 'italic' }}>MADE IN TURKEY</span>
           </div>
         </div>
       </div>
@@ -203,39 +258,47 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
 
   return (
     <div className="fixed inset-0 z-9999 bg-slate-900/95 backdrop-blur-2xl overflow-y-auto p-4 md:p-10 no-print">
-      <div className="max-w-350 mx-auto">
-        <div className="bg-white p-10 rounded-[4rem] shadow-2xl mb-12 flex justify-between items-center sticky top-0 z-50 border border-slate-100">
-          <div className="flex items-center gap-8">
-            <div className="w-20 h-20 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center shadow-2xl">
-              <Package size={40} />
+      <div className="max-w-5xl mx-auto">
+        {/* Başlık */}
+        <div className="bg-white p-8 rounded-[3rem] shadow-2xl mb-10 flex justify-between items-center sticky top-0 z-50 border border-slate-100">
+          <div className="flex items-center gap-6">
+            <div className="w-16 h-16 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-xl">
+              <Package size={32}/>
             </div>
             <div>
-              <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter italic leading-none">Lojistik Baskı Hattı</h2>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Argox 200x100mm • {labels.length} Toplam Etiket</p>
+              <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tighter leading-none">Koli Etiketleri</h2>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                Argox 200×100mm · {labels.length} etiket ({labels.length / 2} koli × 2 kopya)
+              </p>
             </div>
           </div>
-          <div className="flex gap-4">
-            <button
-              onClick={downloadPDF}
-              disabled={isGenerating}
-              className="bg-slate-900 text-white px-12 py-5 rounded-[2.5rem] font-black text-sm uppercase shadow-2xl hover:bg-blue-600 transition-all flex items-center gap-3 disabled:bg-slate-400"
-            >
-              {isGenerating ? <Loader2 className="animate-spin" size={20} /> : <FileDown size={20} />}
-              {isGenerating ? 'PDF Hazırlanıyor...' : 'PDF İndir'}
+          <div className="flex gap-3">
+            <button onClick={downloadPDF} disabled={isGenerating}
+              className="bg-slate-900 text-white px-10 py-4 rounded-2xl font-black text-sm uppercase shadow-xl hover:bg-blue-600 transition-all flex items-center gap-3 disabled:bg-slate-400">
+              {isGenerating ? <Loader2 className="animate-spin" size={18}/> : <FileDown size={18}/>}
+              {isGenerating ? 'Hazırlanıyor...' : 'PDF İndir'}
             </button>
-            <button onClick={onClose} className="p-5 bg-slate-50 text-slate-400 rounded-[2.5rem] hover:text-red-500 shadow-sm transition-colors">
-              <X size={32} />
+            <button onClick={onClose} className="p-4 bg-slate-100 text-slate-400 rounded-2xl hover:text-red-500 transition-colors">
+              <X size={24}/>
             </button>
           </div>
         </div>
 
-        <div className="space-y-24 pb-48 flex flex-col items-center">
+        {/* Etiket önizlemeleri — her 2'li grup için çift kopya birlikte göster */}
+        <div className="space-y-4 pb-32">
           {labels.map((label, idx) => (
-            <div key={idx} className="bg-white shadow-2xl overflow-hidden rounded-sm transform border border-slate-100">
-              {renderLabelContent(label, idx)}
-              <div ref={(el) => (labelRefs.current[idx] = el)} style={{ position: 'absolute', left: '-9999px' }}>
-                {renderLabelContent(label, idx)}
-              </div>
+            <div key={idx} className={`shadow-lg border border-slate-200 overflow-hidden ${label._copy === 2 ? 'mb-10 border-b-4 border-b-slate-400' : ''}`}>
+              {renderLabel(label, idx)}
+              {label._copy === 1 && (
+                <div className="bg-slate-100 text-center text-[9px] font-black text-slate-400 uppercase tracking-widest py-1">
+                  KOPYA 1 / 2
+                </div>
+              )}
+              {label._copy === 2 && (
+                <div className="bg-slate-200 text-center text-[9px] font-black text-slate-500 uppercase tracking-widest py-1">
+                  KOPYA 2 / 2
+                </div>
+              )}
             </div>
           ))}
         </div>
