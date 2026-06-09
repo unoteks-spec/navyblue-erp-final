@@ -418,7 +418,7 @@ export default function PackingList() {
                   <td className="py-4 px-8">
                     <select value={box.orderId} onChange={(e) => updateRow(box.id, 'orderId', e.target.value)} className="w-full bg-slate-100 rounded-xl p-2.5 text-[10px] font-black outline-none focus:bg-white">
                       <option value="">Select Order...</option>
-                      {orders.map(o => <option key={o.id} value={o.id}>{o.article}</option>)}
+                      {orders.map(o => <option key={o.id} value={o.id}>{o.article} — {o.color}</option>)}
                     </select>
                   </td>
                   <td className="text-center">
