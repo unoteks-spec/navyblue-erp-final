@@ -6,13 +6,11 @@ import { SIZE_ORDER } from '../../constants/sizes';
 export default function OrderDetailModal({ order, isOpen, onClose }) {
   if (!isOpen || !order) return null;
 
-  // 🛠️ AKILLI LABEL FONKSİYONU: Önek varsa sil, yoksa aynen bırak
   const getDisplayLabel = (s) => {
     const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
     return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
   };
 
-  // 🛠️ Toplam Hesaplamaları
   const totals = useMemo(() => {
     const orderQty = Object.values(order.qty_by_size || {}).reduce((a, b) => a + Number(b || 0), 0);
     const cutQty = Object.values(order.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
@@ -20,19 +18,19 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
     return { orderQty, cutQty, diffQty };
   }, [order]);
 
-  // ✅ DÜZELTİLDİ: SIZE_ORDER artık constants/sizes'dan geliyor (prefix'li key'ler)
   const sortedSizes = useMemo(() => {
     const allSizes = new Set([
       ...Object.keys(order.qty_by_size || {}),
       ...Object.keys(order.cutting_qty || {})
     ]);
-
     return Array.from(allSizes).sort((a, b) => {
       const indexA = SIZE_ORDER.indexOf(a);
       const indexB = SIZE_ORDER.indexOf(b);
       return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
     });
   }, [order]);
+
+  const mainFabric = order.fabrics?.main;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 animate-in fade-in duration-200">
@@ -71,7 +69,6 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
                 <p className="text-3xl font-black text-slate-900 leading-none mt-1">{totals.orderQty} <span className="text-sm text-slate-400">Pcs</span></p>
               </div>
             </div>
-
             <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-4xl flex items-center gap-6">
               <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner">
                 <Scissors size={28} />
@@ -84,15 +81,15 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
           </div>
 
           {/* 2. Ana Kumaş Bilgisi */}
-          {order.fabrics?.main?.kind && (
+          {mainFabric?.kind && (
             <div className="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Ana Kumaş</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
-                  { label: 'Cinsi', value: order.fabrics.main.kind },
-                  { label: 'Renk', value: order.fabrics.main.color },
-                  { label: 'İçerik', value: order.fabrics.main.content },
-                  { label: 'GSM', value: order.fabrics.main.gsm ? `${order.fabrics.main.gsm} gr` : null },
+                  { label: 'Cinsi',   value: mainFabric.kind },
+                  { label: 'Renk',    value: mainFabric.color },
+                  { label: 'İçerik',  value: mainFabric.content },
+                  { label: 'GSM',     value: mainFabric.gsm ? `${mainFabric.gsm} gr` : null },
                 ].filter(f => f.value).map(f => (
                   <div key={f.label} className="bg-slate-50 rounded-2xl px-4 py-3">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{f.label}</p>
@@ -106,19 +103,17 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
           {/* 3. Kumaş İhtiyaç Analizi */}
           <FabricRequirement order={order} />
 
-          {/* 3. Beden Dağılım Matrisi */}
+          {/* 4. Beden Dağılım Matrisi */}
           <div className="bg-slate-900 rounded-[2.5rem] overflow-hidden shadow-2xl">
             <div className="p-6 bg-slate-950 flex items-center gap-3">
               <CheckCircle className="text-blue-400" size={18} />
               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Beden Dağılım Matrisi</h3>
             </div>
-
             <div className="max-w-full overflow-x-auto custom-scrollbar">
               <table className="w-full text-center text-xs border-collapse min-w-180">
                 <thead>
                   <tr className="bg-slate-800/40 border-b border-slate-800 text-[10px] font-black text-slate-400 uppercase">
                     <th className="py-4 px-6 text-left font-black bg-slate-900 sticky left-0 z-10 w-28 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] text-[10px]">AŞAMA</th>
-                    {/* ✅ DÜZELTİLDİ: prefix kaldırılarak temiz beden etiketi gösteriliyor */}
                     {sortedSizes.map(size => (
                       <th key={size} className="py-4 px-3 min-w-16 border-l border-slate-800/60 font-black text-slate-200">
                         {getDisplayLabel(size)}
@@ -128,7 +123,6 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
                   </tr>
                 </thead>
                 <tbody className="font-bold text-white">
-                  {/* SİPARİŞ SATIRI */}
                   <tr className="border-b border-slate-800/40 hover:bg-slate-800/20 transition-colors">
                     <td className="py-3 px-6 text-left font-black text-blue-400 bg-slate-900/90 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] text-[10px]">SİPARİŞ</td>
                     {sortedSizes.map(size => (
@@ -138,8 +132,6 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
                     ))}
                     <td className="py-3 px-6 text-right font-black text-blue-400 bg-slate-950/40">{totals.orderQty}</td>
                   </tr>
-
-                  {/* KESİM SATIRI */}
                   <tr className="border-b border-slate-800/40 hover:bg-slate-800/20 transition-colors">
                     <td className="py-3 px-6 text-left font-black text-emerald-400 bg-slate-900/90 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] text-[10px]">KESİLEN</td>
                     {sortedSizes.map(size => (
@@ -149,8 +141,6 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
                     ))}
                     <td className="py-3 px-6 text-right font-black text-emerald-400 bg-slate-950/40">{totals.cutQty}</td>
                   </tr>
-
-                  {/* FARK SATIRI */}
                   <tr className="bg-slate-950/20 hover:bg-slate-800/20 transition-colors">
                     <td className="py-3 px-6 text-left font-black text-slate-400 bg-slate-900/90 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] text-[10px]">FARK / FİRE</td>
                     {sortedSizes.map(size => {
