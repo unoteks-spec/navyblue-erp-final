@@ -91,7 +91,7 @@ export default function Orders({ editingOrder, onComplete }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedOrderNo, setSelectedOrderNo] = useState(null);
 
-  const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, watch, setValue, reset, control, formState: { errors } } = useForm({
     defaultValues: {
       extraPercent: 5,
       // ✅ DÜZELTİLDİ: DEFAULT_QTY_BY_SIZE artık constants/sizes'dan geliyor

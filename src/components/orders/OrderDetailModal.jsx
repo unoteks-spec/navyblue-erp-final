@@ -81,7 +81,7 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
           </div>
 
           {/* 2. Ana Kumaş Bilgisi */}
-          {mainFabric?.kind && (
+          {mainFabric && (
             <div className="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Ana Kumaş</p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
