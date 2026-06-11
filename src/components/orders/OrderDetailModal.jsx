@@ -83,27 +83,7 @@ export default function OrderDetailModal({ order, isOpen, onClose }) {
             </div>
           </div>
 
-          {/* 2. Ana Kumaş Bilgisi */}
-          {order.fabrics?.main?.kind && (
-            <div className="bg-white border border-slate-100 rounded-[2rem] p-6 shadow-sm">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Ana Kumaş</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {[
-                  { label: 'Cinsi', value: order.fabrics.main.kind },
-                  { label: 'Renk', value: order.fabrics.main.color },
-                  { label: 'İçerik', value: order.fabrics.main.content },
-                  { label: 'GSM', value: order.fabrics.main.gsm ? `${order.fabrics.main.gsm} gr` : null },
-                ].filter(f => f.value).map(f => (
-                  <div key={f.label} className="bg-slate-50 rounded-2xl px-4 py-3">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{f.label}</p>
-                    <p className="text-sm font-black text-slate-800">{f.value}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* 3. Kumaş İhtiyaç Analizi */}
+          {/* 2. Kumaş İhtiyaç Analizi */}
           <FabricRequirement order={order} />
 
           {/* 3. Beden Dağılım Matrisi */}
