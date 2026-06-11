@@ -148,9 +148,24 @@ export default function ProductionReport() {
                 const sTotal = Object.values(o.shipped_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
                 const diffTotal = sTotal - cTotal;
 
+                // cutting_qty key'lerini qty_by_size ile eşleştir
+                // Örn: "2" → "K2Y", "8" → "U8" gibi display label tersine çevrilir
+                const qtyKeys2 = Object.keys(o.qty_by_size || {});
+                const getDisplayLabelLocal = (s) => {
+                  const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
+                  return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
+                };
+                const labelToKey = {};
+                qtyKeys2.forEach(k => { labelToKey[getDisplayLabelLocal(k)] = k; });
+                const normCut = {};
+                Object.entries(o.cutting_qty || {}).forEach(([k, v]) => {
+                  let normKey = qtyKeys2.includes(k) ? k : (labelToKey[k] || k);
+                  normCut[normKey] = (Number(normCut[normKey] || 0) + Number(v || 0));
+                });
+
                 // ✅ DÜZELTİLDİ: SIZE_ORDER prefix'li key'lerle eşleşiyor
                 const activeSizes = SIZE_ORDER.filter(s => 
-                  Number(o.qty_by_size?.[s] || 0) > 0 || Number(o.cutting_qty?.[s] || 0) > 0
+                  Number(o.qty_by_size?.[s] || 0) > 0 || Number(normCut[s] || 0) > 0
                 );
 
                 return (
@@ -199,7 +214,7 @@ export default function ProductionReport() {
                               <tbody className="font-bold">
                                 <tr className="border-b border-slate-100">
                                   <td className="py-2.5 px-4 text-left font-black text-emerald-600 bg-slate-50/80 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-[10px]">KESİLEN</td>
-                                  {activeSizes.map(s => <td key={s} className="py-2.5 px-3 border-l border-slate-100 text-emerald-700 font-black">{o.cutting_qty?.[s] || 0}</td>)}
+                                  {activeSizes.map(s => <td key={s} className="py-2.5 px-3 border-l border-slate-100 text-emerald-700 font-black">{normCut[s] || 0}</td>)}
                                   <td className="py-2.5 px-4 text-right font-black text-emerald-700 bg-emerald-50">{cTotal}</td>
                                 </tr>
                                 <tr className="border-b border-slate-100">
@@ -210,7 +225,7 @@ export default function ProductionReport() {
                                 <tr className="bg-slate-50/30">
                                   <td className="py-2.5 px-4 text-left font-black text-slate-500 bg-slate-100/50 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-[10px]">FARK / FİRE</td>
                                   {activeSizes.map(s => {
-                                    const diff = (Number(o.shipped_qty?.[s] || 0) - Number(o.cutting_qty?.[s] || 0));
+                                    const diff = (Number(o.shipped_qty?.[s] || 0) - Number(normCut[s] || 0));
                                     return (
                                       <td key={s} className={`py-2.5 px-3 border-l border-slate-100 font-black text-[11px] ${diff === 0 ? 'text-slate-400' : diff > 0 ? 'text-blue-600' : 'text-red-500'}`}>
                                         {diff > 0 ? `+${diff}` : diff}

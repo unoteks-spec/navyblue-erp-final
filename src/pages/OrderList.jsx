@@ -255,65 +255,85 @@ export default function OrderList({ onEditOrder }) {
       </div>
 
       {/* MODAL: DETAY KARTI */}
-      {selectedOrderDetail && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedOrderDetail(null)}>
-          <div className="relative bg-white w-full max-w-4xl h-full md:h-auto md:max-h-[90vh] rounded-none md:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-300" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 z-20 bg-white border-b border-slate-100 p-4 md:p-6 flex justify-between items-center">
-              <span className="px-3 py-1 bg-blue-600 text-white text-[9px] font-black rounded-lg uppercase tracking-widest">Sipariş Detayı</span>
-              <button onClick={() => setSelectedOrderDetail(null)} className="p-3 bg-slate-900 text-white rounded-2xl hover:bg-blue-600 shadow-lg transition-colors"><X size={20} /></button>
+      {selectedOrderDetail && (() => {
+        const od = selectedOrderDetail;
+        const orderQty = Object.values(od.qty_by_size || {}).reduce((a, b) => a + Number(b || 0), 0);
+        const cutQty = Object.values(od.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
+        // cutting_qty key'lerini qty_by_size ile eşleştir
+        // Örn: "2" → "K2Y", "8" → "U8" gibi display label tersine çevrilir
+        const qtyKeys = Object.keys(od.qty_by_size || {});
+        const getDisplayLabelLocal = (s) => {
+          const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
+          return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
+        };
+        const labelToKey = {};
+        qtyKeys.forEach(k => { labelToKey[getDisplayLabelLocal(k)] = k; });
+        const normalizedCutQty = {};
+        Object.entries(od.cutting_qty || {}).forEach(([k, v]) => {
+          let normKey = qtyKeys.includes(k) ? k : (labelToKey[k] || k);
+          normalizedCutQty[normKey] = (Number(normalizedCutQty[normKey] || 0) + Number(v || 0));
+        });
+
+        const sortedSizesModal = Object.keys({ ...(od.qty_by_size || {}), ...normalizedCutQty })
+          .filter(s => Number(od.qty_by_size?.[s] || 0) > 0 || Number(normalizedCutQty[s] || 0) > 0)
+          .sort((a, b) => {
+            const iA = SIZE_ORDER.indexOf(a), iB = SIZE_ORDER.indexOf(b);
+            return (iA === -1 ? 99 : iA) - (iB === -1 ? 99 : iB);
+          });
+        return (
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-0 md:p-6 bg-slate-900/60 backdrop-blur-sm" onClick={() => setSelectedOrderDetail(null)}>
+          <div className="relative bg-white w-full max-w-3xl h-full md:h-auto md:max-h-[92vh] rounded-none md:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+
+            {/* HEADER */}
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center shrink-0">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sipariş Detayı</span>
+              <button onClick={() => setSelectedOrderDetail(null)} className="p-2 bg-slate-100 text-slate-500 rounded-xl hover:bg-red-50 hover:text-red-500 transition-colors"><X size={18}/></button>
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-              <div className="p-8 md:p-10 bg-slate-50/50 flex flex-col md:flex-row gap-8 border-b border-slate-100">
-                <div className="w-32 h-44 bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-inner shrink-0 mx-auto md:mx-0">
-                  {selectedOrderDetail.model_image ? <img src={selectedOrderDetail.model_image} className="w-full h-full object-cover" /> : <Hash size={30} className="text-slate-100 m-auto mt-16" />}
-                </div>
-                <div className="flex-1 space-y-4 text-center md:text-left">
-                  <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">{selectedOrderDetail.model}</h2>
-                  <p className="text-lg font-bold text-blue-600 uppercase mt-1">{selectedOrderDetail.article}</p>
-                  <div className="grid grid-cols-3 gap-4 py-4 border-t border-slate-200/50 text-left">
-                    <div><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Müşteri</span><span className="text-xs font-black text-slate-700 uppercase">{selectedOrderDetail.customer}</span></div>
-                    <div><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Termin</span><span className="text-xs font-black text-slate-900 uppercase flex items-center justify-center md:justify-start gap-1"><Calendar size={12}/> {selectedOrderDetail.due ? new Date(selectedOrderDetail.due).toLocaleDateString('tr-TR') : '-'}</span></div>
-                    <div><span className="text-[8px] font-black text-slate-400 uppercase tracking-widest block">Konum</span><span className="text-[10px] font-black text-blue-600 uppercase flex items-center justify-center md:justify-start gap-1"><Activity size={10}/> {getStageLabel(selectedOrderDetail.current_stage)}</span></div>
-                  </div>
-                </div>
-              </div>
+              <div className="p-6 space-y-5">
 
-              <div className="p-8 md:p-10 space-y-10">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white border border-slate-100 p-6 rounded-4xl flex items-center gap-6 shadow-sm">
-                    <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-inner"><Calculator size={28} /></div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sipariş Toplamı</p>
-                      <p className="text-3xl font-black text-slate-900 leading-none mt-1">
-                        {Object.values(selectedOrderDetail.qty_by_size || {}).reduce((a, b) => a + Number(b || 0), 0)} <span className="text-sm text-slate-400">Pcs</span>
-                      </p>
+                {/* 1. BİLGİLER + MODEL RESMİ */}
+                <div className="flex gap-5">
+                  {/* Sol: Bilgiler */}
+                  <div className="flex-1 space-y-1">
+                    <div className="space-y-2">
+                      {[
+                        { label: 'Artikel', value: od.article },
+                        { label: 'Renk',    value: od.color },
+                        { label: 'Model',   value: od.model },
+                        { label: 'Müşteri', value: od.customer },
+                        { label: 'Termin',  value: od.due ? new Date(od.due).toLocaleDateString('tr-TR') : '-' },
+                        { label: 'Konum',   value: getStageLabel(od.current_stage) },
+                      ].map(f => (
+                        <div key={f.label} className="flex items-baseline gap-2">
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest w-16 shrink-0">{f.label}</span>
+                          <span className="text-sm font-black text-slate-800 uppercase">{f.value}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div className="bg-white border border-emerald-100 p-6 rounded-4xl flex items-center gap-6 shadow-sm">
-                    <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shadow-inner"><Scissors size={28} /></div>
-                    <div>
-                      <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Kesim Toplamı</p>
-                      <p className="text-3xl font-black text-emerald-900 leading-none mt-1">
-                        {Object.values(selectedOrderDetail.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0)} <span className="text-sm text-emerald-400">Pcs</span>
-                      </p>
-                    </div>
+                  {/* Sağ: Model Resmi */}
+                  <div className="w-32 h-40 bg-slate-50 rounded-2xl border border-slate-100 overflow-hidden shrink-0 flex items-center justify-center">
+                    {od.model_image
+                      ? <img src={od.model_image} className="w-full h-full object-cover" alt="model"/>
+                      : <Hash size={28} className="text-slate-200"/>}
                   </div>
                 </div>
 
-                {/* Ana Kumaş Bilgisi */}
-                {selectedOrderDetail.fabrics?.main?.kind && (
-                  <div className="bg-white border border-slate-100 rounded-4xl p-5">
+                {/* 2. ANA KUMAŞ */}
+                {od.fabrics?.main?.kind && (
+                  <div className="border border-slate-100 rounded-2xl p-4">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Ana Kumaş</p>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                       {[
-                        { label: 'Cinsi',  value: selectedOrderDetail.fabrics.main.kind },
-                        { label: 'Renk',   value: selectedOrderDetail.fabrics.main.color },
-                        { label: 'İçerik', value: selectedOrderDetail.fabrics.main.content },
-                        { label: 'GSM',    value: selectedOrderDetail.fabrics.main.gsm ? `${selectedOrderDetail.fabrics.main.gsm} gr` : null },
+                        { label: 'Cinsi',   value: od.fabrics.main.kind },
+                        { label: 'Renk',    value: od.fabrics.main.color },
+                        { label: 'İçerik',  value: od.fabrics.main.content },
+                        { label: 'GSM',     value: od.fabrics.main.gsm ? `${od.fabrics.main.gsm} gr` : null },
                       ].filter(f => f.value).map(f => (
-                        <div key={f.label} className="bg-slate-50 rounded-2xl px-3 py-2.5">
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{f.label}</p>
+                        <div key={f.label} className="bg-slate-50 rounded-xl px-3 py-2">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{f.label}</p>
                           <p className="text-xs font-black text-slate-800">{f.value}</p>
                         </div>
                       ))}
@@ -321,45 +341,81 @@ export default function OrderList({ onEditOrder }) {
                   </div>
                 )}
 
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                  <CheckCircle size={14}/> Beden Denge Matrisi
-                </h3>
-
-                <div className="flex gap-3 overflow-x-auto pb-6 custom-scrollbar min-w-full">
-                  {Object.entries(selectedOrderDetail.qty_by_size || {})
-                    .filter(([size, qty]) => Number(qty) > 0 || Number(selectedOrderDetail.cutting_qty?.[size] || 0) > 0)
-                    .sort((a, b) => {
-                      const indexA = SIZE_ORDER.indexOf(a[0]);
-                      const indexB = SIZE_ORDER.indexOf(b[0]);
-                      return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
-                    })
-                    .map(([size, qty]) => {
-                      const cut = selectedOrderDetail.cutting_qty?.[size] || 0;
-                      const diff = Number(cut) - Number(qty);
-                      // ✅ DÜZELTİLDİ: Akıllı label fonksiyonu kullanılıyor
-                      const displayLabel = getDisplayLabel(size);
-                      return (
-                        <div key={size} className="shrink-0 w-28 bg-white border border-slate-100 rounded-[2.5rem] overflow-hidden shadow-sm flex flex-col transition-all hover:border-blue-200">
-                          <div className="bg-slate-900 py-2.5 text-center text-[10px] font-black text-white uppercase">{displayLabel}</div>
-                          <div className="p-4 text-center space-y-3">
-                            <div className="space-y-0.5"><span className="text-[8px] font-bold text-slate-400 uppercase block">Sipariş</span><span className="text-lg font-black text-slate-900">{qty}</span></div>
-                            <div className="h-px bg-slate-50 w-full" />
-                            <div className="space-y-0.5"><span className="text-[8px] font-bold text-blue-400 uppercase block">Kesilen</span><span className="text-lg font-black text-blue-600">{cut}</span></div>
-                            <div className={`pt-1 text-[9px] font-black uppercase border-t border-slate-50 ${diff >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{diff > 0 ? `+${diff}` : diff}</div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                {/* 3. SİPARİŞ + KESİM TOPLAMI */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center shrink-0"><Calculator size={20}/></div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Sipariş Toplamı</p>
+                      <p className="text-2xl font-black text-slate-900 leading-none mt-0.5">{orderQty} <span className="text-xs text-slate-400">Pcs</span></p>
+                    </div>
+                  </div>
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center shrink-0"><Scissors size={20}/></div>
+                    <div>
+                      <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Kesim Toplamı</p>
+                      <p className="text-2xl font-black text-emerald-800 leading-none mt-0.5">{cutQty} <span className="text-xs text-emerald-400">Pcs</span></p>
+                    </div>
+                  </div>
                 </div>
+
+                {/* 4. BEDEN DENGE MATRİSİ */}
+                <div className="border border-slate-100 rounded-2xl overflow-hidden">
+                  <div className="bg-slate-900 px-4 py-2.5 flex items-center gap-2">
+                    <CheckCircle size={12} className="text-blue-400"/>
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Beden Denge Matrisi</span>
+                  </div>
+                  <div className="overflow-x-auto custom-scrollbar">
+                    <table className="w-full text-center border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-800 text-[9px] font-black text-slate-400 uppercase">
+                          <td className="py-2 px-3 text-left sticky left-0 bg-slate-800 w-20">Beden</td>
+                          {sortedSizesModal.map(s => (
+                            <td key={s} className="py-2 px-2 border-l border-slate-700 font-black text-slate-200">{getDisplayLabel(s)}</td>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { label: 'Sipariş', key: 'qty_by_size',  cls: 'text-slate-700' },
+                          { label: 'Kesilen',  key: 'cutting_qty', cls: 'text-blue-600 font-black' },
+                        ].map(row => (
+                          <tr key={row.label} className="border-t border-slate-100 hover:bg-slate-50">
+                            <td className="py-2.5 px-3 text-left font-black text-[9px] text-slate-400 uppercase sticky left-0 bg-white">{row.label}</td>
+                            {sortedSizesModal.map(s => (
+                              <td key={s} className={`py-2.5 px-2 border-l border-slate-100 ${row.cls}`}>
+                                {row.key === 'cutting_qty' ? (normalizedCutQty[s] || 0) : (od[row.key]?.[s] || 0)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                        <tr className="border-t border-slate-200 bg-slate-50">
+                          <td className="py-2.5 px-3 text-left font-black text-[9px] text-slate-400 uppercase sticky left-0 bg-slate-50">Fark</td>
+                          {sortedSizesModal.map(s => {
+                            const diff = Number(normalizedCutQty[s] || 0) - Number(od.qty_by_size?.[s] || 0);
+                            return (
+                              <td key={s} className={`py-2.5 px-2 border-l border-slate-100 font-black text-[11px] ${diff === 0 ? 'text-slate-300' : diff > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                {diff > 0 ? `+${diff}` : diff}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
               </div>
             </div>
 
-            <div className="p-6 md:p-8 bg-white border-t border-slate-100">
-              <button onClick={() => setSelectedOrderDetail(null)} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] hover:bg-blue-600 transition-colors">Kapat</button>
+            {/* KAPAT */}
+            <div className="p-4 border-t border-slate-100 shrink-0">
+              <button onClick={() => setSelectedOrderDetail(null)} className="w-full py-3 bg-slate-900 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 transition-colors">Kapat</button>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* DİĞER MODALLAR */}
       {preparingOrder && <CuttingOrderModal order={preparingOrder} onClose={() => setPreparingOrder(null)} onConfirm={(upd) => { setPreparingOrder(null); setPrintCuttingOrder(upd); loadData(); }} />}
