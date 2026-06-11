@@ -301,6 +301,26 @@ export default function OrderList({ onEditOrder }) {
                   </div>
                 </div>
 
+                {/* Ana Kumaş Bilgisi */}
+                {selectedOrderDetail.fabrics?.main?.kind && (
+                  <div className="bg-white border border-slate-100 rounded-4xl p-5">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Ana Kumaş</p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {[
+                        { label: 'Cinsi',  value: selectedOrderDetail.fabrics.main.kind },
+                        { label: 'Renk',   value: selectedOrderDetail.fabrics.main.color },
+                        { label: 'İçerik', value: selectedOrderDetail.fabrics.main.content },
+                        { label: 'GSM',    value: selectedOrderDetail.fabrics.main.gsm ? `${selectedOrderDetail.fabrics.main.gsm} gr` : null },
+                      ].filter(f => f.value).map(f => (
+                        <div key={f.label} className="bg-slate-50 rounded-2xl px-3 py-2.5">
+                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{f.label}</p>
+                          <p className="text-xs font-black text-slate-800">{f.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
                   <CheckCircle size={14}/> Beden Denge Matrisi
                 </h3>
