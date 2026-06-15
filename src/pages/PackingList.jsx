@@ -26,6 +26,8 @@ export default function PackingList() {
   const [defaultDims, setDefaultDims] = useState('60x40x40');
   const [activeRefOrderId, setActiveRefOrderId] = useState(''); 
   const [showLabels, setShowLabels] = useState(false);
+  const [invoiceNo, setInvoiceNo] = useState('');
+  const [poNo, setPoNo] = useState('');
   const [boxes, setBoxes] = useState([
     { 
       id: Date.now(), 
@@ -270,7 +272,7 @@ export default function PackingList() {
     const worksheet = workbook.addWorksheet('Packing List');
     
     worksheet.columns = [
-      { width: 18 }, { width: 45 }, { width: 12 }, { width: 22 }, { width: 10 }, { width: 12 }, { width: 12 }, { width: 15 }
+      { width: 10 }, { width: 42 }, { width: 10 }, { width: 24 }, { width: 8 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 14 }
     ];
 
     worksheet.mergeCells('A1:H2');
@@ -298,7 +300,14 @@ export default function PackingList() {
     worksheet.addRow(['DELIVERY ADDRESS', consignee.address || '---']);
     worksheet.addRow([]);
 
-    const header = worksheet.addRow(["Box No", "Description", "Type", "Details", "Qty", "Net (KG)", "Gross (KG)", "Dimensions"]);
+    // Invoice / PO No satırları
+    if (invoiceNo || poNo) {
+      if (invoiceNo) { const r = worksheet.addRow(['INVOICE NO', invoiceNo]); r.font = { bold: true }; }
+      if (poNo) { const r = worksheet.addRow(['PO NO', poNo]); r.font = { bold: true }; }
+      worksheet.addRow([]);
+    }
+
+    const header = worksheet.addRow(["Box No", "Description", "Type", "Details", "Qty", "Net (KG)", "Gross (KG)", "HS Code", "Dimensions"]);
     header.height = 25;
     header.eachCell((cell) => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } };
@@ -307,22 +316,26 @@ export default function PackingList() {
       cell.alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
+    // Aynı range'in ilk satırını takip et
+    const seenRanges = new Set();
     boxes.forEach((b, idx) => {
       const ord = orders.find(o => o.id === b.orderId);
       const { net, gross, totalPcs } = getBoxData(b, idx, boxes);
+      const isFirstInRange = !seenRanges.has(b.range);
+      if (b.range) seenRanges.add(b.range);
       const row = worksheet.addRow([
-        b.range, 
+        isFirstInRange ? b.range : '',
         ord ? `${ord.model} / ${ord.article} / ${ord.color}` : '-',
         b.type,
         b.type === 'LOT' ? `${b.lotSizes} (${b.lotRatio}) x ${b.qtyPerBox} Lot` : b.size,
         totalPcs,
         Number(net),
         Number(gross),
-        b.dimensions
+        '',  // HS Code — boş, kullanıcı doldurabilir
+        isFirstInRange ? b.dimensions : '',  // Ebat sadece ilk satırda
       ]);
       row.eachCell((c, colNumber) => {
         c.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
-        // Description (col 2) sola yaslı, diğerleri ortalı
         c.alignment = { horizontal: colNumber === 2 ? 'left' : 'center', vertical: 'middle' };
       });
     });
@@ -336,6 +349,7 @@ export default function PackingList() {
       totals.totalQty, 
       Number(totals.totalNet), 
       Number(totals.totalGross), 
+      '',
       ''
     ]);
     footerRow.height = 25;
@@ -415,6 +429,22 @@ export default function PackingList() {
             </div>
             <textarea placeholder="Address..." className="w-full text-right text-xs font-bold text-slate-500 border-none outline-none resize-none h-16" value={consignee.address} onChange={(e) => setConsignee({...consignee, address: e.target.value})} />
           </div>
+        </div>
+      </div>
+
+      {/* INVOICE / PO */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-2">
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice No <span className="text-slate-300">(opsiyonel)</span></label>
+          <input type="text" value={invoiceNo} onChange={e => setInvoiceNo(e.target.value)}
+            placeholder="örn: INV-2026-001"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100"/>
+        </div>
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PO No <span className="text-slate-300">(opsiyonel)</span></label>
+          <input type="text" value={poNo} onChange={e => setPoNo(e.target.value)}
+            placeholder="örn: PO-2026-123"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100"/>
         </div>
       </div>
 
