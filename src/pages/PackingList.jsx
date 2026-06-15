@@ -275,20 +275,20 @@ export default function PackingList() {
       { width: 10 }, { width: 42 }, { width: 10 }, { width: 24 }, { width: 8 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 14 }
     ];
 
-    worksheet.mergeCells('A1:H2');
+    worksheet.mergeCells('A1:I2');
     const mainTitle = worksheet.getCell('A1');
     mainTitle.value = 'PACKING LIST';
     mainTitle.font = { size: 18, bold: true, color: { argb: 'FFFFFFFF' } };
     mainTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
     mainTitle.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    worksheet.mergeCells('G3:H3');
+    worksheet.mergeCells('H3:I3');
     const dateCell = worksheet.getCell('G3');
     dateCell.value = `DATE: ${today}`;
     dateCell.alignment = { horizontal: 'right' };
     dateCell.font = { bold: true };
 
-    worksheet.mergeCells('G4:H4');
+    worksheet.mergeCells('H4:I4');
     const originCell = worksheet.getCell('G4');
     originCell.value = 'MADE IN TURKEY';
     originCell.alignment = { horizontal: 'right' };
@@ -300,12 +300,18 @@ export default function PackingList() {
     worksheet.addRow(['DELIVERY ADDRESS', consignee.address || '---']);
     worksheet.addRow([]);
 
-    // Invoice / PO No satırları
-    if (invoiceNo || poNo) {
-      if (invoiceNo) { const r = worksheet.addRow(['INVOICE NO', invoiceNo]); r.font = { bold: true }; }
-      if (poNo) { const r = worksheet.addRow(['PO NO', poNo]); r.font = { bold: true }; }
-      worksheet.addRow([]);
-    }
+    // Invoice / PO No — Made in Turkey'in altına (H5:I5, H6:I6)
+    worksheet.mergeCells('H5:I5');
+    const invCell = worksheet.getCell('H5');
+    invCell.value = invoiceNo ? `INV: ${invoiceNo}` : '';
+    invCell.alignment = { horizontal: 'right' };
+    invCell.font = { bold: true };
+
+    worksheet.mergeCells('H6:I6');
+    const poCell = worksheet.getCell('H6');
+    poCell.value = poNo ? `PO: ${poNo}` : '';
+    poCell.alignment = { horizontal: 'right' };
+    poCell.font = { bold: true };
 
     const header = worksheet.addRow(["Box No", "Description", "Type", "Details", "Qty", "Net (KG)", "Gross (KG)", "HS Code", "Dimensions"]);
     header.height = 25;
@@ -432,22 +438,6 @@ export default function PackingList() {
         </div>
       </div>
 
-      {/* INVOICE / PO */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 px-2">
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice No <span className="text-slate-300">(opsiyonel)</span></label>
-          <input type="text" value={invoiceNo} onChange={e => setInvoiceNo(e.target.value)}
-            placeholder="örn: INV-2026-001"
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100"/>
-        </div>
-        <div className="space-y-2">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PO No <span className="text-slate-300">(opsiyonel)</span></label>
-          <input type="text" value={poNo} onChange={e => setPoNo(e.target.value)}
-            placeholder="örn: PO-2026-123"
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-100"/>
-        </div>
-      </div>
-
       <div className="bg-blue-600 p-10 rounded-[3.5rem] text-white shadow-2xl space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="space-y-3">
@@ -464,6 +454,22 @@ export default function PackingList() {
           <div className="space-y-3">
             <label className="text-[10px] font-black uppercase opacity-70 tracking-widest text-center block">3. Default Dims</label>
             <input type="text" className="w-full bg-white/10 border border-white/20 rounded-2xl p-4 text-sm font-black text-center outline-none focus:bg-white focus:text-slate-900" value={defaultDims} onChange={(e) => setDefaultDims(e.target.value)} />
+          </div>
+        </div>
+
+        {/* Invoice / PO */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-white/10">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase opacity-70 tracking-widest">Invoice No <span className="opacity-50">(opsiyonel)</span></label>
+            <input type="text" value={invoiceNo} onChange={e => setInvoiceNo(e.target.value)}
+              placeholder="INV-2026-001"
+              className="w-full bg-white/10 border border-white/20 rounded-2xl p-3 text-sm font-black outline-none focus:bg-white focus:text-slate-900"/>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase opacity-70 tracking-widest">PO No <span className="opacity-50">(opsiyonel)</span></label>
+            <input type="text" value={poNo} onChange={e => setPoNo(e.target.value)}
+              placeholder="PO-2026-123"
+              className="w-full bg-white/10 border border-white/20 rounded-2xl p-3 text-sm font-black outline-none focus:bg-white focus:text-slate-900"/>
           </div>
         </div>
 
