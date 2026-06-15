@@ -283,13 +283,13 @@ export default function PackingList() {
     mainTitle.alignment = { horizontal: 'center', vertical: 'middle' };
 
     worksheet.mergeCells('H3:I3');
-    const dateCell = worksheet.getCell('G3');
+    const dateCell = worksheet.getCell('H3');
     dateCell.value = `DATE: ${today}`;
     dateCell.alignment = { horizontal: 'right' };
     dateCell.font = { bold: true };
 
     worksheet.mergeCells('H4:I4');
-    const originCell = worksheet.getCell('G4');
+    const originCell = worksheet.getCell('H4');
     originCell.value = 'MADE IN TURKEY';
     originCell.alignment = { horizontal: 'right' };
     originCell.font = { bold: true, italic: true };
