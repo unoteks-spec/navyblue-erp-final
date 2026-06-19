@@ -63,22 +63,31 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="font-black text-[11px] text-slate-900 tracking-tighter uppercase truncate leading-none">
-            {order.article}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-black text-[11px] text-slate-900 tracking-tighter uppercase truncate leading-none">
+              {order.article}
+            </span>
+            {order.color && (
+              <span className="text-[9px] font-bold text-blue-600 uppercase truncate leading-none">
+                / {order.color}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
             <span className="flex items-center gap-1 text-[7.5px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md uppercase border border-blue-100">
               <User size={7}/> {order.customer?.substring(0, 12)}
             </span>
-            {order.color && (
-              <span className="text-[7.5px] font-black text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded-md uppercase border border-slate-100">
-                {order.color}
-              </span>
-            )}
           </div>
         </div>
 
-        {needsWaybill && <AlertCircle size={14} className="text-red-500 shrink-0 animate-pulse"/>}
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <div className={`flex items-center gap-1 text-[8px] font-black px-1.5 py-0.5 rounded-lg border uppercase ${
+            stage.key === 'yuklendi' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'
+          }`}>
+            <Clock size={9}/> {entryDate}
+          </div>
+          {needsWaybill && <AlertCircle size={13} className="text-red-500 animate-pulse"/>}
+        </div>
 
         {/* Akordeon aç/kapa — sürüklemeyi tetiklemesin */}
         <button
@@ -93,13 +102,8 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
       {/* AÇIK AKORDEON İÇERİĞİ */}
       {isOpen && (
         <div className="px-3 pb-3 pt-0 border-t border-slate-50 space-y-3">
-          {/* Tarih + Adet */}
-          <div className="flex items-center justify-between pt-3">
-            <div className={`flex items-center gap-1 text-[9px] font-black px-2 py-1 rounded-xl border uppercase ${
-              stage.key === 'yuklendi' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'
-            }`}>
-              <Clock size={10}/> {entryDate}
-            </div>
+          {/* Adet */}
+          <div className="flex items-center justify-end pt-3">
             <div className="bg-slate-900 text-white px-2.5 py-1 rounded-lg text-[10px] font-black">{totalQty} AD</div>
           </div>
 
