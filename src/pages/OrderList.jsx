@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { 
   Search, Hash, CheckCircle, LayoutGrid, RefreshCcw, X, Calendar, Activity, Copy, Calculator, Scissors, Edit3, Trash2
 } from 'lucide-react';
-import { getAllOrders, deleteOrder, supabase } from "../api/orderService";
+import { getAllOrders, deleteOrder, checkOrderDeletable, checkFabricFullyReceived, supabase } from "../api/orderService";
 import { SIZE_ORDER } from '../constants/sizes';
 
 import CuttingOrderModal from '../components/orders/CuttingOrderModal';
@@ -48,7 +48,39 @@ export default function OrderList({ onEditOrder }) {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // ✅ Kesim sonucu girmeden önce kumaşın tamamen gelmiş olduğunu kontrol et
+  const handleOpenCuttingResult = async (order) => {
+    try {
+      const { ready, missing } = await checkFabricFullyReceived(order.id);
+      if (!ready) {
+        const missingLabels = missing.map(k => k === 'main' ? 'Ana Kumaş' : `Garni (${k})`).join(', ');
+        const proceed = window.confirm(
+          `⚠️ Bu siparişin kumaşı henüz tam gelmemiş!\n\nEksik: ${missingLabels}\n\nKumaş gelmeden kesim sonucu girmek riskli olabilir.\n\nYine de devam etmek istiyor musunuz?`
+        );
+        if (!proceed) return;
+      }
+      setCuttingResultOrder(order);
+    } catch (err) {
+      console.error("Kumaş kontrolü hatası:", err.message);
+      setCuttingResultOrder(order); // Kontrol başarısız olursa engelleme, normal akışa devam et
+    }
+  };
+
   const handleDeleteOrder = async (orderId) => {
+    try {
+      // ✅ Önce bağlı kumaş PO'su var mı kontrol et
+      const { deletable, linkedPos } = await checkOrderDeletable(orderId);
+      if (!deletable) {
+        const poList = linkedPos.map(p => `• ${p.poNo} (${p.status === 'completed' ? 'tamamlandı' : 'bekliyor'})`).join('\n');
+        alert(`⚠️ Bu sipariş silinemiyor!\n\nAşağıdaki kumaş siparişine/siparişlerine bağlı:\n${poList}\n\nÖnce bu PO'yu Kumaş Yönetimi sayfasından silin ya da kumaş kalemini çıkarın, sonra siparişi silebilirsiniz.`);
+        return;
+      }
+    } catch (err) {
+      console.error("Kontrol hatası:", err.message);
+      alert("Sipariş kontrolü yapılırken bir hata oluştu, lütfen tekrar deneyin.");
+      return;
+    }
+
     if (!window.confirm('Bu iş emrini silmek istediğinizden emin misiniz?')) return;
     try {
       await deleteOrder(orderId);
@@ -244,7 +276,7 @@ export default function OrderList({ onEditOrder }) {
 
                 <div className="flex flex-wrap items-center gap-2">
                   <button onClick={() => setPreparingOrder(order)} className="bg-slate-900 text-white px-4 py-2.5 rounded-xl font-black text-[9px] uppercase shadow-lg hover:bg-blue-600 transition-colors">Kesim Emri</button>
-                  <button onClick={() => setCuttingResultOrder(order)} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter transition-all ${isCut ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white'}`}>
+                  <button onClick={() => handleOpenCuttingResult(order)} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-[9px] uppercase border tracking-tighter transition-all ${isCut ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg shadow-emerald-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white'}`}>
                     {isCut ? <CheckCircle size={14} /> : <Scissors size={14} />} {isCut ? 'Kesildi' : 'Sonuç Gir'}
                   </button>
                 </div>

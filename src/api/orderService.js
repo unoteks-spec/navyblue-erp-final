@@ -68,6 +68,43 @@ export const updateCuttingResults = async (orderId, results, details) => {
   if (error) throw error;
 };
 
+// ✅ YENİ: Bir siparişin kumaşının tamamen geldi mi kontrolü
+// Kesim sonucu girilmeden önce bu kontrol yapılmalı
+export const checkFabricFullyReceived = async (orderId) => {
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select('fabrics')
+    .eq('id', orderId)
+    .single();
+  if (orderError) throw orderError;
+
+  const allFabKeys = Object.entries(order.fabrics || {})
+    .filter(([key, fab]) => fab && fab.kind && fab.kind.trim() !== '')
+    .map(([key]) => key);
+
+  if (allFabKeys.length === 0) {
+    return { ready: true, missing: [] }; // Kumaş tanımlanmamışsa engelleme
+  }
+
+  const { data: items, error: itemsError } = await supabase
+    .from('fabric_order_items')
+    .select('fab_key, fabric_orders(received_qty_kg, ordered_qty_kg)')
+    .eq('order_id', orderId);
+  if (itemsError) throw itemsError;
+
+  const receivedFabKeys = new Set(
+    (items || [])
+      .filter(i => {
+        const fo = Array.isArray(i.fabric_orders) ? i.fabric_orders[0] : i.fabric_orders;
+        return fo && Number(fo.received_qty_kg || 0) > 0;
+      })
+      .map(i => i.fab_key)
+  );
+
+  const missing = allFabKeys.filter(k => !receivedFabKeys.has(k));
+  return { ready: missing.length === 0, missing };
+};
+
 /**
  * 3. DASHBOARD İSTATİSTİKLERİ
  * Kumaş eksiği fabric_orders tablosundan PO bazlı hesaplanıyor.
@@ -95,7 +132,6 @@ export const getDashboardStats = async () => {
     fabricOrderedCount: orders.filter(o => o.fabric_ordered).length,
     waitingFabricOrder: orders.filter(o => !o.fabric_ordered).length,
 
-    // PO bazlı kumaş eksiği
     fabrics: fabricOrders
       .map(po => ({
         kind: po.fabric_type,
@@ -109,17 +145,14 @@ export const getDashboardStats = async () => {
       }))
       .filter(f => f.netEksik > 0.1),
 
-    // Tüm aktif siparişler, termine göre sıralı
     deadlines: orders
       .filter(o => o.due)
       .sort((a, b) => new Date(a.due) - new Date(b.due)),
 
-    // Kesime hazır — kumaşı gelmiş + kesimhanede
     readyToCut: orders
       .filter(o => o.fabric_ordered && (o.current_stage === 'kesimhanede' || !o.current_stage))
       .sort((a, b) => new Date(a.due || '9999') - new Date(b.due || '9999')),
 
-    // Kumaş siparişi verilmemiş
     waitingFabric: orders
       .filter(o => !o.fabric_ordered)
       .sort((a, b) => new Date(a.due || '9999') - new Date(b.due || '9999')),
@@ -176,6 +209,32 @@ export const getAllOrders = () =>
     `)
     .order('created_at', { ascending: false })
     .then(res => res.data);
+
+// ✅ DÜZELTİLDİ: Silme öncesi kontrol — bağlı kumaş PO'su varsa engelle
+// Kullanıcıya hangi PO'ya bağlı olduğunu bildirir, sessiz veri bozulmasını önler
+export const checkOrderDeletable = async (orderId) => {
+  const { data: items, error } = await supabase
+    .from('fabric_order_items')
+    .select('fabric_order_id, fabric_orders(fabric_po_no, status)')
+    .eq('order_id', orderId);
+  if (error) throw error;
+
+  if (!items || items.length === 0) {
+    return { deletable: true, linkedPos: [] };
+  }
+
+  const linkedPos = items
+    .map(i => {
+      const po = Array.isArray(i.fabric_orders) ? i.fabric_orders[0] : i.fabric_orders;
+      return po ? { id: i.fabric_order_id, poNo: po.fabric_po_no, status: po.status } : null;
+    })
+    .filter(Boolean);
+
+  // Aynı PO birden fazla kalemde geçebilir, tekilleştir
+  const uniquePos = Array.from(new Map(linkedPos.map(p => [p.id, p])).values());
+
+  return { deletable: false, linkedPos: uniquePos };
+};
 
 export const deleteOrder = (id) => supabase.from('orders').delete().eq('id', id);
 
@@ -276,7 +335,6 @@ export const getOrdersWaitingForFabric = async () => {
 };
 
 export const createFabricPurchaseOrder = async (poData, selectedItems) => {
-  // selectedItems: [{ orderId, fabKey, allocatedQty }, ...]
   const year = new Date().getFullYear();
   const timeStamp = String(Date.now()).slice(-4);
   const finalPoNo = `K-${year}-${timeStamp}`;
@@ -296,7 +354,6 @@ export const createFabricPurchaseOrder = async (poData, selectedItems) => {
   if (poError) throw poError;
   const fabricOrderId = newPo[0].id;
 
-  // ✅ Her seçili item için orderId + fabKey birlikte kaydediliyor
   const itemRows = selectedItems.map(item => ({
     fabric_order_id: fabricOrderId,
     order_id: item.orderId,
@@ -307,23 +364,18 @@ export const createFabricPurchaseOrder = async (poData, selectedItems) => {
   const { error: itemsError } = await supabase.from('fabric_order_items').insert(itemRows);
   if (itemsError) throw itemsError;
 
-  // ✅ fabric_ordered'ı artık set ETMIYORUZ — havuz filtresi fabric_order_items üzerinden çalışacak
-  // Sadece tüm fabKey'leri sipariş edilmiş olan order'ları işaretle
-  // Her order için hangi fabKey'lerin sipariş edildiğini kontrol et
   const orderFabKeyMap = {};
   selectedItems.forEach(({ orderId, fabKey }) => {
     if (!orderFabKeyMap[orderId]) orderFabKeyMap[orderId] = [];
     orderFabKeyMap[orderId].push(fabKey);
   });
 
-  // Mevcut sipariş edilen fabKey'leri çek
   const orderIds = Object.keys(orderFabKeyMap);
   const { data: existingItems } = await supabase
     .from('fabric_order_items')
     .select('order_id, fab_key')
     .in('order_id', orderIds);
 
-  // Her order'ın tüm fabKey'leri sipariş edilmişse fabric_ordered = true yap
   const { data: orders } = await supabase
     .from('orders')
     .select('id, fabrics')
@@ -417,8 +469,6 @@ export const deleteFabricPurchaseOrder = async (fabricOrderId) => {
     .eq('fabric_order_id', fabricOrderId);
   if (itemsError) throw itemsError;
 
-  // Silinen PO'nun order'larını fabric_ordered = false yap
-  // (çünkü artık tüm fabKey'leri sipariş edilmiş olmayacak)
   const connectedOrderIds = [...new Set(items.map(i => i.order_id))];
   if (connectedOrderIds.length > 0) {
     await supabase.from('orders').update({ fabric_ordered: false }).in('id', connectedOrderIds);

@@ -126,9 +126,14 @@ export default function FabricManagement() {
     } else {
       const clickedItem = flattenedFabricPool.find(i => i.uniqueKey === uniqueKey);
       const firstSelectedItem = flattenedFabricPool.find(i => selectedItems.includes(i.uniqueKey));
-      
+
       if (firstSelectedItem && (firstSelectedItem.fabricColor !== clickedItem.fabricColor)) {
         alert("🚨 Farklı renkteki kumaşları tek bir toplu siparişte birleştiremezsiniz! Lütfen sadece aynı renkleri seçin.");
+        return;
+      }
+      // ✅ Kumaş türü kontrolü — farklı tür (örn: 2 İplik vs Kaşkorse) birlikte seçilemez
+      if (firstSelectedItem && (firstSelectedItem.fabricKind !== clickedItem.fabricKind)) {
+        alert(`🚨 Farklı kumaş türlerini tek bir toplu siparişte birleştiremezsiniz!\n\nSeçili: ${firstSelectedItem.fabricKind}\nTıklanan: ${clickedItem.fabricKind}\n\nLütfen sadece aynı kumaş türünü seçin.`);
         return;
       }
       setSelectedItems([...selectedItems, uniqueKey]);
