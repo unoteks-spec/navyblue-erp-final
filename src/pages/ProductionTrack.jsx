@@ -68,8 +68,8 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
               {order.article}
             </span>
             {order.color && (
-              <span className="text-[9px] font-bold text-blue-600 uppercase truncate leading-none">
-                / {order.color}
+              <span className="text-[8px] font-black text-white bg-blue-600 px-1.5 py-0.5 rounded-md uppercase truncate leading-none">
+                {order.color}
               </span>
             )}
           </div>
@@ -201,7 +201,7 @@ function StageColumn({ stage, index, orders, openCardId, onToggle, onSaveWaybill
   const { setNodeRef, isOver } = useDroppable({ id: stage.key });
 
   return (
-    <div ref={setNodeRef} className="flex flex-col gap-3 min-w-64 md:min-w-72 snap-center">
+    <div ref={setNodeRef} className="flex flex-col gap-3 min-w-52 md:min-w-60 snap-center">
       <div className={`p-4 rounded-3xl border-b-4 shadow-sm transition-all ${
         stage.key === 'yuklendi' ? 'bg-blue-600 border-blue-800 text-white' : 'bg-white border-slate-200 text-slate-800'
       }`}>
