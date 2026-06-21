@@ -139,11 +139,8 @@ export default function OrderList({ onEditOrder }) {
     const orderedCount  = allFabKeys.filter(k => orderedFabKeys.has(k)).length;
     const receivedCount = allFabKeys.filter(k => receivedFabKeys.has(k)).length;
 
-    // Kesim tamamsa %100
-    const totalCut = Object.values(order.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
-    if (totalCut > 0 || (order.current_stage && order.current_stage !== 'kesim_bekliyor')) {
-      return { percent: 100, label: 'Kesime Hazır' };
-    }
+    // ✅ DÜZELTİLDİ: Bar kumaş geliş durumunu gösterir, kesim durumunu değil.
+    // Kesim adedi burada hiç kontrol edilmemeli.
 
     // Tümü geldi → %100
     if (receivedCount === totalFabrics) return { percent: 100, label: 'Tümü Geldi' };
