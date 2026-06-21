@@ -9,7 +9,7 @@ import { SIZE_ORDER } from '../constants/sizes';
 export default function ProductionReport() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [showArchived, setShowArchived] = useState(false);
   const [customerFilter, setCustomerFilter] = useState('');
   const [articleFilter, setArticleFilter] = useState('');
   const [expandedId, setExpandedId] = useState(null);
@@ -45,11 +45,7 @@ export default function ProductionReport() {
 
   const filteredOrders = orders.filter(o => {
     const isArchived = o.status === 'archived' || o.is_archived === true;
-    let statusMatch = true;
-    if (filter === 'pending') statusMatch = !isArchived && o.status !== 'cut_completed';
-    else if (filter === 'completed') statusMatch = o.status === 'cut_completed' && !isArchived;
-    else if (filter === 'archived') statusMatch = isArchived;
-    else if (filter === 'all') statusMatch = true;
+    const statusMatch = showArchived ? true : !isArchived;
 
     const customerMatch = !customerFilter || 
       String(o.customer || "").toLowerCase().includes(customerFilter.toLowerCase().trim());
@@ -96,12 +92,16 @@ export default function ProductionReport() {
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <input type="text" placeholder="Müşteri..." value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-[10px] font-bold outline-none" />
           <input type="text" placeholder="Artikel..." value={articleFilter} onChange={(e) => setArticleFilter(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-[10px] font-bold outline-none" />
-          <select value={filter} onChange={(e) => setFilter(e.target.value)} className="bg-slate-50 border-none rounded-xl px-4 py-2.5 text-[10px] font-black uppercase outline-none cursor-pointer col-span-2">
-            <option value="all">Tüm Siparişler</option>
-            <option value="pending">Sadece Üretimde Olanlar</option>
-            <option value="completed">Dikiş / Ütü Pakettekiler</option>
-            <option value="archived">Sevkiyatı Bitenler (Arşiv)</option>
-          </select>
+          <button
+            onClick={() => setShowArchived(!showArchived)}
+            className={`col-span-2 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+              showArchived
+                ? 'bg-slate-900 text-white border-slate-900'
+                : 'bg-slate-50 text-slate-500 border-transparent hover:border-slate-200'
+            }`}
+          >
+            {showArchived ? '✓ Arşiv Dahil (Tümü)' : 'Sadece Aktif Siparişler'}
+          </button>
         </div>
       </div>
 

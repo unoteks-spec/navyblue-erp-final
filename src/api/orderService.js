@@ -404,7 +404,7 @@ export const getFabricOrders = async () => {
         id,
         allocated_qty_kg,
         order_id,
-        orders (id, order_no, customer, article, model, color, qty_by_size, fabrics)
+        orders (id, order_no, customer, article, model, color, qty_by_size, fabrics, is_archived, status)
       )
     `)
     .order('created_at', { ascending: false });

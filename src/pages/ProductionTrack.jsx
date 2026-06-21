@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { getAllOrders, updateOrderStage, supabase } from '../api/orderService';
 import {
   Clock, Activity, User, Hash, Archive, PackageCheck, AlertCircle,
-  ClipboardCheck, Truck, ChevronDown, Pencil, Check, X
+  ClipboardCheck, Truck, ChevronDown, Pencil, Check, X, GripVertical
 } from 'lucide-react';
 import ShipmentResultModal from '../components/orders/ShipmentResultModal';
 import {
   DndContext, DragOverlay, closestCenter, useSensor, useSensors,
-  PointerSensor, KeyboardSensor
+  PointerSensor, KeyboardSensor, TouchSensor
 } from '@dnd-kit/core';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 
@@ -50,50 +50,50 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
         needsWaybill ? 'border-red-400 ring-2 ring-red-50' : 'border-slate-100'
       } ${isDragging ? 'opacity-40' : ''}`}
     >
-      {/* KAPALI BAŞLIK — sürüklenebilir alan */}
-      <div
-        {...listeners}
-        {...attributes}
-        className="flex items-center gap-3 p-3 cursor-grab active:cursor-grabbing"
-      >
-        <div className="w-11 h-11 rounded-xl overflow-hidden border border-slate-50 shrink-0 bg-slate-50 flex items-center justify-center shadow-inner">
+      {/* KAPALI BAŞLIK */}
+      <div className="flex items-center gap-2 p-3">
+        {/* Sürükleme tutamacı — sadece bu alan sürüklenebilir */}
+        <div
+          {...listeners}
+          {...attributes}
+          className="p-1 -ml-1 text-slate-300 cursor-grab active:cursor-grabbing touch-none shrink-0"
+        >
+          <GripVertical size={14}/>
+        </div>
+
+        <div className="w-9 h-9 rounded-lg overflow-hidden border border-slate-50 shrink-0 bg-slate-50 flex items-center justify-center shadow-inner">
           {order.model_image
             ? <img src={order.model_image} className="w-full h-full object-cover" alt="model" draggable={false}/>
             : <Hash size={16} className="text-slate-200"/>}
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-black text-[11px] text-slate-900 tracking-tighter uppercase truncate leading-none">
-              {order.article}
-            </span>
-            {order.color && (
-              <span className="text-[8px] font-black text-white bg-blue-600 px-1.5 py-0.5 rounded-md uppercase truncate leading-none">
-                {order.color}
-              </span>
-            )}
+        {/* Bilgi alanı — tıklayınca akordeon açılır */}
+        <div
+          className="min-w-0 flex-1 overflow-hidden cursor-pointer"
+          onClick={() => onToggle(order.id)}
+        >
+          <div className="font-black text-[11px] text-slate-900 tracking-tighter uppercase truncate leading-tight">
+            {order.article}
           </div>
-          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-            <span className="flex items-center gap-1 text-[7.5px] font-black text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md uppercase border border-blue-100">
-              <User size={7}/> {order.customer?.substring(0, 12)}
-            </span>
-          </div>
+          {order.color && (
+            <div className="text-[8.5px] font-black text-blue-600 uppercase truncate leading-tight mt-0.5">
+              {order.color}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col items-end gap-1 shrink-0">
-          <div className={`flex items-center gap-1 text-[8px] font-black px-1.5 py-0.5 rounded-lg border uppercase ${
-            stage.key === 'yuklendi' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'
+          <div className={`flex items-center gap-0.5 text-[7px] font-black px-1 py-0.5 rounded-md uppercase whitespace-nowrap ${
+            stage.key === 'yuklendi' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'
           }`}>
-            <Clock size={9}/> {entryDate}
+            <Clock size={7}/>{entryDate}
           </div>
-          {needsWaybill && <AlertCircle size={13} className="text-red-500 animate-pulse"/>}
+          {needsWaybill && <AlertCircle size={12} className="text-red-500 animate-pulse"/>}
         </div>
 
-        {/* Akordeon aç/kapa — sürüklemeyi tetiklemesin */}
         <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); onToggle(order.id); }}
-          className="p-1.5 text-slate-300 hover:text-slate-600 transition-colors shrink-0"
+          onClick={() => onToggle(order.id)}
+          className="p-1 text-slate-300 hover:text-slate-600 transition-colors shrink-0"
         >
           <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}/>
         </button>
@@ -102,8 +102,11 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
       {/* AÇIK AKORDEON İÇERİĞİ */}
       {isOpen && (
         <div className="px-3 pb-3 pt-0 border-t border-slate-50 space-y-3">
-          {/* Adet */}
-          <div className="flex items-center justify-end pt-3">
+          {/* Müşteri + Adet */}
+          <div className="flex items-center justify-between pt-3">
+            <span className="flex items-center gap-1 text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg uppercase border border-blue-100">
+              <User size={9}/> {order.customer}
+            </span>
             <div className="bg-slate-900 text-white px-2.5 py-1 rounded-lg text-[10px] font-black">{totalQty} AD</div>
           </div>
 
@@ -201,7 +204,7 @@ function StageColumn({ stage, index, orders, openCardId, onToggle, onSaveWaybill
   const { setNodeRef, isOver } = useDroppable({ id: stage.key });
 
   return (
-    <div ref={setNodeRef} className="flex flex-col gap-3 min-w-52 md:min-w-60 snap-center">
+    <div ref={setNodeRef} className="flex flex-col gap-3 min-w-64 md:min-w-72 snap-center">
       <div className={`p-4 rounded-3xl border-b-4 shadow-sm transition-all ${
         stage.key === 'yuklendi' ? 'bg-blue-600 border-blue-800 text-white' : 'bg-white border-slate-200 text-slate-800'
       }`}>
@@ -240,7 +243,8 @@ export default function ProductionTrack() {
   const [activeDragOrder, setActiveDragOrder] = useState(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
     useSensor(KeyboardSensor)
   );
 
@@ -332,23 +336,37 @@ export default function ProductionTrack() {
 
     const order = orders.find(o => o.id === active.id);
     const targetStageKey = over.id;
-    if (!order || order.current_stage === targetStageKey) {
-      // Aynı sütuna bırakıldıysa veya kesimhanede ise hiçbir şey yapma
-    }
-
     const fromStageKey = order?.current_stage || 'kesimhanede';
-    if (fromStageKey === targetStageKey) return;
+    if (!order || fromStageKey === targetStageKey) return;
+
+    const newTracking = { ...(order.tracking || {}), [targetStageKey]: new Date().toISOString() };
+
+    // ✅ Optimistic update — ekranı anında güncelle, sayfa "yenilenmiş" hissi vermez
+    setOrders(prev => prev.map(o =>
+      o.id === order.id
+        ? {
+            ...o,
+            current_stage: targetStageKey,
+            tracking: newTracking,
+            waybill_tracking_active: false,
+            is_waybill_issued: false,
+            current_waybill_no: null,
+          }
+        : o
+    ));
 
     try {
-      // İrsaliye takibini sıfırla, aşamayı güncelle
+      // İrsaliye takibini sıfırla, aşamayı güncelle — arka planda, sessizce
       await supabase
         .from('orders')
         .update({ waybill_tracking_active: false, is_waybill_issued: false, current_waybill_no: null })
         .eq('id', order.id);
       await updateOrderStage(order.id, targetStageKey, order.tracking);
-      await load();
+      // ✅ load() çağrılmıyor — optimistic state zaten doğru, gereksiz tam yenileme önleniyor
     } catch (err) {
       alert("Aşama değiştirilirken hata oluştu.");
+      // Hata olursa state'i geri al
+      setOrders(prev => prev.map(o => o.id === order.id ? { ...o, current_stage: fromStageKey } : o));
     }
   };
 

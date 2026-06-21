@@ -30,7 +30,6 @@ export default function FabricPoPrint({ po, poolItems, onClose }) {
 
         doc.setFont("Helvetica", "bold");
 
-        // 1. SOL ÜST ANTET
         doc.setFontSize(14);
         doc.text("ALFA SPOR GIYIM SAN. TIC. LTD. STI.", 14, 20);
 
@@ -38,32 +37,34 @@ export default function FabricPoPrint({ po, poolItems, onClose }) {
         doc.setFont("Helvetica", "normal");
         doc.text("Kumas Satin Alma ve Siparis Formu", 14, 25);
 
-        // 2. SAĞ ÜST FORM BİLGİLERİ
         const dateStr = new Date(po.order_date || po.created_at || new Date()).toLocaleDateString('tr-TR');
         doc.text(`Siparis No: ${clearTurkishChars(po.fabric_po_no)}`, 145, 20);
         doc.text(`Tarih: ${dateStr}`, 145, 25);
 
-        // Ayırıcı Siyah Çizgi
         doc.setDrawColor(15, 23, 42);
         doc.setLineWidth(0.4);
         doc.line(14, 30, 196, 30);
 
-        // 3. TEDARİKÇİ BAŞLIĞI
         doc.setFont("Helvetica", "bold");
         doc.text("TEDARIKCI FIRMA:", 14, 39);
         doc.setFont("Helvetica", "normal");
         doc.text(clearTurkishChars(po.supplier_name || '..........').toUpperCase(), 50, 39);
 
-        // 4. TABLO BAŞLIKLARI — Customer kaldırıldı, kumaşçının bilmesine gerek yok
         const tableHeaders = [
           ["Kumas Cinsi / Kalitesi", "Icerik", "Gramaj (GSM)", "En (cm)", "Kumas Rengi", "Miktar"]
         ];
 
-        // 5. AYNI CİNS+RENK+İÇERİK+GSM+EN KALEMLERİNİ TEK SATIRDA TOPLA
-        // Kumaşçıya kaç ayrı artikel için sipariş edildiği önemli değil, sadece toplam KG önemli
+        // ✅ DÜZELTİLDİ: Sadece kumaş türü + renk bazında grupla
+        // Yazım farkları (COTON/COTTON, büyük-küçük harf, boşluk) artık aynı gruba düşer
+        // İçerik/GSM/En'de ilk bulunan değer gösterilir, sadece toplam KG önemli
+        const normalizeKey = (s) => String(s || '')
+          .toLocaleUpperCase('tr-TR')
+          .replace(/\s+/g, ' ')
+          .trim();
+
         const grouped = {};
         poolItems.forEach(item => {
-          const key = `${item.fabricKind}__${item.fabricColor}__${item.content}__${item.gsm}__${item.width}`;
+          const key = `${normalizeKey(item.fabricKind)}__${normalizeKey(item.fabricColor)}`;
           if (!grouped[key]) {
             grouped[key] = {
               fabricKind: item.fabricKind,
@@ -86,13 +87,14 @@ export default function FabricPoPrint({ po, poolItems, onClose }) {
           `${g.totalKg} KG`
         ]);
 
-        // Net Toplam Satırı
+        // ✅ DÜZELTİLDİ: Toplam, po.ordered_qty_kg'dan değil gerçek kalem toplamından hesaplanıyor
+        const grandTotal = Object.values(grouped).reduce((sum, g) => sum + g.totalKg, 0);
+
         tableRows.push([
           { content: 'TOPLAM SIPARIS MIKTARI (TOTAL):', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: [241, 245, 249] } },
-          { content: `${po.ordered_qty_kg || 0} KG`, styles: { fontStyle: 'bold', textColor: [22, 101, 52], fillColor: [241, 245, 249], halign: 'right' } }
+          { content: `${grandTotal} KG`, styles: { fontStyle: 'bold', textColor: [22, 101, 52], fillColor: [241, 245, 249], halign: 'right' } }
         ]);
 
-        // 6. Tabloyu PDF Sayfasına Sabitleme
         autoTable(doc, {
           startY: 45,
           head: tableHeaders,
@@ -111,7 +113,6 @@ export default function FabricPoPrint({ po, poolItems, onClose }) {
           margin: { left: 14, right: 14 }
         });
 
-        // 7. UYARI KUTUSU
         const finalY = doc.lastAutoTable.finalY + 12;
         doc.setFillColor(240, 253, 244);
         doc.setDrawColor(187, 247, 208);
@@ -125,7 +126,6 @@ export default function FabricPoPrint({ po, poolItems, onClose }) {
         doc.setFont("Helvetica", "normal");
         doc.text("Lutfen olasi renk/parti farklarina karsi gonderim oncesi numune onayi saglayiniz.", 68, finalY + 7);
 
-        // 8. İMZA BLOKLARI
         doc.setFont("Helvetica", "bold");
         doc.setFontSize(9);
         doc.setTextColor(15, 23, 42);

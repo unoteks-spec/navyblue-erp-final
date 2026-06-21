@@ -24,6 +24,8 @@ export default function FabricManagement() {
 
   const [filterKind, setFilterKind] = useState('');
   const [filterColor, setFilterColor] = useState('');
+  const [summarySearch, setSummarySearch] = useState('');
+  const [showArchivedFabric, setShowArchivedFabric] = useState(false);
   const [showPoModal, setShowPoModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -150,6 +152,106 @@ export default function FabricManagement() {
     const first = flattenedFabricPool.find(i => selectedItems.includes(i.uniqueKey));
     return first?.unit || 'KG';
   }, [selectedItems, flattenedFabricPool]);
+
+  // ✅ YENİ: Genel kumaş tablosu — her PO kalemini müşteri/artikel/renk/kumaş bazında satıra çıkar
+  // Artikel bazında gruplanıp, aynı artikelin kumaşları (ana+garni) alt alta sıralanır
+  const summaryRows = useMemo(() => {
+    const rows = [];
+    fabricOrders.forEach(po => {
+      (po.fabric_order_items || []).forEach(item => {
+        const rOrd = item.orders;
+        const ord = Array.isArray(rOrd) ? rOrd[0] : (rOrd || {});
+        const fab = (ord.fabrics || {})[item.fab_key] || {};
+
+        const poOrdered = Number(po.ordered_qty_kg || 0);
+        const poReceived = Number(po.received_qty_kg || 0);
+        const itemAllocated = Number(item.allocated_qty_kg || 0);
+        const ratio = poOrdered > 0 ? itemAllocated / poOrdered : 0;
+        const itemReceived = poReceived * ratio;
+
+        rows.push({
+          id: item.id,
+          poNo: po.fabric_po_no,
+          customer: ord.customer || '—',
+          article: ord.article || '—',
+          orderNo: ord.order_no || '—',
+          color: fab.color || ord.color || po.color || '—',
+          fabricKind: fab.kind || po.fabric_type || '—',
+          fabKey: item.fab_key,
+          isMain: item.fab_key === 'main',
+          isArchived: ord.is_archived === true || ord.status === 'archived',
+          orderedKg: itemAllocated,
+          receivedKg: itemReceived,
+          remainingKg: Math.max(0, itemAllocated - itemReceived),
+          status: po.status,
+          supplier: po.supplier_name,
+        });
+      });
+    });
+
+    // Artikel bazında grupla
+    const byArticle = {};
+    rows.forEach(r => {
+      const key = `${r.customer}__${r.article}__${r.orderNo}`;
+      if (!byArticle[key]) byArticle[key] = [];
+      byArticle[key].push(r);
+    });
+
+    // Her grup içinde ana kumaş önce, garniler sonra (g1, g2, g3...)
+    Object.values(byArticle).forEach(group => {
+      group.sort((a, b) => {
+        if (a.isMain && !b.isMain) return -1;
+        if (!a.isMain && b.isMain) return 1;
+        return (a.fabKey || '').localeCompare(b.fabKey || '');
+      });
+    });
+
+    // Gruplar müşteri+artikel'e göre alfabetik, gruplar arası sıra korunarak düzleştir
+    const sortedGroups = Object.entries(byArticle).sort(([keyA], [keyB]) => keyA.localeCompare(keyB));
+
+    const flatRows = [];
+    sortedGroups.forEach(([key, group]) => {
+      group.forEach((row, idx) => {
+        flatRows.push({ ...row, groupKey: key, isFirstInGroup: idx === 0, groupSize: group.length });
+      });
+    });
+
+    return flatRows;
+  }, [fabricOrders]);
+
+  // ✅ Artikel/müşteri/renk/kumaş ile arama — eşleşen grubun TÜM satırları gösterilir
+  // ✅ Arşivli siparişler varsayılan olarak gizli — toggle ile açılabilir
+  const filteredSummaryRows = useMemo(() => {
+    let rows = summaryRows;
+    if (!showArchivedFabric) {
+      rows = rows.filter(r => !r.isArchived);
+    }
+
+    if (!summarySearch.trim()) return rows;
+    const q = summarySearch.toLocaleLowerCase('tr-TR');
+
+    const matchingGroupKeys = new Set(
+      rows
+        .filter(r =>
+          (r.article || '').toLocaleLowerCase('tr-TR').includes(q) ||
+          (r.customer || '').toLocaleLowerCase('tr-TR').includes(q) ||
+          (r.color || '').toLocaleLowerCase('tr-TR').includes(q) ||
+          (r.fabricKind || '').toLocaleLowerCase('tr-TR').includes(q) ||
+          (r.orderNo || '').toLocaleLowerCase('tr-TR').includes(q)
+        )
+        .map(r => r.groupKey)
+    );
+
+    return rows.filter(r => matchingGroupKeys.has(r.groupKey));
+  }, [summaryRows, summarySearch, showArchivedFabric]);
+
+  const summaryTotals = useMemo(() => {
+    return filteredSummaryRows.reduce((acc, r) => ({
+      ordered: acc.ordered + r.orderedKg,
+      received: acc.received + r.receivedKg,
+      remaining: acc.remaining + r.remainingKg,
+    }), { ordered: 0, received: 0, remaining: 0 });
+  }, [filteredSummaryRows]);
 
   const handleCreatePo = async (e) => {
     e.preventDefault();
@@ -306,6 +408,10 @@ export default function FabricManagement() {
             className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'pos' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-700'}`}>
             Geçilen Siparişler / Yoldakiler ({fabricOrders.length})
           </button>
+          <button onClick={() => setActiveTab('summary')}
+            className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${activeTab === 'summary' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-700'}`}>
+            Genel Kumaş Tablosu
+          </button>
         </div>
       </div>
 
@@ -420,7 +526,7 @@ export default function FabricManagement() {
             </div>
           </div>
         </div>
-      ) : (
+      ) : activeTab === 'pos' ? (
         <div className="grid grid-cols-1 gap-4">
           {fabricOrders.length === 0 ? (
             <div className="bg-white border p-20 text-center rounded-[2.5rem] text-slate-300 font-black uppercase tracking-widest">Henüz geçilmiş bir kumaş satın alma siparişi yok.</div>
@@ -482,6 +588,110 @@ export default function FabricManagement() {
               </div>
             ))
           )}
+        </div>
+      ) : (
+        // ✅ YENİ TAB: Genel Kumaş Tablosu
+        <div className="space-y-4">
+          {/* Arama + Arşiv Toggle */}
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm relative flex-1">
+              <Package size={15} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400"/>
+              <input
+                type="text"
+                value={summarySearch}
+                onChange={e => setSummarySearch(e.target.value)}
+                placeholder="Artikel, müşteri, renk veya kumaş ara..."
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 rounded-xl outline-none text-[11px] font-bold"
+              />
+            </div>
+            <button
+              onClick={() => setShowArchivedFabric(!showArchivedFabric)}
+              className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all shrink-0 ${
+                showArchivedFabric
+                  ? 'bg-slate-900 text-white border-slate-900'
+                  : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
+              }`}
+            >
+              {showArchivedFabric ? '✓ Arşiv Dahil' : 'Sadece Aktif'}
+            </button>
+          </div>
+
+          <div className="bg-white border border-slate-100 rounded-[2.5rem] overflow-hidden shadow-xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead className="bg-slate-900 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-800">
+                  <tr>
+                    <th className="py-4 px-4">Müşteri / Artikel</th>
+                    <th className="py-4 px-4">Renk</th>
+                    <th className="py-4 px-4 text-blue-400">Kumaş / Garni</th>
+                    <th className="py-4 px-4">Tedarikçi</th>
+                    <th className="py-4 px-4 text-right">Geçilen (KG)</th>
+                    <th className="py-4 px-4 text-right text-emerald-400">Gelen (KG)</th>
+                    <th className="py-4 px-4 text-right text-amber-400">Kalan (KG)</th>
+                    <th className="py-4 px-6 text-center">Durum</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-bold text-slate-700">
+                  {filteredSummaryRows.length === 0 ? (
+                    <tr><td colSpan="8" className="text-center py-20 text-slate-300 uppercase tracking-widest font-black">
+                      {summarySearch ? 'Eşleşen kayıt bulunamadı.' : 'Henüz kumaş siparişi geçilmemiş.'}
+                    </td></tr>
+                  ) : (
+                    filteredSummaryRows.map(row => (
+                      <tr key={row.id} className={`hover:bg-blue-50/40 transition-colors ${row.isFirstInGroup ? 'border-t-2 border-t-slate-200' : ''}`}>
+                        <td className="py-3 px-4">
+                          {row.isFirstInGroup ? (
+                            <>
+                              <div className="font-black uppercase text-slate-900">{row.article}</div>
+                              <div className="text-[9px] text-slate-400 uppercase mt-0.5">{row.customer} · {row.orderNo}</div>
+                            </>
+                          ) : (
+                            <div className="text-[9px] text-slate-300 uppercase pl-3">└ devamı</div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-1 bg-slate-100 rounded-lg text-[10px] uppercase font-black text-slate-600">{row.color}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="font-black text-blue-600 uppercase text-[11px]">{row.fabricKind}</span>
+                          {!row.isMain && (
+                            <span className="ml-1.5 text-[8px] font-black text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded uppercase border border-slate-100">{row.fabKey}</span>
+                          )}
+                          {row.isMain && (
+                            <span className="ml-1.5 text-[8px] font-black text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded uppercase border border-indigo-100">ana</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-slate-500 uppercase text-[10px]">{row.supplier}</td>
+                        <td className="py-3 px-4 text-right">{row.orderedKg.toFixed(1)}</td>
+                        <td className="py-3 px-4 text-right text-emerald-600 font-black">{row.receivedKg.toFixed(1)}</td>
+                        <td className={`py-3 px-4 text-right font-black ${row.remainingKg > 0.1 ? 'text-amber-600' : 'text-slate-300'}`}>
+                          {row.remainingKg.toFixed(1)}
+                        </td>
+                        <td className="py-3 px-6 text-center">
+                          <span className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase ${
+                            row.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {row.status === 'completed' ? 'Tamamlandı' : 'Bekliyor'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+                {filteredSummaryRows.length > 0 && (
+                  <tfoot className="bg-slate-900 text-white font-black text-[11px] uppercase">
+                    <tr>
+                      <td colSpan="4" className="py-5 px-4 italic tracking-widest text-blue-400">Genel Toplam</td>
+                      <td className="py-5 px-4 text-right">{summaryTotals.ordered.toFixed(1)} KG</td>
+                      <td className="py-5 px-4 text-right text-emerald-400">{summaryTotals.received.toFixed(1)} KG</td>
+                      <td className="py-5 px-4 text-right text-amber-400">{summaryTotals.remaining.toFixed(1)} KG</td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          </div>
         </div>
       )}
 
