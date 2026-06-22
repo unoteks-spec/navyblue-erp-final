@@ -55,7 +55,11 @@ export default function WaybillHistory() {
       }
       const already = map[key].stages[log.stage].find(w => w.waybill_no === log.waybill_no);
       if (!already) {
-        map[key].stages[log.stage].push({ waybill_no: log.waybill_no, sent_at: log.sent_at });
+        map[key].stages[log.stage].push({
+          waybill_no: log.waybill_no,
+          sent_at: log.sent_at,
+          workshop_name: log.workshop_name || '',
+        });
       }
     });
     return Object.values(map);
@@ -78,11 +82,13 @@ export default function WaybillHistory() {
       (row.article  || '').toLocaleLowerCase('tr-TR').includes(q) ||
       (row.color    || '').toLocaleLowerCase('tr-TR').includes(q) ||
       (row.customer || '').toLocaleLowerCase('tr-TR').includes(q) ||
-      Object.values(row.stages).flat().some(w => (w.waybill_no || '').toLocaleLowerCase('tr-TR').includes(q))
+      Object.values(row.stages).flat().some(w =>
+        (w.waybill_no || '').toLocaleLowerCase('tr-TR').includes(q) ||
+        (w.workshop_name || '').toLocaleLowerCase('tr-TR').includes(q)
+      )
     );
   }, [visibleGroups, search]);
 
-  // ✅ YENİ: Excel'e aktarma
   const exportToExcel = async () => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('İrsaliye Geçmişi');
@@ -90,7 +96,7 @@ export default function WaybillHistory() {
     const headerRow = ['Artikel', 'Müşteri', 'Renk', ...activeStages.map(s => STAGE_LABELS[s] || s)];
     worksheet.columns = [
       { width: 16 }, { width: 22 }, { width: 18 },
-      ...activeStages.map(() => ({ width: 20 }))
+      ...activeStages.map(() => ({ width: 24 }))
     ];
 
     worksheet.mergeCells(1, 1, 2, headerRow.length);
@@ -120,8 +126,11 @@ export default function WaybillHistory() {
         } else {
           rowData.push(entries.map(w => {
             const dateStr = w.sent_at ? new Date(w.sent_at).toLocaleDateString('tr-TR') : '';
-            return dateStr ? `${w.waybill_no} (${dateStr})` : w.waybill_no;
-          }).join('\n'));
+            let line = w.waybill_no || '';
+            if (dateStr) line += ` (${dateStr})`;
+            if (w.workshop_name) line += `\nAtölye: ${w.workshop_name}`;
+            return line;
+          }).join('\n\n'));
         }
       });
       const r = worksheet.addRow(rowData);
@@ -162,7 +171,7 @@ export default function WaybillHistory() {
         <div className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm relative flex-1">
           <Search size={15} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400"/>
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Artikel, renk, müşteri veya irsaliye no ara..."
+            placeholder="Artikel, renk, müşteri, irsaliye no veya atölye ara..."
             className="w-full pl-9 pr-4 py-2 bg-slate-50 rounded-xl outline-none text-[11px] font-bold"/>
         </div>
         <button
@@ -218,7 +227,7 @@ export default function WaybillHistory() {
                         {entries.length === 0 ? (
                           <span className="text-slate-200 text-[10px] font-black">—</span>
                         ) : (
-                          <div className="flex flex-col gap-1">
+                          <div className="flex flex-col gap-2">
                             {entries.map((w, j) => (
                               <div key={j}>
                                 <div className="text-[11px] font-black text-slate-900">{w.waybill_no}</div>
@@ -226,6 +235,9 @@ export default function WaybillHistory() {
                                   <div className="text-[9px] text-slate-400 font-bold">
                                     {new Date(w.sent_at).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                                   </div>
+                                )}
+                                {w.workshop_name && (
+                                  <div className="text-[9px] text-blue-500 font-bold uppercase mt-0.5">{w.workshop_name}</div>
                                 )}
                               </div>
                             ))}

@@ -41,6 +41,7 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
 
   const [editingWaybill, setEditingWaybill] = useState(false);
   const [waybillInput, setWaybillInput] = useState('');
+  const [workshopInput, setWorkshopInput] = useState('');
 
   return (
     <div
@@ -123,23 +124,34 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
               ) : (
                 <div className={`p-2.5 rounded-2xl border border-dashed ${order.is_waybill_issued ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
                   {order.is_waybill_issued && !editingWaybill ? (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-emerald-600 font-black text-[9px] uppercase">
-                        <ClipboardCheck size={13}/> İrsaliye: {order.current_waybill_no}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-emerald-600 font-black text-[9px] uppercase">
+                          <ClipboardCheck size={13}/> İrsaliye: {order.current_waybill_no}
+                        </div>
+                        <button
+                          onClick={() => {
+                            setWaybillInput(order.current_waybill_no || '');
+                            setWorkshopInput(order.current_workshop_name || '');
+                            setEditingWaybill(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-amber-600 transition-colors"
+                          title="İrsaliye No / Atölye Düzelt"
+                        >
+                          <Pencil size={13}/>
+                        </button>
                       </div>
-                      <button
-                        onClick={() => { setWaybillInput(order.current_waybill_no || ''); setEditingWaybill(true); }}
-                        className="p-1.5 text-slate-400 hover:text-amber-600 transition-colors"
-                        title="İrsaliye No Düzelt"
-                      >
-                        <Pencil size={13}/>
-                      </button>
+                      {order.current_workshop_name && (
+                        <div className="flex items-center gap-1.5 text-[8.5px] font-bold text-slate-500 uppercase pl-0.5">
+                          <Truck size={10}/> {order.current_workshop_name}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-1.5 text-[9px] font-black uppercase">
                         {editingWaybill
-                          ? <span className="text-amber-600 flex items-center gap-1"><Pencil size={11}/> İrsaliye No Düzelt</span>
+                          ? <span className="text-amber-600 flex items-center gap-1"><Pencil size={11}/> İrsaliye / Atölye Düzelt</span>
                           : <span className="text-red-600 flex items-center gap-1 animate-pulse"><AlertCircle size={11}/> İrsaliye Bekliyor</span>
                         }
                       </div>
@@ -151,17 +163,12 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
                           placeholder="İrsaliye No"
                           id={`waybill-input-${order.id}`}
                           className="flex-1 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:ring-1 focus:ring-blue-400"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              onSaveWaybill(order.id, e.target.value);
-                              setEditingWaybill(false);
-                            }
-                          }}
                         />
                         <button
                           onClick={() => {
                             const val = document.getElementById(`waybill-input-${order.id}`).value;
-                            onSaveWaybill(order.id, val);
+                            const workshopVal = document.getElementById(`workshop-input-${order.id}`).value;
+                            onSaveWaybill(order.id, val, workshopVal);
                             setEditingWaybill(false);
                           }}
                           className="bg-emerald-600 text-white p-2 rounded-lg"
@@ -177,6 +184,20 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
                           </button>
                         )}
                       </div>
+                      <input
+                        type="text"
+                        defaultValue={editingWaybill ? workshopInput : ''}
+                        placeholder="Atölye Adı (opsiyonel)"
+                        id={`workshop-input-${order.id}`}
+                        className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:ring-1 focus:ring-blue-400"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const val = document.getElementById(`waybill-input-${order.id}`).value;
+                            onSaveWaybill(order.id, val, e.target.value);
+                            setEditingWaybill(false);
+                          }
+                        }}
+                      />
                     </div>
                   )}
                 </div>
@@ -266,7 +287,7 @@ export default function ProductionTrack() {
     setOpenCardId(prev => prev === orderId ? null : orderId);
   };
 
-  const handleSaveWaybill = async (orderId, value) => {
+  const handleSaveWaybill = async (orderId, value, workshopName = '') => {
     try {
       const order = orders.find(o => o.id === orderId);
 
@@ -274,7 +295,7 @@ export default function ProductionTrack() {
       if (value === 'START_TRACKING') {
         const { error } = await supabase
           .from('orders')
-          .update({ waybill_tracking_active: true, is_waybill_issued: false, current_waybill_no: null })
+          .update({ waybill_tracking_active: true, is_waybill_issued: false, current_waybill_no: null, current_workshop_name: null })
           .eq('id', orderId);
         if (!error) load();
         return;
@@ -285,7 +306,7 @@ export default function ProductionTrack() {
 
       const { error } = await supabase
         .from('orders')
-        .update({ current_waybill_no: value, is_waybill_issued: true })
+        .update({ current_waybill_no: value, is_waybill_issued: true, current_workshop_name: workshopName || null })
         .eq('id', orderId);
       if (error) throw error;
 
@@ -301,6 +322,7 @@ export default function ProductionTrack() {
       if (existingLog && existingLog.length > 0) {
         await supabase.from('waybill_logs').update({
           waybill_no: value,
+          workshop_name: workshopName || null,
           sent_at: new Date().toISOString(),
         }).eq('id', existingLog[0].id);
       } else {
@@ -311,6 +333,7 @@ export default function ProductionTrack() {
           customer: order?.customer || '',
           stage,
           waybill_no: value,
+          workshop_name: workshopName || null,
           sent_at: new Date().toISOString(),
         }]);
       }
@@ -405,8 +428,9 @@ export default function ProductionTrack() {
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        autoScroll={{ threshold: { x: 0.15, y: 0 } }}
       >
-        <div className="flex gap-4 overflow-x-auto pb-10 snap-x snap-mandatory custom-scrollbar -mx-4 md:-mx-6 px-4 md:px-6">
+        <div className={`flex gap-4 overflow-x-auto pb-10 custom-scrollbar -mx-4 md:-mx-6 px-4 md:px-6 ${activeDragOrder ? '' : 'snap-x snap-mandatory'}`}>
           {loading ? (
             <div className="py-20 text-center text-slate-300 font-black text-[10px] animate-pulse uppercase tracking-widest w-full">
               Veriler Alınıyor...
