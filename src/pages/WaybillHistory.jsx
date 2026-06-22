@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../api/orderService';
-import { ClipboardList, Search } from 'lucide-react';
+import { ClipboardList, Search, FileSpreadsheet } from 'lucide-react';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 const STAGE_LABELS = {
   kesimhanede:   'KESİMHANE',
@@ -24,7 +26,6 @@ export default function WaybillHistory() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      // ✅ orders join'i eklendi — arşiv durumu kontrolü için
       const { data } = await supabase
         .from('waybill_logs')
         .select('*, orders(is_archived, status)')
@@ -35,7 +36,6 @@ export default function WaybillHistory() {
     load();
   }, []);
 
-  // ✅ Artikel + renk bazında grupla, her aşama bir sütun
   const grouped = useMemo(() => {
     const map = {};
     logs.forEach(log => {
@@ -61,7 +61,6 @@ export default function WaybillHistory() {
     return Object.values(map);
   }, [logs]);
 
-  // ✅ Arşivli kayıtlar varsayılan olarak gizli
   const visibleGroups = useMemo(() => {
     return showArchived ? grouped : grouped.filter(g => !g.isArchived);
   }, [grouped, showArchived]);
@@ -83,16 +82,79 @@ export default function WaybillHistory() {
     );
   }, [visibleGroups, search]);
 
+  // ✅ YENİ: Excel'e aktarma
+  const exportToExcel = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('İrsaliye Geçmişi');
+
+    const headerRow = ['Artikel', 'Müşteri', 'Renk', ...activeStages.map(s => STAGE_LABELS[s] || s)];
+    worksheet.columns = [
+      { width: 16 }, { width: 22 }, { width: 18 },
+      ...activeStages.map(() => ({ width: 20 }))
+    ];
+
+    worksheet.mergeCells(1, 1, 2, headerRow.length);
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = 'İRSALİYE GEÇMİŞİ';
+    titleCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    worksheet.addRow([]);
+
+    const header = worksheet.addRow(headerRow);
+    header.height = 22;
+    header.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } };
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+
+    filtered.forEach(row => {
+      const rowData = [row.article || '—', row.customer || '—', row.color || '—'];
+      activeStages.forEach(s => {
+        const entries = row.stages[s] || [];
+        if (entries.length === 0) {
+          rowData.push('—');
+        } else {
+          rowData.push(entries.map(w => {
+            const dateStr = w.sent_at ? new Date(w.sent_at).toLocaleDateString('tr-TR') : '';
+            return dateStr ? `${w.waybill_no} (${dateStr})` : w.waybill_no;
+          }).join('\n'));
+        }
+      });
+      const r = worksheet.addRow(rowData);
+      r.eachCell((cell, colNumber) => {
+        cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+        cell.alignment = { horizontal: colNumber <= 2 ? 'left' : 'center', vertical: 'middle', wrapText: true };
+      });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const dateStr = new Date().toLocaleDateString('tr-TR').replace(/\//g, '-');
+    saveAs(new Blob([buffer]), `irsaliye-gecmisi-${dateStr}.xlsx`);
+  };
+
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 pb-32 space-y-5">
 
       {/* BAŞLIK */}
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 bg-slate-900 rounded-xl text-white shadow-lg"><ClipboardList size={20}/></div>
-        <div>
-          <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tighter uppercase leading-none">İrsaliye Geçmişi</h1>
-          <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase mt-0.5">{filtered.length} Artikel</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-slate-900 rounded-xl text-white shadow-lg"><ClipboardList size={20}/></div>
+          <div>
+            <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tighter uppercase leading-none">İrsaliye Geçmişi</h1>
+            <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase mt-0.5">{filtered.length} Artikel</p>
+          </div>
         </div>
+        <button
+          onClick={exportToExcel}
+          disabled={filtered.length === 0}
+          className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-5 py-3 rounded-2xl font-black text-[10px] uppercase border border-emerald-100 shadow-sm hover:bg-emerald-600 hover:text-white transition-all disabled:opacity-40 disabled:hover:bg-emerald-50 disabled:hover:text-emerald-600"
+        >
+          <FileSpreadsheet size={16}/> Excel'e Aktar
+        </button>
       </div>
 
       {/* ARAMA + ARŞİV TOGGLE */}
