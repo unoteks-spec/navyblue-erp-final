@@ -293,16 +293,32 @@ export default function ProductionTrack() {
 
       // Atölyeye sevk başlat
       if (value === 'START_TRACKING') {
+        // ✅ Optimistic update — sayfa scroll'unu sıfırlamaması için load() yerine state güncelle
+        setOrders(prev => prev.map(o =>
+          o.id === orderId
+            ? { ...o, waybill_tracking_active: true, is_waybill_issued: false, current_waybill_no: null, current_workshop_name: null }
+            : o
+        ));
         const { error } = await supabase
           .from('orders')
           .update({ waybill_tracking_active: true, is_waybill_issued: false, current_waybill_no: null, current_workshop_name: null })
           .eq('id', orderId);
-        if (!error) load();
+        if (error) {
+          alert("Takip başlatılamadı.");
+          setOrders(prev => prev.map(o => o.id === orderId ? order : o)); // geri al
+        }
         return;
       }
 
       if (!value) return;
       const stage = order?.current_stage || 'kesimhanede';
+
+      // ✅ Optimistic update
+      setOrders(prev => prev.map(o =>
+        o.id === orderId
+          ? { ...o, current_waybill_no: value, is_waybill_issued: true, current_workshop_name: workshopName || null }
+          : o
+      ));
 
       const { error } = await supabase
         .from('orders')
@@ -337,10 +353,10 @@ export default function ProductionTrack() {
           sent_at: new Date().toISOString(),
         }]);
       }
-
-      load();
+      // ✅ load() çağrılmıyor — optimistic state zaten doğru, sayfa scroll'u korunuyor
     } catch (err) {
       alert("İrsaliye kaydedilemedi.");
+      load(); // hata olursa gerçek veriyle senkronize et
     }
   };
 
