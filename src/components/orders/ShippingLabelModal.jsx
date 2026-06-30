@@ -280,7 +280,7 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
       <div className="max-w-4xl mx-auto">
         <div className="bg-white p-5 rounded-2xl shadow-xl mb-6 flex justify-between items-center sticky top-0 z-50 border border-slate-100">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center"><Package size={20}/></div>
+            <div className="w-10 h-10 bg-[#1e3a5f] text-white rounded-xl flex items-center justify-center"><Package size={20}/></div>
             <div>
               <h2 className="text-lg font-black text-slate-900 uppercase tracking-tighter leading-none">Koli Etiketleri</h2>
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">200×100mm · {labels.length / 2} koli × 2 kopya</p>
@@ -288,7 +288,7 @@ export default function ShippingLabelModal({ boxes, consignee, onClose }) {
           </div>
           <div className="flex gap-2">
             <button onClick={downloadPDF} disabled={isGenerating}
-              className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-black text-xs uppercase shadow-lg hover:bg-blue-600 transition-all flex items-center gap-2 disabled:bg-slate-400">
+              className="bg-[#1e3a5f] text-white px-6 py-2.5 rounded-xl font-black text-xs uppercase shadow-lg hover:bg-[#15293f] transition-all flex items-center gap-2 disabled:bg-slate-400">
               {isGenerating ? <Loader2 className="animate-spin" size={14}/> : <FileDown size={14}/>}
               {isGenerating ? 'Hazırlanıyor...' : 'PDF İndir'}
             </button>

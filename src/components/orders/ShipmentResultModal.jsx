@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { X, Truck, Save } from 'lucide-react';
 import { archiveOrderWithQty } from '../../api/orderService';
 import { SIZE_ORDER } from '../../constants/sizes';
 
 export default function ShipmentResultModal({ order, onClose, onSuccess }) {
-  const [shippedQty, setShippedQty] = useState(order.cutting_qty || {});
+  const [shippedQty, setShippedQty] = useState({});
   const [loading, setLoading] = useState(false);
 
   // 🛠️ AKILLI LABEL FONKSİYONU: Önek varsa sil, yoksa aynen bırak
@@ -13,14 +13,34 @@ export default function ShipmentResultModal({ order, onClose, onSuccess }) {
     return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
   };
 
-  // ✅ DÜZELTİLDİ: SIZE_ORDER artık constants/sizes'dan geliyor (prefix'li key'ler)
-  const sortedSizes = useMemo(() => {
-    return Object.keys(order.qty_by_size || {}).sort((a, b) => {
-      const indexA = SIZE_ORDER.indexOf(a);
-      const indexB = SIZE_ORDER.indexOf(b);
-      return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+  // ✅ cutting_qty key'lerini qty_by_size ile eşleştir (prefix'siz key'ler için)
+  const normalizedCuttingQty = useMemo(() => {
+    const qtyKeys = Object.keys(order.qty_by_size || {});
+    const labelToKey = {};
+    qtyKeys.forEach(k => { labelToKey[getDisplayLabel(k)] = k; });
+
+    const result = {};
+    Object.entries(order.cutting_qty || {}).forEach(([k, v]) => {
+      const normKey = qtyKeys.includes(k) ? k : (labelToKey[k] || k);
+      result[normKey] = (Number(result[normKey] || 0) + Number(v || 0));
     });
-  }, [order.qty_by_size]);
+    return result;
+  }, [order.cutting_qty, order.qty_by_size]);
+
+  // ✅ DÜZELTİLDİ: Sadece gerçekten kesilmiş (cutting_qty > 0) bedenler gösteriliyor
+  const sortedSizes = useMemo(() => {
+    return Object.keys(normalizedCuttingQty)
+      .filter(size => Number(normalizedCuttingQty[size] || 0) > 0)
+      .sort((a, b) => {
+        const indexA = SIZE_ORDER.indexOf(a);
+        const indexB = SIZE_ORDER.indexOf(b);
+        return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+      });
+  }, [normalizedCuttingQty]);
+
+  useEffect(() => {
+    setShippedQty(normalizedCuttingQty);
+  }, [normalizedCuttingQty]);
 
   const handleSave = async () => {
     setLoading(true);
@@ -68,7 +88,7 @@ export default function ShipmentResultModal({ order, onClose, onSuccess }) {
               <div key={size} className="flex items-center bg-slate-50 p-3 rounded-2xl border border-slate-100/50">
                 {/* ✅ DÜZELTİLDİ: prefix kaldırılarak temiz beden etiketi gösteriliyor */}
                 <span className="flex-1 font-black text-slate-700 uppercase text-xs">{getDisplayLabel(size)}</span>
-                <span className="w-20 text-center font-bold text-slate-400 text-xs">{order.cutting_qty?.[size] || 0}</span>
+                <span className="w-20 text-center font-bold text-slate-400 text-xs">{normalizedCuttingQty[size] || 0}</span>
                 <input
                   type="number"
                   className="w-24 p-2 bg-white border border-slate-200 rounded-xl text-center font-black text-blue-600 outline-none focus:ring-2 focus:ring-blue-500 transition-all"

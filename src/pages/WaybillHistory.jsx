@@ -103,7 +103,7 @@ export default function WaybillHistory() {
     const titleCell = worksheet.getCell('A1');
     titleCell.value = 'İRSALİYE GEÇMİŞİ';
     titleCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
-    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
     worksheet.addRow([]);
@@ -111,9 +111,9 @@ export default function WaybillHistory() {
     const header = worksheet.addRow(headerRow);
     header.height = 22;
     header.eachCell((cell) => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } };
-      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+      cell.font = { bold: true, color: { argb: 'FF9CA3AF' }, size: 9 };
+      cell.border = { bottom: { style: 'medium', color: { argb: 'FF1E3A5F' } } };
       cell.alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
@@ -135,7 +135,7 @@ export default function WaybillHistory() {
       });
       const r = worksheet.addRow(rowData);
       r.eachCell((cell, colNumber) => {
-        cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+        cell.border = { bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } } };
         cell.alignment = { horizontal: colNumber <= 2 ? 'left' : 'center', vertical: 'middle', wrapText: true };
       });
     });

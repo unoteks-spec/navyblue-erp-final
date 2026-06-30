@@ -2,6 +2,13 @@ import React, { useEffect, useRef } from 'react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+// Ortak marka kimliği — Unoteks tarzı kurumsal estetik
+const NAVY = [30, 58, 95];        // #1e3a5f
+const NAVY_DARK = [15, 31, 61];   // #0f1f3d
+const GRAY_TEXT = [55, 65, 81];   // #374151
+const GRAY_LIGHT = [156, 163, 175]; // #9ca3af
+const LIGHT_BG = [248, 249, 250]; // #f8f9fa
+
 export default function FabricPoPrint({ po, poolItems, onClose }) {
   const downloadStarted = useRef(false);
 
@@ -28,35 +35,54 @@ export default function FabricPoPrint({ po, poolItems, onClose }) {
           format: 'a4'
         });
 
+        // ── BAŞLIK ──────────────────────────────
         doc.setFont("Helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(...GRAY_LIGHT);
+        doc.text("ALFA SPOR GIYIM SAN. TIC. LTD. STI.", 14, 18);
 
-        doc.setFontSize(14);
-        doc.text("ALFA SPOR GIYIM SAN. TIC. LTD. STI.", 14, 20);
-
-        doc.setFontSize(9);
-        doc.setFont("Helvetica", "normal");
-        doc.text("Kumas Satin Alma ve Siparis Formu", 14, 25);
+        doc.setFontSize(22);
+        doc.setTextColor(17, 24, 39);
+        doc.text("Kumas Satin Alma Formu", 14, 28);
 
         const dateStr = new Date(po.order_date || po.created_at || new Date()).toLocaleDateString('tr-TR');
-        doc.text(`Siparis No: ${clearTurkishChars(po.fabric_po_no)}`, 145, 20);
-        doc.text(`Tarih: ${dateStr}`, 145, 25);
+        doc.setFont("Helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(...GRAY_TEXT);
+        doc.text(`Siparis No: ${clearTurkishChars(po.fabric_po_no)}`, 14, 35);
 
-        doc.setDrawColor(15, 23, 42);
-        doc.setLineWidth(0.4);
-        doc.line(14, 30, 196, 30);
+        // Sağ üst tarih
+        doc.setFont("Helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(...NAVY);
+        doc.text(dateStr, 196, 18, { align: 'right' });
+        doc.setFont("Helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(...GRAY_LIGHT);
+        doc.text("TARIH", 196, 22, { align: 'right' });
+
+        // İnce ayraç çizgisi
+        doc.setDrawColor(229, 231, 235);
+        doc.setLineWidth(0.3);
+        doc.line(14, 41, 196, 41);
+
+        // ── TEDARİKÇİ BİLGİSİ ──────────────────
+        doc.setFont("Helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(...GRAY_LIGHT);
+        doc.text("TEDARIKCI FIRMA", 14, 50);
 
         doc.setFont("Helvetica", "bold");
-        doc.text("TEDARIKCI FIRMA:", 14, 39);
-        doc.setFont("Helvetica", "normal");
-        doc.text(clearTurkishChars(po.supplier_name || '..........').toUpperCase(), 50, 39);
+        doc.setFontSize(13);
+        doc.setTextColor(...NAVY);
+        doc.text(clearTurkishChars(po.supplier_name || '..........').toUpperCase(), 14, 57);
 
+        // ── TABLO ───────────────────────────────
         const tableHeaders = [
           ["Kumas Cinsi / Kalitesi", "Icerik", "Gramaj (GSM)", "En (cm)", "Kumas Rengi", "Miktar"]
         ];
 
-        // ✅ DÜZELTİLDİ: Sadece kumaş türü + renk bazında grupla
-        // Yazım farkları (COTON/COTTON, büyük-küçük harf, boşluk) artık aynı gruba düşer
-        // İçerik/GSM/En'de ilk bulunan değer gösterilir, sadece toplam KG önemli
+        // Sadece kumaş türü + renk bazında grupla
         const normalizeKey = (s) => String(s || '')
           .toLocaleUpperCase('tr-TR')
           .replace(/\s+/g, ' ')
@@ -87,57 +113,81 @@ export default function FabricPoPrint({ po, poolItems, onClose }) {
           `${g.totalKg} KG`
         ]);
 
-        // ✅ DÜZELTİLDİ: Toplam, po.ordered_qty_kg'dan değil gerçek kalem toplamından hesaplanıyor
+        // Toplam, gerçek kalem toplamından hesaplanıyor
         const grandTotal = Object.values(grouped).reduce((sum, g) => sum + g.totalKg, 0);
 
         tableRows.push([
-          { content: 'TOPLAM SIPARIS MIKTARI (TOTAL):', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: [241, 245, 249] } },
-          { content: `${grandTotal} KG`, styles: { fontStyle: 'bold', textColor: [22, 101, 52], fillColor: [241, 245, 249], halign: 'right' } }
+          { content: 'TOPLAM SIPARIS MIKTARI', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: LIGHT_BG, textColor: GRAY_TEXT } },
+          { content: `${grandTotal} KG`, styles: { fontStyle: 'bold', textColor: NAVY, fillColor: LIGHT_BG, halign: 'right', fontSize: 10 } }
         ]);
 
         autoTable(doc, {
-          startY: 45,
+          startY: 67,
           head: tableHeaders,
           body: tableRows,
-          theme: 'grid',
-          styles: { font: 'Helvetica', fontStyle: 'normal' },
-          headStyles: { fillColor: [15, 23, 42], fontSize: 9, fontStyle: 'bold', halign: 'left' },
-          bodyStyles: { fontSize: 8, textColor: [30, 41, 59] },
+          theme: 'plain',
+          styles: { font: 'Helvetica', fontStyle: 'normal', lineColor: [229, 231, 235], lineWidth: 0.2 },
+          headStyles: {
+            fillColor: false,
+            textColor: GRAY_LIGHT,
+            fontSize: 7.5,
+            fontStyle: 'bold',
+            halign: 'left',
+            lineWidth: { bottom: 0.4 },
+            lineColor: NAVY,
+            cellPadding: { top: 0, bottom: 6, left: 0, right: 0 },
+          },
+          bodyStyles: {
+            fontSize: 9,
+            textColor: GRAY_TEXT,
+            lineWidth: { bottom: 0.2 },
+            lineColor: [229, 231, 235],
+            cellPadding: { top: 7, bottom: 7, left: 0, right: 0 },
+          },
           columnStyles: {
-            0: { halign: 'left' },
+            0: { halign: 'left', fontStyle: 'bold', textColor: [17, 24, 39] },
             2: { halign: 'center' },
             3: { halign: 'center' },
             4: { halign: 'left' },
-            5: { halign: 'right' }
+            5: { halign: 'right', fontStyle: 'bold' }
           },
           margin: { left: 14, right: 14 }
         });
 
-        const finalY = doc.lastAutoTable.finalY + 12;
-        doc.setFillColor(240, 253, 244);
-        doc.setDrawColor(187, 247, 208);
+        // ── BİLGİ NOTU ──────────────────────────
+        const finalY = doc.lastAutoTable.finalY + 14;
+        doc.setDrawColor(229, 231, 235);
         doc.setLineWidth(0.3);
-        doc.rect(14, finalY, 182, 12, 'DF');
+        doc.line(14, finalY, 196, finalY);
 
         doc.setFont("Helvetica", "bold");
-        doc.setFontSize(8);
-        doc.setTextColor(22, 101, 52);
-        doc.text("ONEMLI TEDARIK VE SEVK SARTI:", 18, finalY + 7);
+        doc.setFontSize(7.5);
+        doc.setTextColor(...GRAY_LIGHT);
+        doc.text("ONEMLI TEDARIK VE SEVK SARTI", 14, finalY + 9);
+
         doc.setFont("Helvetica", "normal");
-        doc.text("Lutfen olasi renk/parti farklarina karsi gonderim oncesi numune onayi saglayiniz.", 68, finalY + 7);
+        doc.setFontSize(9);
+        doc.setTextColor(...GRAY_TEXT);
+        doc.text("Lutfen olasi renk/parti farklarina karsi gonderim oncesi numune onayi saglayiniz.", 14, finalY + 16);
+
+        // ── İMZA BLOKLARI ───────────────────────
+        const sigY = finalY + 36;
+        doc.setDrawColor(229, 231, 235);
+        doc.setLineWidth(0.3);
+        doc.line(14, sigY, 90, sigY);
+        doc.line(120, sigY, 196, sigY);
 
         doc.setFont("Helvetica", "bold");
         doc.setFontSize(9);
-        doc.setTextColor(15, 23, 42);
-
-        doc.text("Siparisi Onaylayan", 14, finalY + 28);
-        doc.text("Tedarikci Onayi", 145, finalY + 28);
+        doc.setTextColor(17, 24, 39);
+        doc.text("Siparisi Onaylayan", 14, sigY + 6);
+        doc.text("Tedarikci Onayi", 120, sigY + 6);
 
         doc.setFont("Helvetica", "normal");
-        doc.setFontSize(8);
-        doc.setTextColor(71, 85, 105);
-        doc.text("Alfa Spor Giyim Satin Alma", 14, finalY + 34);
-        doc.text("Musteri Temsilcisi / Kase", 145, finalY + 34);
+        doc.setFontSize(7.5);
+        doc.setTextColor(...GRAY_LIGHT);
+        doc.text("Alfa Spor Giyim Satin Alma", 14, sigY + 11);
+        doc.text("Musteri Temsilcisi / Kase", 120, sigY + 11);
 
         const saveName = `${po.fabric_po_no || 'Kumas_Siparisi'}_ALFA_SPOR.pdf`;
         doc.save(saveName);

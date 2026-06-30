@@ -279,7 +279,7 @@ export default function PackingList() {
     const mainTitle = worksheet.getCell('A1');
     mainTitle.value = 'PACKING LIST';
     mainTitle.font = { size: 18, bold: true, color: { argb: 'FFFFFFFF' } };
-    mainTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    mainTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
     mainTitle.alignment = { horizontal: 'center', vertical: 'middle' };
 
     worksheet.mergeCells('H3:I3');
@@ -314,11 +314,11 @@ export default function PackingList() {
     poCell.font = { bold: true };
 
     const header = worksheet.addRow(["Box No", "Description", "Type", "Details", "Qty", "Net (KG)", "Gross (KG)", "HS Code", "Dimensions"]);
-    header.height = 25;
+    header.height = 24;
     header.eachCell((cell) => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } };
-      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      cell.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+      cell.font = { bold: true, color: { argb: 'FF9CA3AF' }, size: 9 };
+      cell.border = { bottom: { style: 'medium', color: { argb: 'FF1E3A5F' } } };
       cell.alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
@@ -341,7 +341,7 @@ export default function PackingList() {
         isFirstInRange ? b.dimensions : '',  // Ebat sadece ilk satırda
       ]);
       row.eachCell((c, colNumber) => {
-        c.border = { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} };
+        c.border = { bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } } };
         c.alignment = { horizontal: colNumber === 2 ? 'left' : 'center', vertical: 'middle' };
       });
     });
@@ -358,11 +358,11 @@ export default function PackingList() {
       '',
       ''
     ]);
-    footerRow.height = 25;
-    footerRow.font = { bold: true };
+    footerRow.height = 26;
+    footerRow.font = { bold: true, color: { argb: 'FF1E3A5F' } };
     footerRow.eachCell((c) => {
-      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-      c.border = { top: {style:'medium'}, bottom: {style:'medium'} };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } };
+      c.border = { top: { style: 'medium', color: { argb: 'FF1E3A5F' } }, bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } } };
       c.alignment = { horizontal: 'center', vertical: 'middle' };
     });
 
@@ -373,7 +373,7 @@ export default function PackingList() {
     // Renk bazında yaz
     Object.entries(sizeTotalsByColor).forEach(([color, breakdown]) => {
       const colorRow = worksheet.addRow([`COLOR: ${color}`]);
-      colorRow.font = { bold: true, italic: true, size: 10 };
+      colorRow.font = { bold: true, size: 10, color: { argb: 'FF1E3A5F' } };
 
       const activeSizeKeys = Object.keys(breakdown).sort((a, b) => {
         const indexA = SIZE_ORDER.indexOf(a);
