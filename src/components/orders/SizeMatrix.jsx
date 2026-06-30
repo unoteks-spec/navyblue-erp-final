@@ -2,11 +2,12 @@ import React from 'react';
 import { useWatch } from 'react-hook-form';
 import { SIZE_GROUPS } from '../../constants/sizes';
 
+const NAVY = '#1e3a5f';
+
 export default function SizeMatrix({ register, watch, control }) {
   const [selectedGroup, setSelectedGroup] = React.useState(Object.keys(SIZE_GROUPS)[0]);
   const sizes = SIZE_GROUPS[selectedGroup];
 
-  // ✅ DÜZELTİLDİ: useWatch ile anlık takip — toplam doğru çalışıyor
   const currentValues = useWatch({ control, name: 'qtyBySize' }) || {};
 
   const total = React.useMemo(() => {
@@ -22,7 +23,7 @@ export default function SizeMatrix({ register, watch, control }) {
   };
 
   return (
-    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+    <div className="bg-white p-8 rounded-2xl border border-slate-100 space-y-6">
       <style>{`
         .no-spinner::-webkit-inner-spin-button, 
         .no-spinner::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
@@ -32,13 +33,13 @@ export default function SizeMatrix({ register, watch, control }) {
       {/* HEADER & TOPLAM SAYAÇ */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <div className="w-2 h-6 bg-blue-600 rounded-full"></div>
+          <div className="w-1 h-6 rounded-full" style={{ background: NAVY }}></div>
           <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest">
             Beden Dağılımı ve Adetler
           </h2>
         </div>
         <div className="flex flex-col items-end">
-          <div className="bg-slate-900 text-white px-6 py-2 rounded-2xl text-sm font-black italic shadow-lg shadow-slate-200">
+          <div className="text-white px-6 py-2 rounded-xl text-sm font-black" style={{ background: NAVY }}>
             {total.toLocaleString('tr-TR')} ADET
           </div>
           <span className="text-[9px] font-black text-slate-400 uppercase mt-1 mr-1 tracking-tighter">
@@ -48,17 +49,18 @@ export default function SizeMatrix({ register, watch, control }) {
       </div>
 
       {/* BEDEN GRUBU SEÇİMİ (TABLAR) */}
-      <div className="flex flex-wrap gap-2 p-1.5 bg-slate-50 rounded-2xl w-fit border border-slate-100">
+      <div className="flex flex-wrap gap-2 p-1.5 bg-slate-50 rounded-xl w-fit border border-slate-100">
         {Object.keys(SIZE_GROUPS).map(group => (
           <button
             key={group}
             type="button"
             onClick={() => setSelectedGroup(group)}
-            className={`px-5 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all duration-300 ${
+            className={`px-5 py-2 rounded-lg text-[10px] font-black tracking-widest transition-all duration-300 ${
               selectedGroup === group 
-              ? 'bg-white shadow-md text-blue-600 scale-105' 
+              ? 'bg-white shadow-sm' 
               : 'text-slate-400 hover:text-slate-600'
             }`}
+            style={selectedGroup === group ? { color: NAVY } : {}}
           >
             {group}
           </button>
@@ -72,16 +74,16 @@ export default function SizeMatrix({ register, watch, control }) {
           return (
             <div 
               key={size} 
-              className="flex flex-col gap-2 p-3 bg-slate-50 rounded-3xl border border-transparent hover:border-blue-200 hover:bg-white transition-all group"
+              className="flex flex-col gap-2 p-3 bg-slate-50 rounded-xl border border-transparent hover:border-slate-200 hover:bg-white transition-all group"
             >
-              <label className="text-[9px] font-black text-slate-400 text-center uppercase tracking-tighter group-hover:text-blue-600">
+              <label className="text-[9px] font-black text-slate-400 text-center uppercase tracking-tighter">
                 {displayLabel}
               </label>
               <input
                 type="number"
                 {...register(`qtyBySize.${size}`, { valueAsNumber: true })}
                 placeholder="0"
-                className="h-10 text-center rounded-xl border-none bg-white shadow-sm focus:ring-4 focus:ring-blue-50 outline-none text-sm font-black text-slate-900 no-spinner"
+                className="h-10 text-center rounded-lg border-none bg-white shadow-sm outline-none text-sm font-black text-slate-900 no-spinner"
               />
             </div>
           );

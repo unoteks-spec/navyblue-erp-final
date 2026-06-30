@@ -11,6 +11,8 @@ import {
 } from '@dnd-kit/core';
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 
+const NAVY = '#1e3a5f';
+
 const STAGES = [
   { key: 'kesimhanede', label: 'KESİMHANE', isFason: false },
   { key: 'baski', label: 'BASKIDA', isFason: true },
@@ -47,13 +49,12 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-white rounded-3xl shadow-sm border transition-all ${
-        needsWaybill ? 'border-red-400 ring-2 ring-red-50' : 'border-slate-100'
+      className={`bg-white rounded-2xl shadow-sm border transition-all ${
+        needsWaybill ? 'border-red-300 ring-1 ring-red-50' : 'border-slate-100'
       } ${isDragging ? 'opacity-40' : ''}`}
     >
       {/* KAPALI BAŞLIK */}
       <div className="flex items-center gap-2 p-3">
-        {/* Sürükleme tutamacı — sadece bu alan sürüklenebilir */}
         <div
           {...listeners}
           {...attributes}
@@ -62,13 +63,12 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
           <GripVertical size={14}/>
         </div>
 
-        <div className="w-9 h-9 rounded-lg overflow-hidden border border-slate-50 shrink-0 bg-slate-50 flex items-center justify-center shadow-inner">
+        <div className="w-9 h-9 rounded-lg overflow-hidden border border-slate-100 shrink-0 bg-slate-50 flex items-center justify-center">
           {order.model_image
             ? <img src={order.model_image} className="w-full h-full object-cover" alt="model" draggable={false}/>
             : <Hash size={16} className="text-slate-200"/>}
         </div>
 
-        {/* Bilgi alanı — tıklayınca akordeon açılır */}
         <div
           className="min-w-0 flex-1 overflow-hidden cursor-pointer"
           onClick={() => onToggle(order.id)}
@@ -77,7 +77,7 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
             {order.article}
           </div>
           {order.color && (
-            <div className="text-[8.5px] font-black text-blue-600 uppercase truncate leading-tight mt-0.5">
+            <div className="text-[8.5px] font-black uppercase truncate leading-tight mt-0.5" style={{ color: NAVY }}>
               {order.color}
             </div>
           )}
@@ -105,10 +105,10 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
         <div className="px-3 pb-3 pt-0 border-t border-slate-50 space-y-3">
           {/* Müşteri + Adet */}
           <div className="flex items-center justify-between pt-3">
-            <span className="flex items-center gap-1 text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg uppercase border border-blue-100">
+            <span className="flex items-center gap-1 text-[9px] font-black text-slate-500 bg-slate-50 px-2 py-1 rounded-lg uppercase border border-slate-100">
               <User size={9}/> {order.customer}
             </span>
-            <div className="bg-slate-900 text-white px-2.5 py-1 rounded-lg text-[10px] font-black">{totalQty} AD</div>
+            <div className="text-white px-2.5 py-1 rounded-lg text-[10px] font-black" style={{ background: NAVY }}>{totalQty} AD</div>
           </div>
 
           {/* İrsaliye bölümü — sadece fason aşamalarda */}
@@ -117,12 +117,13 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
               {!order.waybill_tracking_active ? (
                 <button
                   onClick={() => onSaveWaybill(order.id, 'START_TRACKING')}
-                  className="w-full py-2 bg-blue-50 text-blue-600 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 border border-blue-100 hover:bg-blue-600 hover:text-white transition-all"
+                  className="w-full py-2 bg-slate-50 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 border border-slate-200 hover:opacity-90 transition-all"
+                  style={{ color: NAVY }}
                 >
                   <Truck size={13}/> Atölyeye Sevk Et (Fason)
                 </button>
               ) : (
-                <div className={`p-2.5 rounded-2xl border border-dashed ${order.is_waybill_issued ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
+                <div className={`p-2.5 rounded-xl border border-dashed ${order.is_waybill_issued ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
                   {order.is_waybill_issued && !editingWaybill ? (
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
@@ -162,7 +163,7 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
                           defaultValue={editingWaybill ? waybillInput : ''}
                           placeholder="İrsaliye No"
                           id={`waybill-input-${order.id}`}
-                          className="flex-1 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:ring-1 focus:ring-blue-400"
+                          className="flex-1 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:ring-1 focus:ring-slate-300"
                         />
                         <button
                           onClick={() => {
@@ -189,7 +190,7 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
                         defaultValue={editingWaybill ? workshopInput : ''}
                         placeholder="Atölye Adı (opsiyonel)"
                         id={`workshop-input-${order.id}`}
-                        className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:ring-1 focus:ring-blue-400"
+                        className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:ring-1 focus:ring-slate-300"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             const val = document.getElementById(`waybill-input-${order.id}`).value;
@@ -209,7 +210,7 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
           {stage.key === 'yuklendi' && (
             <button
               onClick={() => onEditWaybill(order)}
-              className="w-full py-2.5 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-slate-900 transition-all shadow-lg tracking-widest"
+              className="w-full py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all tracking-widest"
             >
               ARŞİVLE <Archive size={14}/>
             </button>
@@ -226,18 +227,18 @@ function StageColumn({ stage, index, orders, openCardId, onToggle, onSaveWaybill
 
   return (
     <div ref={setNodeRef} className="flex flex-col gap-3 min-w-64 md:min-w-72 snap-center">
-      <div className={`p-4 rounded-3xl border-b-4 shadow-sm transition-all ${
-        stage.key === 'yuklendi' ? 'bg-blue-600 border-blue-800 text-white' : 'bg-white border-slate-200 text-slate-800'
-      }`}>
+      <div className={`p-4 rounded-xl border-b-2 transition-all ${
+        stage.key === 'yuklendi' ? 'text-white' : 'bg-white border-slate-200 text-slate-800'
+      }`} style={stage.key === 'yuklendi' ? { background: NAVY, borderColor: NAVY } : {}}>
         <div className="flex justify-between items-center mb-0.5">
           <div className="text-[8px] font-black opacity-60 uppercase tracking-widest">AŞAMA {index + 1}</div>
-          <div className="text-[10px] font-black bg-white/20 px-2 py-0.5 rounded-full">{orders.length}</div>
+          <div className={`text-[10px] font-black px-2 py-0.5 rounded-full ${stage.key === 'yuklendi' ? 'bg-white/20' : 'bg-slate-100 text-slate-500'}`}>{orders.length}</div>
         </div>
         <h3 className="text-xs md:text-sm font-black tracking-widest uppercase truncate">{stage.label}</h3>
       </div>
 
-      <div className={`flex flex-col gap-2.5 min-h-[65vh] p-2 rounded-[2.5rem] border-2 border-dashed transition-colors ${
-        isOver ? 'bg-blue-50/60 border-blue-300' : 'bg-slate-100/30 border-slate-200/50'
+      <div className={`flex flex-col gap-2.5 min-h-[65vh] p-2 rounded-2xl border-2 border-dashed transition-colors ${
+        isOver ? 'bg-slate-50 border-slate-300' : 'bg-slate-50/30 border-slate-200/50'
       }`}>
         {orders.map(order => (
           <OrderCard
@@ -291,9 +292,7 @@ export default function ProductionTrack() {
     try {
       const order = orders.find(o => o.id === orderId);
 
-      // Atölyeye sevk başlat
       if (value === 'START_TRACKING') {
-        // ✅ Optimistic update — sayfa scroll'unu sıfırlamaması için load() yerine state güncelle
         setOrders(prev => prev.map(o =>
           o.id === orderId
             ? { ...o, waybill_tracking_active: true, is_waybill_issued: false, current_waybill_no: null, current_workshop_name: null }
@@ -305,7 +304,7 @@ export default function ProductionTrack() {
           .eq('id', orderId);
         if (error) {
           alert("Takip başlatılamadı.");
-          setOrders(prev => prev.map(o => o.id === orderId ? order : o)); // geri al
+          setOrders(prev => prev.map(o => o.id === orderId ? order : o));
         }
         return;
       }
@@ -313,7 +312,6 @@ export default function ProductionTrack() {
       if (!value) return;
       const stage = order?.current_stage || 'kesimhanede';
 
-      // ✅ Optimistic update
       setOrders(prev => prev.map(o =>
         o.id === orderId
           ? { ...o, current_waybill_no: value, is_waybill_issued: true, current_workshop_name: workshopName || null }
@@ -326,7 +324,6 @@ export default function ProductionTrack() {
         .eq('id', orderId);
       if (error) throw error;
 
-      // ✅ Aynı aşama için zaten log varsa güncelle, yoksa ekle (düzeltme desteği)
       const { data: existingLog } = await supabase
         .from('waybill_logs')
         .select('id')
@@ -353,16 +350,14 @@ export default function ProductionTrack() {
           sent_at: new Date().toISOString(),
         }]);
       }
-      // ✅ load() çağrılmıyor — optimistic state zaten doğru, sayfa scroll'u korunuyor
     } catch (err) {
       alert("İrsaliye kaydedilemedi.");
-      load(); // hata olursa gerçek veriyle senkronize et
+      load();
     }
   };
 
   const handleArchive = (order) => setShipmentModalOrder(order);
 
-  // ───────────── DRAG & DROP ─────────────
   const handleDragStart = (event) => {
     const order = orders.find(o => o.id === event.active.id);
     setActiveDragOrder(order);
@@ -380,7 +375,6 @@ export default function ProductionTrack() {
 
     const newTracking = { ...(order.tracking || {}), [targetStageKey]: new Date().toISOString() };
 
-    // ✅ Optimistic update — ekranı anında güncelle, sayfa "yenilenmiş" hissi vermez
     setOrders(prev => prev.map(o =>
       o.id === order.id
         ? {
@@ -395,16 +389,13 @@ export default function ProductionTrack() {
     ));
 
     try {
-      // İrsaliye takibini sıfırla, aşamayı güncelle — arka planda, sessizce
       await supabase
         .from('orders')
         .update({ waybill_tracking_active: false, is_waybill_issued: false, current_waybill_no: null })
         .eq('id', order.id);
       await updateOrderStage(order.id, targetStageKey, order.tracking);
-      // ✅ load() çağrılmıyor — optimistic state zaten doğru, gereksiz tam yenileme önleniyor
     } catch (err) {
       alert("Aşama değiştirilirken hata oluştu.");
-      // Hata olursa state'i geri al
       setOrders(prev => prev.map(o => o.id === order.id ? { ...o, current_stage: fromStageKey } : o));
     }
   };
@@ -417,20 +408,17 @@ export default function ProductionTrack() {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32">
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-slate-900 rounded-xl text-white shadow-lg"><Activity size={20}/></div>
-          <div>
-            <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tighter uppercase leading-none">Üretim Akışı</h1>
-            <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase mt-1">Sürükle-Bırak ile Aşama Yönetimi</p>
-          </div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-4 mb-4">
+        <div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Sürükle-Bırak ile Aşama Yönetimi</p>
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter leading-none mt-1">Üretim Akışı</h1>
         </div>
         <div className="flex gap-2">
-          <div className="bg-white px-4 py-2 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-2">
+          <div className="border border-slate-200 px-4 py-2 rounded-xl flex items-center gap-2">
             <PackageCheck size={14} className="text-emerald-500"/>
             <span className="text-[10px] font-black text-slate-900 uppercase">Aktif İş: {visibleOrders.length}</span>
           </div>
-          <div className="bg-red-50 px-4 py-2 rounded-2xl border border-red-100 flex items-center gap-2">
+          <div className="bg-red-50 px-4 py-2 rounded-xl border border-red-100 flex items-center gap-2">
             <AlertCircle size={14} className="text-red-600 animate-pulse"/>
             <span className="text-[10px] font-black text-red-600 uppercase">
               İrsaliye Bekleyen: {orders.filter(o => o.waybill_tracking_active && !o.is_waybill_issued).length}
@@ -469,15 +457,15 @@ export default function ProductionTrack() {
 
         <DragOverlay>
           {activeDragOrder && (
-            <div className="bg-white rounded-3xl shadow-2xl border border-blue-200 p-3 flex items-center gap-3 w-64 opacity-95">
-              <div className="w-11 h-11 rounded-xl overflow-hidden border border-slate-50 shrink-0 bg-slate-50 flex items-center justify-center">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 flex items-center gap-3 w-64 opacity-95">
+              <div className="w-11 h-11 rounded-xl overflow-hidden border border-slate-100 shrink-0 bg-slate-50 flex items-center justify-center">
                 {activeDragOrder.model_image
                   ? <img src={activeDragOrder.model_image} className="w-full h-full object-cover" alt="model"/>
                   : <Hash size={16} className="text-slate-200"/>}
               </div>
               <div className="min-w-0">
                 <div className="font-black text-[11px] text-slate-900 uppercase truncate">{activeDragOrder.article}</div>
-                <div className="text-[8px] font-black text-blue-600 uppercase">{activeDragOrder.customer}</div>
+                <div className="text-[8px] font-black text-slate-400 uppercase">{activeDragOrder.customer}</div>
               </div>
             </div>
           )}

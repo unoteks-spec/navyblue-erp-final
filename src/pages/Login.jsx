@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { supabase } from '../api/orderService'; // Supabase client yolun
+import { supabase } from '../api/orderService';
 import { Lock, Mail, Anchor, ArrowRight, ShieldCheck } from 'lucide-react';
+
+const NAVY = '#1e3a5f';
 
 export default function Login() {
   const [loading, setLoading] = useState(false);
@@ -22,42 +24,37 @@ export default function Login() {
       setError("Giriş başarısız: Bilgilerinizi kontrol edin.");
       setLoading(false);
     }
-    // Başarılı olursa App.jsx'teki onAuthStateChange tetiklenecek
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Arka Plan Dekorasyonu */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px]" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/10 rounded-full blur-[120px]" />
-
-      <div className="w-full max-w-md relative">
-        <div className="bg-white rounded-[3rem] shadow-2xl overflow-hidden p-8 md:p-12 border border-white/10">
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="border border-slate-100 rounded-2xl p-8 md:p-12">
           
           {/* Logo Bölümü */}
           <div className="flex flex-col items-center mb-10">
-            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 mb-4 transform -rotate-6">
-              <Anchor size={32} className="text-white" />
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center mb-4" style={{ background: NAVY }}>
+              <Anchor size={26} className="text-white" />
             </div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic leading-none">Navy Blue ERP</h1>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tighter uppercase leading-none">Navy Blue ERP</h1>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mt-2">Yönetim Paneli</p>
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-500 text-xs font-bold">
+            <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-500 text-xs font-bold">
               <ShieldCheck size={16} /> {error}
             </div>
           )}
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase ml-4">E-Posta Adresi</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">E-Posta Adresi</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input 
                   type="email" 
                   required
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-transparent rounded-2xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 text-sm font-bold transition-all border"
+                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white text-sm font-bold transition-all"
                   placeholder="kaptan@navyblue.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -66,13 +63,13 @@ export default function Login() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase ml-4">Şifre</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase ml-1 tracking-widest">Şifre</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input 
                   type="password" 
                   required
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-transparent rounded-2xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 text-sm font-bold transition-all border"
+                  className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white text-sm font-bold transition-all"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -83,7 +80,8 @@ export default function Login() {
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-blue-600 transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
+              className="w-full text-white py-3.5 rounded-xl font-black text-xs uppercase tracking-widest hover:opacity-90 transition-opacity flex items-center justify-center gap-2 group disabled:opacity-50"
+              style={{ background: NAVY }}
             >
               {loading ? "Giriş Yapılıyor..." : (
                 <>Giriş Yap <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" /></>

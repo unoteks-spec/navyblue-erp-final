@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { SIZE_ORDER } from '../constants/sizes';
 
+const NAVY = '#1e3a5f';
+
 export default function ProductionReport() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,7 +16,6 @@ export default function ProductionReport() {
   const [articleFilter, setArticleFilter] = useState('');
   const [expandedId, setExpandedId] = useState(null);
 
-  // ✅ DÜZELTİLDİ: Akıllı label fonksiyonu
   const getDisplayLabel = (s) => {
     const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
     return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
@@ -74,72 +75,68 @@ export default function ProductionReport() {
           @page { size: A4 landscape; margin: 10mm; }
         }
       `}</style>
-      
-      <div className="bg-white p-5 rounded-4xl border border-slate-100 shadow-sm space-y-4 no-print">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-[#0f172a] rounded-xl text-white shadow-lg"><FileBarChart size={20} /></div>
-            <div>
-              <h1 className="text-xl md:text-2xl font-black text-[#0f172a] tracking-tighter uppercase leading-none">Üretim Raporu</h1>
-              <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase mt-1">Navy Blue ERP Systems</p>
-            </div>
-          </div>
-          <button onClick={handlePrint} className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-slate-900 rounded-xl font-black text-[10px] text-white transition-all uppercase tracking-widest shadow-lg">
-            <Printer size={16} /> Yazdır / PDF Kaydet
-          </button>
-        </div>
 
+      <div className="flex items-center justify-between pt-4 no-print">
+        <div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Navy Blue ERP Systems</p>
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter leading-none mt-1">Üretim Raporu</h1>
+        </div>
+        <button onClick={handlePrint} className="flex items-center gap-2 px-6 py-2.5 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:opacity-90 transition-opacity" style={{ background: NAVY }}>
+          <Printer size={16} /> Yazdır / PDF Kaydet
+        </button>
+      </div>
+
+      <div className="border border-slate-100 rounded-xl p-4 space-y-3 no-print">
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          <input type="text" placeholder="Müşteri..." value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-[10px] font-bold outline-none" />
-          <input type="text" placeholder="Artikel..." value={articleFilter} onChange={(e) => setArticleFilter(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-[10px] font-bold outline-none" />
+          <input type="text" placeholder="Müşteri..." value={customerFilter} onChange={(e) => setCustomerFilter(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold outline-none" />
+          <input type="text" placeholder="Artikel..." value={articleFilter} onChange={(e) => setArticleFilter(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-bold outline-none" />
           <button
             onClick={() => setShowArchived(!showArchived)}
-            className={`col-span-2 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-              showArchived
-                ? 'bg-slate-900 text-white border-slate-900'
-                : 'bg-slate-50 text-slate-500 border-transparent hover:border-slate-200'
+            className={`col-span-2 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${
+              showArchived ? 'text-white border-transparent' : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300'
             }`}
+            style={showArchived ? { background: NAVY } : {}}
           >
             {showArchived ? '✓ Arşiv Dahil (Tümü)' : 'Sadece Aktif Siparişler'}
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-4xl border border-[#0f172a] overflow-hidden shadow-none print-area">
-        <div className="p-8 border-b-4 border-[#0f172a] flex justify-between items-end bg-white">
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden print-area">
+        <div className="p-8 border-b border-slate-200 flex justify-between items-end bg-white">
           <div className="space-y-1">
-            <h2 className="text-4xl font-black tracking-tighter uppercase text-[#0f172a]">NAVY BLUE</h2>
-            <p className="text-[10px] font-bold text-[#64748b] uppercase tracking-[0.4em]">Üretim Denge ve Sevkiyat Matrisi</p>
+            <h2 className="text-3xl font-black tracking-tighter uppercase text-slate-900">NAVY BLUE</h2>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.4em]">Üretim Denge ve Sevkiyat Matrisi</p>
           </div>
           <div className="text-right">
-            <div className="text-[9px] font-black text-[#94a3b8] uppercase tracking-widest">Rapor Tarihi</div>
-            <div className="text-sm font-black text-[#0f172a]">{new Date().toLocaleDateString('tr-TR')}</div>
+            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Rapor Tarihi</div>
+            <div className="text-sm font-black text-slate-900">{new Date().toLocaleDateString('tr-TR')}</div>
           </div>
         </div>
 
-        <div className="grid grid-cols-4 border-b border-[#f1f5f9] bg-white">
-          <div className="p-6 text-center border-r border-[#f1f5f9]"><div className="text-[9px] font-black text-[#94a3b8] uppercase mb-1 tracking-widest">İş Adedi</div><div className="text-2xl font-black text-[#0f172a]">{filteredOrders.length}</div></div>
-          <div className="p-6 text-center border-r border-[#f1f5f9]"><div className="text-[9px] font-black text-[#94a3b8] uppercase mb-1 tracking-widest">Planlanan</div><div className="text-2xl font-black text-blue-600">{totalPlanned.toLocaleString()}</div></div>
-          <div className="p-6 text-center border-r border-[#f1f5f9]"><div className="text-[9px] font-black text-[#94a3b8] uppercase mb-1 tracking-widest">Kesilen</div><div className="text-2xl font-black text-emerald-600">{totalCut.toLocaleString()}</div></div>
-          <div className="p-6 text-center"><div className="text-[9px] font-black text-[#94a3b8] uppercase mb-1 tracking-widest">Yüklenen</div><div className="text-2xl font-black text-indigo-600">{totalShipped.toLocaleString()}</div></div>
+        <div className="grid grid-cols-4 border-b border-slate-100 bg-white">
+          <div className="p-6 text-center border-r border-slate-100"><div className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-widest">İş Adedi</div><div className="text-2xl font-black text-slate-900">{filteredOrders.length}</div></div>
+          <div className="p-6 text-center border-r border-slate-100"><div className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-widest">Planlanan</div><div className="text-2xl font-black text-slate-700">{totalPlanned.toLocaleString()}</div></div>
+          <div className="p-6 text-center border-r border-slate-100"><div className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-widest">Kesilen</div><div className="text-2xl font-black text-emerald-600">{totalCut.toLocaleString()}</div></div>
+          <div className="p-6 text-center"><div className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-widest">Yüklenen</div><div className="text-2xl font-black" style={{ color: NAVY }}>{totalShipped.toLocaleString()}</div></div>
         </div>
 
         <div className="p-4 md:p-8 overflow-x-auto bg-white">
           <table className="w-full border-collapse min-w-250">
             <thead>
-              <tr className="text-[9px] font-black text-[#94a3b8] uppercase tracking-widest border-b-2 border-[#0f172a]">
+              <tr className="text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200">
                 <th className="py-4 px-2 no-print"></th>
                 <th className="py-4 px-2 text-left">Artikel No</th>
                 <th className="py-4 px-2 text-left">Model / Renk</th>
                 <th className="py-4 px-2 text-left">Müşteri</th>
                 <th className="py-4 px-2 text-left">Konum</th>
-                <th className="py-4 px-2 text-right text-blue-600">Plan</th>
+                <th className="py-4 px-2 text-right">Plan</th>
                 <th className="py-4 px-2 text-right text-emerald-600">Kesim</th>
-                <th className="py-4 px-2 text-right text-indigo-600">Yükleme</th>
+                <th className="py-4 px-2 text-right" style={{ color: NAVY }}>Yükleme</th>
                 <th className="py-4 px-2 text-center">Durum</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#f1f5f9]">
+            <tbody className="divide-y divide-slate-100">
               {filteredOrders.map((o) => {
                 const isExpanded = expandedId === o.id;
                 const isArchived = o.status === 'archived' || o.is_archived === true;
@@ -148,8 +145,6 @@ export default function ProductionReport() {
                 const sTotal = Object.values(o.shipped_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
                 const diffTotal = sTotal - cTotal;
 
-                // cutting_qty key'lerini qty_by_size ile eşleştir
-                // Örn: "2" → "K2Y", "8" → "U8" gibi display label tersine çevrilir
                 const qtyKeys2 = Object.keys(o.qty_by_size || {});
                 const getDisplayLabelLocal = (s) => {
                   const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
@@ -163,7 +158,6 @@ export default function ProductionReport() {
                   normCut[normKey] = (Number(normCut[normKey] || 0) + Number(v || 0));
                 });
 
-                // ✅ DÜZELTİLDİ: SIZE_ORDER prefix'li key'lerle eşleşiyor
                 const activeSizes = SIZE_ORDER.filter(s => 
                   Number(o.qty_by_size?.[s] || 0) > 0 || Number(normCut[s] || 0) > 0
                 );
@@ -172,67 +166,66 @@ export default function ProductionReport() {
                   <React.Fragment key={o.id}>
                     <tr onClick={() => setExpandedId(isExpanded ? null : o.id)} className={`group cursor-pointer transition-all ${isExpanded ? 'bg-slate-50' : 'hover:bg-slate-50/50'}`}>
                       <td className="py-4 px-2 text-slate-300 no-print">{isExpanded ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}</td>
-                      <td className="py-4 px-2 font-black text-[#0f172a] text-sm uppercase">{o.article}</td>
+                      <td className="py-4 px-2 font-black text-slate-900 text-sm uppercase">{o.article}</td>
                       <td className="py-4 px-2">
-                        <div className="text-[11px] font-bold text-[#1e293b] uppercase leading-none">{o.model}</div>
-                        <div className="text-[9px] font-bold text-[#64748b] uppercase mt-1">{o.color}</div>
+                        <div className="text-[11px] font-bold text-slate-700 uppercase leading-none">{o.model}</div>
+                        <div className="text-[9px] font-bold text-slate-400 uppercase mt-1">{o.color}</div>
                       </td>
-                      <td className="py-4 px-2 text-[10px] font-black text-[#1e293b] uppercase">{o.customer}</td>
+                      <td className="py-4 px-2 text-[10px] font-black text-slate-700 uppercase">{o.customer}</td>
                       <td className="py-4 px-2">
-                        <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[8px] font-black border uppercase ${isArchived ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-[#2563eb] border-[#2563eb]'}`}>
+                        <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[8px] font-black border uppercase ${isArchived ? 'text-white border-transparent' : 'bg-white text-slate-500 border-slate-200'}`} style={isArchived ? { background: NAVY } : {}}>
                            {isArchived ? <Truck size={10}/> : <MapPin size={10}/>} {isArchived ? 'SEVK EDİLDİ' : getStageLabel(o.current_stage)}
                         </div>
                       </td>
                       <td className="py-4 px-2 text-right font-black text-slate-400 text-sm">{pTotal}</td>
                       <td className="py-4 px-2 text-right font-black text-emerald-600 text-sm">{cTotal || '-'}</td>
-                      <td className="py-4 px-2 text-right font-black text-indigo-600 text-sm">{sTotal || '-'}</td>
-                      <td className="py-4 px-2 text-center">{isArchived ? <Truck size={16} className="text-indigo-600 mx-auto" /> : <CheckCircle2 size={16} className={cTotal >= pTotal ? "text-emerald-500 mx-auto" : "text-slate-200 mx-auto"} />}</td>
+                      <td className="py-4 px-2 text-right font-black text-sm" style={{ color: NAVY }}>{sTotal || '-'}</td>
+                      <td className="py-4 px-2 text-center">{isArchived ? <Truck size={16} className="mx-auto" style={{ color: NAVY }} /> : <CheckCircle2 size={16} className={cTotal >= pTotal ? "text-emerald-500 mx-auto" : "text-slate-200 mx-auto"} />}</td>
                     </tr>
 
                     {isExpanded && (
                       <tr className="bg-slate-50/50">
                         <td colSpan="9" className="p-6">
-                          <div className="bg-white rounded-3xl border border-slate-200 shadow-inner overflow-hidden max-w-full overflow-x-auto">
-                            <div className="bg-slate-900 px-6 py-3 flex items-center gap-2">
-                              <PackageCheck size={14} className="text-blue-400" />
-                              <h3 className="text-[10px] font-black text-white uppercase tracking-wider">Beden Dağılım Matrisi</h3>
+                          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden max-w-full overflow-x-auto">
+                            <div className="px-6 py-3 flex items-center gap-2" style={{ background: NAVY }}>
+                              <PackageCheck size={14} className="text-white/70" />
+                              <h3 className="text-[10px] font-black text-white/90 uppercase tracking-wider">Beden Dağılım Matrisi</h3>
                             </div>
                             
                             <table className="w-full text-center text-xs border-collapse">
                               <thead>
-                                <tr className="bg-slate-100 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase">
-                                  <th className="py-3 px-4 text-left font-black bg-slate-100 sticky left-0 z-10 w-28 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">AŞAMA</th>
-                                  {/* ✅ DÜZELTİLDİ: getDisplayLabel ile temiz beden etiketi */}
+                                <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase">
+                                  <th className="py-3 px-4 text-left font-black bg-slate-50 sticky left-0 z-10 w-28">AŞAMA</th>
                                   {activeSizes.map(s => (
-                                    <th key={s} className="py-3 px-3 min-w-16 border-l border-slate-200/60 font-black text-slate-800">
+                                    <th key={s} className="py-3 px-3 min-w-16 border-l border-slate-100 font-black text-slate-600">
                                       {getDisplayLabel(s)}
                                     </th>
                                   ))}
-                                  <th className="py-3 px-4 text-right font-black bg-slate-800 text-white min-w-20">TOPLAM</th>
+                                  <th className="py-3 px-4 text-right font-black text-white min-w-20" style={{ background: NAVY }}>TOPLAM</th>
                                 </tr>
                               </thead>
                               <tbody className="font-bold">
                                 <tr className="border-b border-slate-100">
-                                  <td className="py-2.5 px-4 text-left font-black text-emerald-600 bg-slate-50/80 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-[10px]">KESİLEN</td>
+                                  <td className="py-2.5 px-4 text-left font-black text-emerald-600 bg-slate-50/80 sticky left-0 text-[10px]">KESİLEN</td>
                                   {activeSizes.map(s => <td key={s} className="py-2.5 px-3 border-l border-slate-100 text-emerald-700 font-black">{normCut[s] || 0}</td>)}
                                   <td className="py-2.5 px-4 text-right font-black text-emerald-700 bg-emerald-50">{cTotal}</td>
                                 </tr>
                                 <tr className="border-b border-slate-100">
-                                  <td className="py-2.5 px-4 text-left font-black text-indigo-600 bg-slate-50/80 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-[10px]">SEVK EDİLEN</td>
-                                  {activeSizes.map(s => <td key={s} className="py-2.5 px-3 border-l border-slate-100 text-indigo-700 font-black">{o.shipped_qty?.[s] || 0}</td>)}
-                                  <td className="py-2.5 px-4 text-right font-black text-indigo-700 bg-indigo-50">{sTotal}</td>
+                                  <td className="py-2.5 px-4 text-left font-black bg-slate-50/80 sticky left-0 text-[10px]" style={{ color: NAVY }}>SEVK EDİLEN</td>
+                                  {activeSizes.map(s => <td key={s} className="py-2.5 px-3 border-l border-slate-100 font-black" style={{ color: NAVY }}>{o.shipped_qty?.[s] || 0}</td>)}
+                                  <td className="py-2.5 px-4 text-right font-black bg-slate-50" style={{ color: NAVY }}>{sTotal}</td>
                                 </tr>
                                 <tr className="bg-slate-50/30">
-                                  <td className="py-2.5 px-4 text-left font-black text-slate-500 bg-slate-100/50 sticky left-0 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] text-[10px]">FARK / FİRE</td>
+                                  <td className="py-2.5 px-4 text-left font-black text-slate-500 bg-slate-100/50 sticky left-0 text-[10px]">FARK / FİRE</td>
                                   {activeSizes.map(s => {
                                     const diff = (Number(o.shipped_qty?.[s] || 0) - Number(normCut[s] || 0));
                                     return (
-                                      <td key={s} className={`py-2.5 px-3 border-l border-slate-100 font-black text-[11px] ${diff === 0 ? 'text-slate-400' : diff > 0 ? 'text-blue-600' : 'text-red-500'}`}>
+                                      <td key={s} className={`py-2.5 px-3 border-l border-slate-100 font-black text-[11px] ${diff === 0 ? 'text-slate-400' : diff > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                                         {diff > 0 ? `+${diff}` : diff}
                                       </td>
                                     );
                                   })}
-                                  <td className={`py-2.5 px-4 text-right font-black text-[11px] bg-slate-100 ${diffTotal === 0 ? 'text-slate-500' : diffTotal > 0 ? 'text-blue-600' : 'text-red-500'}`}>
+                                  <td className={`py-2.5 px-4 text-right font-black text-[11px] bg-slate-100 ${diffTotal === 0 ? 'text-slate-500' : diffTotal > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                                     {diffTotal > 0 ? `+${diffTotal}` : diffTotal}
                                   </td>
                                 </tr>
@@ -249,8 +242,8 @@ export default function ProductionReport() {
           </table>
         </div>
 
-        <div className="p-8 border-t-2 border-[#0f172a] flex justify-between items-center text-[9px] font-black text-[#94a3b8] uppercase tracking-widest bg-white">
-          <div>© NAVY BLUE ERP - PRECISION LOGISTICS</div>
+        <div className="p-8 border-t border-slate-200 flex justify-between items-center text-[9px] font-black text-slate-400 uppercase tracking-widest bg-white">
+          <div>© NAVY BLUE ERP — PRECISION LOGISTICS</div>
         </div>
       </div>
     </div>

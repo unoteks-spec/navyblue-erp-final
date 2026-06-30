@@ -4,6 +4,8 @@ import { ClipboardList, Search, FileSpreadsheet } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
+const NAVY = '#1e3a5f';
+
 const STAGE_LABELS = {
   kesimhanede:   'KESİMHANE',
   baski:         'BASKI',
@@ -146,21 +148,18 @@ export default function WaybillHistory() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-4 md:p-6 pb-32 space-y-5">
+    <div className="max-w-6xl mx-auto p-4 md:p-6 pb-32 space-y-8">
 
       {/* BAŞLIK */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-slate-900 rounded-xl text-white shadow-lg"><ClipboardList size={20}/></div>
-          <div>
-            <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tighter uppercase leading-none">İrsaliye Geçmişi</h1>
-            <p className="text-[10px] text-slate-400 font-bold tracking-[0.2em] uppercase mt-0.5">{filtered.length} Artikel</p>
-          </div>
+      <div className="flex items-center justify-between pt-4">
+        <div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{filtered.length} Artikel</p>
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter leading-none mt-1">İrsaliye Geçmişi</h1>
         </div>
         <button
           onClick={exportToExcel}
           disabled={filtered.length === 0}
-          className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-5 py-3 rounded-2xl font-black text-[10px] uppercase border border-emerald-100 shadow-sm hover:bg-emerald-600 hover:text-white transition-all disabled:opacity-40 disabled:hover:bg-emerald-50 disabled:hover:text-emerald-600"
+          className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-5 py-3 rounded-xl font-black text-[10px] uppercase border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all disabled:opacity-40 disabled:hover:bg-emerald-50 disabled:hover:text-emerald-600"
         >
           <FileSpreadsheet size={16}/> Excel'e Aktar
         </button>
@@ -168,19 +167,18 @@ export default function WaybillHistory() {
 
       {/* ARAMA + ARŞİV TOGGLE */}
       <div className="flex flex-col md:flex-row gap-3">
-        <div className="bg-white border border-slate-100 rounded-2xl p-3 shadow-sm relative flex-1">
+        <div className="border border-slate-200 rounded-xl p-3 relative flex-1">
           <Search size={15} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400"/>
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Artikel, renk, müşteri, irsaliye no veya atölye ara..."
-            className="w-full pl-9 pr-4 py-2 bg-slate-50 rounded-xl outline-none text-[11px] font-bold"/>
+            className="w-full pl-9 pr-4 py-2 bg-slate-50 rounded-lg outline-none text-[11px] font-bold"/>
         </div>
         <button
           onClick={() => setShowArchived(!showArchived)}
-          className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all shrink-0 ${
-            showArchived
-              ? 'bg-slate-900 text-white border-slate-900'
-              : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
+          className={`flex items-center gap-2 px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shrink-0 ${
+            showArchived ? 'text-white border-transparent' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
           }`}
+          style={showArchived ? { background: NAVY } : {}}
         >
           {showArchived ? '✓ Arşiv Dahil' : 'Sadece Aktif'}
         </button>
@@ -192,9 +190,9 @@ export default function WaybillHistory() {
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-slate-200 font-black text-[10px] uppercase">Kayıt bulunamadı</div>
       ) : (
-        <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm overflow-x-auto">
+        <div className="border border-slate-100 rounded-2xl overflow-hidden overflow-x-auto">
           <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-900 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+            <thead className="bg-slate-50 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
               <tr>
                 <th className="py-4 px-4 whitespace-nowrap">Artikel</th>
                 <th className="py-4 px-4 whitespace-nowrap">Renk</th>
@@ -207,12 +205,12 @@ export default function WaybillHistory() {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filtered.map((row, i) => (
-                <tr key={`${row.article}__${row.color}`} className={`hover:bg-slate-50/50 transition-colors ${row.isArchived ? 'opacity-60' : ''}`}>
+                <tr key={`${row.article}__${row.color}`} className={`hover:bg-slate-50/60 transition-colors ${row.isArchived ? 'opacity-60' : ''}`}>
                   <td className="py-3 px-4 whitespace-nowrap">
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm font-black text-slate-900 uppercase">{row.article || '—'}</span>
                       {row.isArchived && (
-                        <span className="text-[7px] font-black text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded uppercase">arşiv</span>
+                        <span className="text-[7px] font-black text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded uppercase border border-slate-100">arşiv</span>
                       )}
                     </div>
                     {row.customer && <div className="text-[9px] text-slate-400 font-bold uppercase">{row.customer}</div>}
@@ -237,7 +235,7 @@ export default function WaybillHistory() {
                                   </div>
                                 )}
                                 {w.workshop_name && (
-                                  <div className="text-[9px] text-blue-500 font-bold uppercase mt-0.5">{w.workshop_name}</div>
+                                  <div className="text-[9px] font-bold uppercase mt-0.5" style={{ color: NAVY }}>{w.workshop_name}</div>
                                 )}
                               </div>
                             ))}

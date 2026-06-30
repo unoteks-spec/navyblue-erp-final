@@ -17,6 +17,8 @@ import { saveAs } from 'file-saver';
 import ShippingLabelModal from '../components/orders/ShippingLabelModal';
 import { SIZE_ORDER } from '../constants/sizes';
 
+const NAVY = '#1e3a5f';
+
 export default function PackingList() {
   const [orders, setOrders] = useState([]);
   const [consignee, setConsignee] = useState({ name: '', address: '' });
@@ -402,11 +404,17 @@ export default function PackingList() {
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-10 space-y-10 pb-32 bg-white no-print">
-      
+
+      {/* BAŞLIK */}
+      <div className="pt-4">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Navy Blue ERP</p>
+        <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter leading-none mt-1">Çeki Listesi</h1>
+      </div>
+
       {/* ÜST MÜŞTERİ KARTI */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-10 p-10 border-2 border-slate-50 rounded-[3rem] shadow-sm relative">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-10 p-10 border border-slate-100 rounded-2xl relative">
         <div className="space-y-4">
-          <div className="flex items-center gap-3 text-blue-600">
+          <div className="flex items-center gap-3" style={{ color: NAVY }}>
             <Building2 size={20}/> 
             <span className="text-xs font-black uppercase tracking-widest">Exporter / Gönderen</span>
           </div>
@@ -416,7 +424,7 @@ export default function PackingList() {
           </div>
         </div>
         <div className="space-y-4 text-right">
-          <div className="flex items-center justify-end gap-4 text-indigo-600">
+          <div className="flex items-center justify-end gap-4" style={{ color: NAVY }}>
             {customers.length > 0 && (
               <select onChange={handleSelectCustomer} className="text-[10px] font-black uppercase bg-slate-50 border border-slate-200 rounded-lg p-1.5 outline-none cursor-pointer">
                 <option value="">Kayıtlı Müşteriler...</option>
@@ -428,7 +436,7 @@ export default function PackingList() {
           </div>
           <div className="pr-8 space-y-3">
             <div className="flex gap-2 justify-end items-center">
-              <button onClick={handleSaveCustomer} title="Bu müşteriyi listeye kaydet" className="p-1.5 bg-slate-50 hover:bg-slate-100 rounded-lg text-indigo-600 transition-colors border border-slate-200">
+              <button onClick={handleSaveCustomer} title="Bu müşteriyi listeye kaydet" className="p-1.5 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200" style={{ color: NAVY }}>
                 <Save size={14}/>
               </button>
               <input type="text" placeholder="Buyer Name..." className="w-full text-right font-black text-slate-900 text-lg border-b-2 border-slate-100 outline-none" value={consignee.name} onChange={(e) => setConsignee({...consignee, name: e.target.value})} />
@@ -438,7 +446,7 @@ export default function PackingList() {
         </div>
       </div>
 
-      <div className="bg-blue-600 p-10 rounded-[3.5rem] text-white shadow-2xl space-y-8">
+      <div className="p-10 rounded-2xl text-white space-y-8" style={{ background: NAVY }}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="space-y-3">
             <label className="text-[10px] font-black uppercase opacity-70 tracking-widest">1. Select Model</label>
@@ -489,17 +497,17 @@ export default function PackingList() {
         )}
       </div>
 
-      <div className="overflow-hidden rounded-[3rem] border border-slate-100 shadow-xl bg-white">
+      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white">
         <table className="w-full text-left border-collapse">
-          <thead className="bg-slate-900 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+          <thead className="bg-slate-50 text-[9px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
             <tr>
-              <th className="py-6 px-8 text-white">Model / Article</th>
+              <th className="py-6 px-8">Model / Article</th>
               <th className="py-6 px-4 text-center">Type</th>
               <th className="py-6 px-4 text-center">Box No</th>
               <th className="py-6 px-4">Size / Lot Ratio</th>
               <th className="py-6 px-4 text-center">Qty / Lot</th>
-              <th className="py-6 px-4 text-center text-blue-400">Net</th>
-              <th className="py-6 px-4 text-center text-blue-400">Gross</th>
+              <th className="py-6 px-4 text-center">Net</th>
+              <th className="py-6 px-4 text-center">Gross</th>
               <th className="py-6 px-8"></th>
             </tr>
           </thead>
@@ -541,25 +549,25 @@ export default function PackingList() {
               );
             })}
           </tbody>
-          <tfoot className="bg-slate-900 text-white font-black text-[12px] uppercase">
+          <tfoot className="text-white font-black text-[12px] uppercase" style={{ background: NAVY }}>
             <tr>
-              <td className="py-8 px-8 italic tracking-widest text-blue-400">Totals</td>
-              <td className="text-center border-l border-slate-800">{totals.totalBoxes} Boxes</td>
+              <td className="py-8 px-8 tracking-widest text-white/70">Totals</td>
+              <td className="text-center border-l border-white/10">{totals.totalBoxes} Boxes</td>
               <td colSpan="2"></td>
-              <td className="text-center border-l border-slate-800">{totals.totalQty} Pcs</td>
-              <td className="text-center border-l border-slate-800">{totals.totalNet} Kg</td>
-              <td className="text-center border-l border-slate-800 font-black text-blue-400">{totals.totalGross} Kg</td>
-              <td className="bg-blue-600"></td>
+              <td className="text-center border-l border-white/10">{totals.totalQty} Pcs</td>
+              <td className="text-center border-l border-white/10">{totals.totalNet} Kg</td>
+              <td className="text-center border-l border-white/10 font-black">{totals.totalGross} Kg</td>
+              <td></td>
             </tr>
           </tfoot>
         </table>
       </div>
 
       <div className="flex flex-col md:flex-row justify-between items-center gap-6 pt-6">
-        <button onClick={addRow} className="bg-blue-50 text-blue-600 px-12 py-5 rounded-4xl font-black text-xs uppercase shadow-sm hover:bg-blue-600 hover:text-white transition-all">+ Add Row</button>
+        <button onClick={addRow} className="bg-slate-50 px-12 py-4 rounded-xl font-black text-xs uppercase border border-slate-200 hover:bg-slate-100 transition-all" style={{ color: NAVY }}>+ Add Row</button>
         <div className="flex gap-4">
-          <button onClick={exportToExcel} className="flex items-center gap-3 bg-emerald-50 text-emerald-600 px-10 py-5 rounded-4xl font-black text-xs uppercase border border-emerald-100 shadow-lg hover:bg-emerald-600 hover:text-white transition-all"><FileSpreadsheet size={20}/> Export Excel</button>
-          <button onClick={() => setShowLabels(true)} className="flex items-center gap-3 bg-slate-900 text-white px-10 py-5 rounded-4xl font-black text-xs uppercase shadow-2xl hover:bg-blue-600 transition-all"><Tag size={20}/> PDF İndir (Argox)</button>
+          <button onClick={exportToExcel} className="flex items-center gap-3 bg-emerald-50 text-emerald-600 px-10 py-4 rounded-xl font-black text-xs uppercase border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all"><FileSpreadsheet size={20}/> Export Excel</button>
+          <button onClick={() => setShowLabels(true)} className="flex items-center gap-3 text-white px-10 py-4 rounded-xl font-black text-xs uppercase hover:opacity-90 transition-all" style={{ background: NAVY }}><Tag size={20}/> PDF İndir (Argox)</button>
         </div>
       </div>
 

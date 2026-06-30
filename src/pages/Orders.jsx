@@ -10,6 +10,8 @@ import AddOrderModal from '../components/orders/AddOrderModal';
 import { saveOrder, uploadModelImage } from '../api/orderService';
 import { DEFAULT_QTY_BY_SIZE } from '../constants/sizes';
 
+const NAVY = '#1e3a5f';
+
 // --- YARDIMCI FONKSİYONLAR ---
 const capitalizeTR = (str) => {
   if (!str) return "";
@@ -39,9 +41,9 @@ const FabricCard = ({ id, label, isMain, register, watch, setValue, handleCapita
   const unitValue = watch(`fabrics.${id}.unit`) || 'Kg';
 
   return (
-    <div className={`bg-white p-6 rounded-4xl border ${isMain ? 'border-2 border-blue-50 shadow-sm relative overflow-hidden' : 'border-slate-100 shadow-sm'} space-y-5`}>
-      {isMain && <div className="absolute top-0 left-0 w-1.5 bg-blue-600 h-full"></div>}
-      <span className={`font-black uppercase tracking-widest text-[10px] ${isMain ? 'text-blue-600' : 'text-slate-400'}`}>
+    <div className={`bg-white p-6 rounded-2xl border ${isMain ? 'relative overflow-hidden' : 'border-slate-100'} space-y-5`} style={isMain ? { borderColor: '#e5e7eb', borderWidth: 1 } : {}}>
+      {isMain && <div className="absolute top-0 left-0 w-1 h-full" style={{ background: NAVY }}></div>}
+      <span className="font-black uppercase tracking-widest text-[10px] text-slate-400" style={isMain ? { color: NAVY } : {}}>
         {label}
       </span>
       <div className={`grid grid-cols-1 md:grid-cols-4 ${isMain ? 'lg:grid-cols-7' : 'lg:grid-cols-3'} gap-4`}>
@@ -58,7 +60,7 @@ const FabricCard = ({ id, label, isMain, register, watch, setValue, handleCapita
               setValue(`fabrics.${id}.type`, val);
               setValue(`fabrics.${id}.unit`, val === 'Dokuma' ? 'Mt' : 'Kg');
             }}
-            className="h-10 px-2 rounded-xl border border-gray-200 bg-slate-50 text-[11px] font-bold outline-none cursor-pointer hover:bg-white transition-all"
+            className="h-10 px-2 rounded-lg border border-gray-200 bg-slate-50 text-[11px] font-bold outline-none cursor-pointer hover:bg-white transition-all"
           >
             <option value="Örme">Örme</option>
             <option value="Dokuma">Dokuma</option>
@@ -67,9 +69,9 @@ const FabricCard = ({ id, label, isMain, register, watch, setValue, handleCapita
 
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-semibold text-gray-700 ml-1">Birim Gider</label>
-          <div className="flex bg-slate-50 rounded-xl border border-gray-200 focus-within:ring-4 focus-within:ring-blue-50 transition-all overflow-hidden h-10">
+          <div className="flex bg-slate-50 rounded-lg border border-gray-200 transition-all overflow-hidden h-10">
             <input type="number" step="0.001" {...register(`fabrics.${id}.perPieceKg`)} className="w-full px-3 bg-transparent outline-none text-sm font-medium" placeholder="0.000" />
-            <div className="bg-white border-l border-gray-200 px-3 flex items-center text-[10px] font-black text-blue-600 uppercase">
+            <div className="bg-white border-l border-gray-200 px-3 flex items-center text-[10px] font-black uppercase" style={{ color: NAVY }}>
               {unitValue}
             </div>
           </div>
@@ -94,7 +96,6 @@ export default function Orders({ editingOrder, onComplete }) {
   const { register, handleSubmit, watch, setValue, reset, control, formState: { errors } } = useForm({
     defaultValues: {
       extraPercent: 5,
-      // ✅ DÜZELTİLDİ: DEFAULT_QTY_BY_SIZE artık constants/sizes'dan geliyor
       qtyBySize: DEFAULT_QTY_BY_SIZE,
       fabrics: DEFAULT_FABRICS
     }
@@ -111,8 +112,6 @@ export default function Orders({ editingOrder, onComplete }) {
         color: editingOrder.color,
         due: editingOrder.due,
         extraPercent: editingOrder.extra_percent || 5,
-        // ✅ Mevcut siparişin qty_by_size'ı DEFAULT üzerine merge ediliyor
-        // Yeni eklenen bedenler de formda sıfır olarak görünür
         qtyBySize: { ...DEFAULT_QTY_BY_SIZE, ...editingOrder.qty_by_size },
         fabrics: editingOrder.fabrics || DEFAULT_FABRICS,
         postProcesses: editingOrder.post_processes || "",
@@ -182,25 +181,21 @@ export default function Orders({ editingOrder, onComplete }) {
       />
 
       {status.msg && (
-        <div className={`fixed top-6 right-6 flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl z-50 text-white font-black text-[11px] uppercase ${status.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
+        <div className={`fixed top-6 right-6 flex items-center gap-3 px-6 py-4 rounded-xl shadow-lg z-50 text-white font-black text-[11px] uppercase ${status.type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`}>
           {status.type === 'success' ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
           {status.msg}
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-5 rounded-4xl shadow-sm border border-slate-100 sticky top-4 z-40 gap-4">
-        <div className="flex items-center gap-3">
-          <div className={`p-2.5 rounded-xl text-white shadow-lg ${editingOrder ? 'bg-blue-600' : 'bg-slate-900'}`}>
-            {editingOrder ? <RefreshCcw size={20} /> : <PlusCircle size={20} />}
-          </div>
-          <div>
-            <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tighter uppercase">
-              {editingOrder ? 'Siparişi Güncelle' : 'Yeni İş Emri'}
-            </h1>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">
-              {selectedOrderNo ? `Grup: ${selectedOrderNo}` : (editingOrder ? `Grup: ${editingOrder.order_no}` : 'Üretim Kayıt Girişi')}
-            </p>
-          </div>
+      {/* BAŞLIK + AKSİYON ÇUBUĞU */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-5 rounded-2xl border border-slate-100 sticky top-4 z-40 gap-4">
+        <div>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+            {selectedOrderNo ? `Grup: ${selectedOrderNo}` : (editingOrder ? `Grup: ${editingOrder.order_no}` : 'Üretim Kayıt Girişi')}
+          </p>
+          <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tighter uppercase mt-1">
+            {editingOrder ? 'Siparişi Güncelle' : 'Yeni İş Emri'}
+          </h1>
         </div>
         
         <div className="flex gap-2 w-full md:w-auto">
@@ -209,7 +204,7 @@ export default function Orders({ editingOrder, onComplete }) {
               <Link2 size={16} /> {selectedOrderNo ? 'Grubu Değiştir' : 'Siparişe Ekle'}
             </button>
           )}
-          <button type="submit" form="order-form" disabled={loading || uploading} className={`flex-1 md:flex-none flex items-center justify-center gap-2 text-white px-8 py-2.5 rounded-xl font-black text-[10px] uppercase shadow-lg transition-all ${editingOrder ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
+          <button type="submit" form="order-form" disabled={loading || uploading} className={`flex-1 md:flex-none flex items-center justify-center gap-2 text-white px-8 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all hover:opacity-90 ${!editingOrder ? 'bg-emerald-600 hover:bg-emerald-700' : ''}`} style={editingOrder ? { background: NAVY } : {}}>
             {loading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 
             {editingOrder ? 'Kaydet' : 'Siparişi Oluştur'}
           </button>
@@ -218,15 +213,15 @@ export default function Orders({ editingOrder, onComplete }) {
 
       <form id="order-form" className="grid gap-8" onSubmit={handleSubmit(onSubmit)}>
         {Object.keys(errors).length > 0 && (
-          <div className="bg-red-50 p-4 rounded-2xl border border-red-100 flex items-center gap-3 text-red-600 font-black text-[10px] uppercase tracking-widest">
+          <div className="bg-red-50 p-4 rounded-xl border border-red-100 flex items-center gap-3 text-red-600 font-black text-[10px] uppercase tracking-widest">
             <AlertCircle size={18} />
             Lütfen şu alanları kontrol edin: {Object.keys(errors).join(", ")}
           </div>
         )}
 
-        <section className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+        <section className="bg-white p-6 md:p-8 rounded-2xl border border-slate-100 space-y-6">
           <div className="flex items-center gap-2 border-b border-slate-50 pb-4">
-            <div className="w-1.5 h-4 bg-blue-600 rounded-full"></div>
+            <div className="w-1 h-4 rounded-full" style={{ background: NAVY }}></div>
             <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Temel Bilgiler</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5">
@@ -239,9 +234,9 @@ export default function Orders({ editingOrder, onComplete }) {
 
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-semibold text-slate-700 ml-1">Model Resmi</label>
-              <div className="relative h-10 bg-slate-50 rounded-xl border border-slate-200 flex items-center px-3 group hover:bg-white transition-all overflow-hidden cursor-pointer shadow-sm">
+              <div className="relative h-10 bg-slate-50 rounded-lg border border-slate-200 flex items-center px-3 group hover:bg-white transition-all overflow-hidden cursor-pointer">
                 {uploading ? (
-                   <div className="flex items-center gap-2 text-blue-600 font-black text-[9px] uppercase">
+                   <div className="flex items-center gap-2 font-black text-[9px] uppercase" style={{ color: NAVY }}>
                      <Loader2 size={14} className="animate-spin" /> Yükleniyor...
                    </div>
                 ) : (
@@ -251,7 +246,7 @@ export default function Orders({ editingOrder, onComplete }) {
                       <span className="text-[10px] font-black text-slate-500 uppercase truncate">
                         {modelImageWatcher ? "Resim Hazır ✅" : "Resim Yükle"}
                       </span>
-                      <UploadCloud size={16} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
+                      <UploadCloud size={16} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
                     </div>
                   </>
                 )}
@@ -264,7 +259,7 @@ export default function Orders({ editingOrder, onComplete }) {
 
         <section className="space-y-6">
           <div className="flex items-center gap-2 ml-4">
-            <div className="w-1.5 h-4 bg-blue-600 rounded-full"></div>
+            <div className="w-1 h-4 rounded-full" style={{ background: NAVY }}></div>
             <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Kumaş Detayları</h2>
           </div>
           <FabricCard id="main" label="Ana Kumaş" isMain={true} register={register} watch={watch} setValue={setValue} handleCapitalize={handleCapitalize} />
@@ -275,7 +270,7 @@ export default function Orders({ editingOrder, onComplete }) {
           </div>
         </section>
 
-        <section className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+        <section className="bg-white p-6 md:p-8 rounded-2xl border border-slate-100">
           <div className="flex flex-col gap-1.5">
               <label className="text-sm font-semibold text-slate-700 ml-1">Notlar</label>
               <textarea
@@ -285,7 +280,7 @@ export default function Orders({ editingOrder, onComplete }) {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') e.stopPropagation();
                 }}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-blue-50 focus:bg-white transition-all text-sm font-medium resize-none leading-relaxed"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:bg-white transition-all text-sm font-medium resize-none leading-relaxed"
               />
             </div>
         </section>
