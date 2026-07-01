@@ -27,6 +27,7 @@ export default function FabricManagement() {
   const [filterColor, setFilterColor] = useState('');
   const [summarySearch, setSummarySearch] = useState('');
   const [showArchivedFabric, setShowArchivedFabric] = useState(false);
+  const [showArchivedPos, setShowArchivedPos] = useState(false);
   const [showPoModal, setShowPoModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -240,6 +241,21 @@ export default function FabricManagement() {
       remaining: acc.remaining + r.remainingKg,
     }), { ordered: 0, received: 0, remaining: 0 });
   }, [filteredSummaryRows]);
+
+  // ✅ Geçilen Siparişler sekmesi için filtre
+  const filteredFabricOrders = useMemo(() => {
+    if (showArchivedPos) return fabricOrders;
+    return fabricOrders.filter(po => {
+      // PO'nun bağlı olduğu siparişlerden en az biri aktif ise göster
+      const items = po.fabric_order_items || [];
+      if (items.length === 0) return true; // bağlı sipariş yoksa göster
+      const hasActive = items.some(item => {
+        const ord = Array.isArray(item.orders) ? item.orders[0] : item.orders;
+        return ord && !ord.is_archived && ord.status !== 'archived';
+      });
+      return hasActive;
+    });
+  }, [fabricOrders, showArchivedPos]);
 
   const handleCreatePo = async (e) => {
     e.preventDefault();
@@ -515,11 +531,23 @@ export default function FabricManagement() {
           </div>
         </div>
       ) : activeTab === 'pos' ? (
-        <div className="grid grid-cols-1 gap-4">
-          {fabricOrders.length === 0 ? (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <button
+              onClick={() => setShowArchivedPos(!showArchivedPos)}
+              className={`flex items-center gap-2 px-5 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all shrink-0 ${
+                showArchivedPos ? 'text-white border-transparent' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
+              }`}
+              style={showArchivedPos ? { background: NAVY } : {}}
+            >
+              {showArchivedPos ? '✓ Arşiv Dahil' : 'Sadece Aktif'}
+            </button>
+          </div>
+          <div className="grid grid-cols-1 gap-4">
+          {filteredFabricOrders.length === 0 ? (
             <div className="border p-20 text-center rounded-2xl text-slate-300 font-black uppercase tracking-widest">Henüz geçilmiş bir kumaş satın alma siparişi yok.</div>
           ) : (
-            fabricOrders.map(po => (
+            filteredFabricOrders.map(po => (
               <div key={po.id} className="border border-slate-100 p-6 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div className="space-y-3 flex-1">
                   <div className="flex items-center gap-3">
@@ -576,6 +604,7 @@ export default function FabricManagement() {
               </div>
             ))
           )}
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
