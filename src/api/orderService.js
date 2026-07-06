@@ -347,6 +347,8 @@ export const createFabricPurchaseOrder = async (poData, selectedItems) => {
       fabric_type: poData.fabricType,
       color: poData.color,
       ordered_qty_kg: Number(poData.orderedQtyKg || 0),
+      unit_price: poData.unitPrice ? Number(poData.unitPrice) : null,
+      price_currency: poData.priceCurrency || 'EUR',
       status: 'pending'
     }])
     .select();
