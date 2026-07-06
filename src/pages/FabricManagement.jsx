@@ -269,7 +269,6 @@ export default function FabricManagement() {
     const selected = filteredFabricOrders.filter(po => selectedPoIds.includes(po.id));
     if (selected.length === 0) return;
 
-    // Her PO'nun pool items'ını hazırla
     const posWithItems = selected.map(po => {
       const itemsList = [];
       (po.fabric_order_items || []).forEach(item => {
@@ -291,6 +290,7 @@ export default function FabricManagement() {
                 width: fab.width || fab.widthCm || '190',
                 content: fab.content || '%100 Pamuk',
                 fabricColor: currentFabricColor,
+                // ✅ Elle girilen miktar — allocated_qty_kg (neededKg değil)
                 allocatedQtyKg: item.allocated_qty_kg
               });
             }
@@ -310,7 +310,22 @@ export default function FabricManagement() {
         }
       });
 
-      return { ...po, _poolItems: itemsList };
+      // ✅ PO'nun toplam elle girilen miktarını ordered_qty_kg'dan al
+      // Pool items toplamı değil, PO'nun kendisindeki kayıtlı toplam
+      const totalOrderedKg = Number(po.ordered_qty_kg || 0);
+      const itemCount = itemsList.length;
+
+      // Her kaleme oransal dağıt (eğer birden fazla artikel varsa)
+      const distributedItems = itemsList.map((item, idx) => {
+        const share = itemCount > 1
+          ? (idx === itemCount - 1
+            ? totalOrderedKg - itemsList.slice(0, -1).reduce((s, i) => s + Number(i.allocatedQtyKg || 0), 0)
+            : Number(item.allocatedQtyKg || 0))
+          : totalOrderedKg;
+        return { ...item, allocatedQtyKg: share };
+      });
+
+      return { ...po, _poolItems: distributedItems };
     });
 
     setPrintMultiPos(posWithItems);

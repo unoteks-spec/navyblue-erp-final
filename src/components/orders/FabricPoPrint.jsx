@@ -6,6 +6,7 @@ const NAVY = [30, 58, 95];
 const GRAY_TEXT = [55, 65, 81];
 const GRAY_LIGHT = [156, 163, 175];
 const LIGHT_BG = [248, 249, 250];
+const HEADER_BG = [241, 245, 249];
 
 export default function FabricPoPrint({ pos, onClose }) {
   const downloadStarted = useRef(false);
@@ -30,7 +31,6 @@ export default function FabricPoPrint({ pos, onClose }) {
     try {
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-      // Tüm PO'ların tedarikçisi aynı olmalı (zaten filtrelenmiş geliyor)
       const supplierName = pos[0]?.supplier_name || '—';
       const dateStr = new Date().toLocaleDateString('tr-TR');
 
@@ -44,14 +44,12 @@ export default function FabricPoPrint({ pos, onClose }) {
       doc.setTextColor(17, 24, 39);
       doc.text("Kumas Satin Alma Formu", 14, 28);
 
-      // Sipariş numaraları
       const poNos = pos.map(p => clearTurkishChars(p.fabric_po_no)).join(' / ');
       doc.setFont("Helvetica", "normal");
       doc.setFontSize(9);
       doc.setTextColor(...GRAY_TEXT);
       doc.text(`Siparis No: ${poNos}`, 14, 35);
 
-      // Sağ üst tarih
       doc.setFont("Helvetica", "bold");
       doc.setFontSize(9);
       doc.setTextColor(...NAVY);
@@ -61,7 +59,6 @@ export default function FabricPoPrint({ pos, onClose }) {
       doc.setTextColor(...GRAY_LIGHT);
       doc.text("TARIH", 196, 22, { align: 'right' });
 
-      // Ayraç çizgisi
       doc.setDrawColor(229, 231, 235);
       doc.setLineWidth(0.3);
       doc.line(14, 41, 196, 41);
@@ -77,100 +74,121 @@ export default function FabricPoPrint({ pos, onClose }) {
       doc.setTextColor(...NAVY);
       doc.text(clearTurkishChars(supplierName).toUpperCase(), 14, 57);
 
-      // ── TABLO ───────────────────────────────
-      // Tüm PO'lardan kalemleri topla ve tür+renk bazında grupla
-      const tableHeaders = [
-        ["Kumas Cinsi / Kalitesi", "Icerik", "Gramaj (GSM)", "En (cm)", "Kumas Rengi", "Miktar", "Birim Fiyat"]
-      ];
-
-      const grouped = {};
+      // ── GRUPLAMA: Kalite → Renkler ──────────
+      // Önce kalite bazında grupla
+      const byKind = {};
       pos.forEach(po => {
-        const poolItems = po._poolItems || [];
-        poolItems.forEach(item => {
-          const key = `${normalizeKey(item.fabricKind)}__${normalizeKey(item.fabricColor)}`;
-          if (!grouped[key]) {
-            grouped[key] = {
+        const items = po._poolItems || [];
+        items.forEach(item => {
+          const kindKey = normalizeKey(item.fabricKind);
+          if (!byKind[kindKey]) {
+            byKind[kindKey] = {
               fabricKind: item.fabricKind,
               content: item.content,
               gsm: item.gsm,
               width: item.width,
+              colors: {},
+              totalKg: 0,
+            };
+          }
+          const colorKey = normalizeKey(item.fabricColor);
+          if (!byKind[kindKey].colors[colorKey]) {
+            byKind[kindKey].colors[colorKey] = {
               fabricColor: item.fabricColor,
               totalKg: 0,
-              isMain: item.fabricKind && po._poolItems?.[0]?.fabricKind === item.fabricKind,
+              // ✅ Her rengin kendi PO fiyatını sakla
               unitPrice: po.unit_price || null,
               currency: po.price_currency || 'EUR',
             };
           }
-          grouped[key].totalKg += Number(item.allocatedQtyKg || item.neededKg || 0);
+          byKind[kindKey].colors[colorKey].totalKg += Number(item.allocatedQtyKg || 0);
+          byKind[kindKey].totalKg += Number(item.allocatedQtyKg || 0);
         });
       });
 
-      const grandTotal = Object.values(grouped).reduce((sum, g) => sum + g.totalKg, 0);
+      // Kaliteleri toplam kg'a göre büyükten küçüğe sırala
+      const sortedKinds = Object.values(byKind).sort((a, b) => b.totalKg - a.totalKg);
 
-      const tableRows = Object.values(grouped)
-        .sort((a, b) => {
-          // Ana kumaş (main) her zaman üstte
-          if (a.isMain && !b.isMain) return -1;
-          if (!a.isMain && b.isMain) return 1;
-          // Sonra kg'a göre büyükten küçüğe
-          return b.totalKg - a.totalKg;
-        })
-        .map(g => {
-        const priceStr = g.unitPrice
-          ? `${Number(g.unitPrice).toFixed(2)} ${g.currency}/KG`
-          : '—';
-        return [
-          clearTurkishChars(g.fabricKind).toUpperCase(),
-          clearTurkishChars(g.content).toUpperCase(),
-          `${g.gsm}`,
-          `${g.width}`,
-          clearTurkishChars(g.fabricColor).toUpperCase(),
-          `${g.totalKg} KG`,
-          priceStr,
-        ];
+      // ── TABLO SATIRLARI ───────────────────────
+      const tableHeaders = [
+        ["Kumas Cinsi / Kalitesi", "Icerik", "Gramaj", "En (cm)", "Kumas Rengi", "Miktar", "Birim Fiyat"]
+      ];
+
+      const tableRows = [];
+
+      sortedKinds.forEach(kind => {
+        const colorEntries = Object.values(kind.colors).sort((a, b) => b.totalKg - a.totalKg);
+
+        if (colorEntries.length === 1) {
+          // Tek renk — tek satır, fiyat bu satırda
+          const ce = colorEntries[0];
+          const priceStr = ce.unitPrice
+            ? `${Number(ce.unitPrice).toFixed(2)} ${ce.currency}/KG`
+            : '—';
+          tableRows.push([
+            { content: clearTurkishChars(kind.fabricKind).toUpperCase(), styles: { fontStyle: 'bold', textColor: [17, 24, 39] } },
+            clearTurkishChars(kind.content).toUpperCase(),
+            `${kind.gsm}`,
+            `${kind.width}`,
+            clearTurkishChars(ce.fabricColor).toUpperCase(),
+            { content: `${kind.totalKg} KG`, styles: { fontStyle: 'bold', halign: 'right' } },
+            { content: priceStr, styles: { halign: 'right' } },
+          ]);
+        } else {
+          // Birden fazla renk — kalite başlık satırı (fiyatsız) + renk satırları (fiyatlı)
+          tableRows.push([
+            { content: clearTurkishChars(kind.fabricKind).toUpperCase(), styles: { fontStyle: 'bold', textColor: [17, 24, 39], fillColor: HEADER_BG } },
+            { content: clearTurkishChars(kind.content).toUpperCase(), styles: { fillColor: HEADER_BG } },
+            { content: `${kind.gsm}`, styles: { fillColor: HEADER_BG, halign: 'center' } },
+            { content: `${kind.width}`, styles: { fillColor: HEADER_BG, halign: 'center' } },
+            { content: `${colorEntries.length} Renk`, styles: { fillColor: HEADER_BG, textColor: GRAY_LIGHT, fontStyle: 'bold' } },
+            { content: `${kind.totalKg} KG`, styles: { fontStyle: 'bold', halign: 'right', fillColor: HEADER_BG, textColor: NAVY } },
+            { content: '', styles: { fillColor: HEADER_BG } },
+          ]);
+
+          // Her renk için alt satır — fiyat burada
+          colorEntries.forEach(ce => {
+            const priceStr = ce.unitPrice
+              ? `${Number(ce.unitPrice).toFixed(2)} ${ce.currency}/KG`
+              : '—';
+            tableRows.push([
+              '',
+              '',
+              '',
+              '',
+              { content: `  > ${clearTurkishChars(ce.fabricColor).toUpperCase()}`, styles: { textColor: GRAY_TEXT } },
+              { content: `${ce.totalKg} KG`, styles: { halign: 'right', textColor: GRAY_TEXT } },
+              { content: priceStr, styles: { halign: 'right', textColor: GRAY_TEXT } },
+            ]);
+          });
+        }
       });
 
-      // Toplam + tutar satırı
-      const hasPrice = Object.values(grouped).some(g => g.unitPrice);
+      // Toplam satırı
+      const grandTotal = pos.reduce((sum, po) => sum + Number(po.ordered_qty_kg || 0), 0);
       tableRows.push([
-        {
-          content: 'TOPLAM SIPARIS MIKTARI',
-          colSpan: 5,
-          styles: { halign: 'right', fontStyle: 'bold', fillColor: LIGHT_BG, textColor: GRAY_TEXT }
-        },
-        {
-          content: `${grandTotal} KG`,
-          styles: { fontStyle: 'bold', textColor: NAVY, fillColor: LIGHT_BG, halign: 'right', fontSize: 10 }
-        },
+        { content: 'TOPLAM SIPARIS MIKTARI', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: LIGHT_BG, textColor: GRAY_TEXT } },
+        { content: `${grandTotal} KG`, styles: { fontStyle: 'bold', textColor: NAVY, fillColor: LIGHT_BG, halign: 'right', fontSize: 10 } },
         { content: '', styles: { fillColor: LIGHT_BG } }
       ]);
 
-      // Toplam tutar satırı (fiyat varsa)
-      if (hasPrice) {
-        // Her grup için tutar hesapla
-        const totalAmounts = {};
-        Object.values(grouped).forEach(g => {
-          if (!g.unitPrice) return;
-          const cur = g.currency;
+      // Toplam tutar renk bazında hesapla
+      const totalAmounts = {};
+      sortedKinds.forEach(kind => {
+        Object.values(kind.colors).forEach(ce => {
+          if (!ce.unitPrice) return;
+          const cur = ce.currency;
           if (!totalAmounts[cur]) totalAmounts[cur] = 0;
-          totalAmounts[cur] += g.totalKg * Number(g.unitPrice);
+          totalAmounts[cur] += ce.totalKg * Number(ce.unitPrice);
         });
+      });
 
-        Object.entries(totalAmounts).forEach(([cur, amount]) => {
-          tableRows.push([
-            {
-              content: `TOPLAM TUTAR (${cur})`,
-              colSpan: 5,
-              styles: { halign: 'right', fontStyle: 'bold', fillColor: LIGHT_BG, textColor: GRAY_TEXT }
-            },
-            {
-              content: `${amount.toFixed(2)} ${cur}`,
-              colSpan: 2,
-              styles: { fontStyle: 'bold', textColor: NAVY, fillColor: LIGHT_BG, halign: 'right', fontSize: 10 }
-            },
-          ]);
-        });
-      }
+      Object.entries(totalAmounts).forEach(([cur, amount]) => {
+        tableRows.push([
+          { content: `TOPLAM TUTAR (${cur})`, colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: LIGHT_BG, textColor: GRAY_TEXT } },
+          { content: `${amount.toFixed(2)} ${cur}`, colSpan: 2, styles: { fontStyle: 'bold', textColor: NAVY, fillColor: LIGHT_BG, halign: 'right', fontSize: 10 } },
+        ]);
+      });
 
       autoTable(doc, {
         startY: 67,
@@ -186,22 +204,23 @@ export default function FabricPoPrint({ pos, onClose }) {
           halign: 'left',
           lineWidth: { bottom: 0.4 },
           lineColor: NAVY,
-          cellPadding: { top: 0, bottom: 6, left: 0, right: 0 },
+          cellPadding: { top: 0, bottom: 4, left: 0, right: 0 },
         },
         bodyStyles: {
           fontSize: 9,
           textColor: GRAY_TEXT,
           lineWidth: { bottom: 0.2 },
           lineColor: [229, 231, 235],
-          cellPadding: { top: 7, bottom: 7, left: 0, right: 0 },
+          cellPadding: { top: 3, bottom: 3, left: 0, right: 0 },
         },
         columnStyles: {
-          0: { halign: 'left', fontStyle: 'bold', textColor: [17, 24, 39] },
-          2: { halign: 'center' },
-          3: { halign: 'center' },
-          4: { halign: 'left' },
-          5: { halign: 'right', fontStyle: 'bold' },
-          6: { halign: 'right' },
+          0: { halign: 'left', cellWidth: 40 },
+          1: { halign: 'left', cellWidth: 30 },
+          2: { halign: 'center', cellWidth: 16 },
+          3: { halign: 'center', cellWidth: 16 },
+          4: { halign: 'left', cellWidth: 'auto' },
+          5: { halign: 'right', cellWidth: 22 },
+          6: { halign: 'right', cellWidth: 28 },
         },
         margin: { left: 14, right: 14 }
       });
