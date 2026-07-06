@@ -101,7 +101,7 @@ export default function FabricManagement() {
             neededQty,
             unit: fab.unit || 'KG',
             gsm: fab.gsm || '—',
-            width: fab.width || fab.widthCm || '190',
+            width: fab.width || fab.widthCm || '—',
             content: fab.content || '%100 Pamuk',
           });
         });
@@ -287,7 +287,7 @@ export default function FabricManagement() {
                 customer: dbOrder.customer || '—',
                 fabricKind: fab.kind || '—',
                 gsm: fab.gsm || '—',
-                width: fab.width || fab.widthCm || '190',
+                width: fab.width || fab.widthCm || '—',
                 content: fab.content || '%100 Pamuk',
                 fabricColor: currentFabricColor,
                 // ✅ Elle girilen miktar — allocated_qty_kg (neededKg değil)
@@ -302,8 +302,8 @@ export default function FabricManagement() {
             customer: dbOrder.customer || '—',
             fabricKind: po.fabric_type || '—',
             gsm: '—',
-            width: '190',
-            content: '%100 Pamuk',
+            width: '—',
+            content: '—',
             fabricColor: po.color || '—',
             allocatedQtyKg: item.allocated_qty_kg
           });
@@ -438,7 +438,7 @@ export default function FabricManagement() {
               customer: dbOrder.customer || '—',
               fabricKind: fab.kind || '—',
               gsm: fab.gsm || '—',
-              width: fab.width || fab.widthCm || '190',
+              width: fab.width || fab.widthCm || '—',
               content: fab.content || '%100 Pamuk',
               fabricColor: currentFabricColor,
               allocatedQtyKg: item.allocated_qty_kg
