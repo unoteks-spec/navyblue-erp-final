@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { getAllOrders } from '../api/orderService';
 import { 
-  MapPin, CheckCircle2, FileBarChart, Printer, Truck, 
-  ChevronDown, ChevronUp, PackageCheck
+  MapPin, CheckCircle2, FileBarChart, Truck, 
+  ChevronDown, ChevronUp, PackageCheck, FileSpreadsheet
 } from 'lucide-react';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import { SIZE_ORDER } from '../constants/sizes';
 
 const NAVY = '#1e3a5f';
@@ -42,7 +44,131 @@ export default function ProductionReport() {
     return stageMap[key] || 'KESİM BEKLİYOR';
   };
 
-  const handlePrint = () => { window.print(); };
+  const exportToExcel = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Siparis Listesi');
+
+    const getDisplayLabelLocal = (s) => {
+      const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
+      return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
+    };
+
+    // Aktif bedenleri topla (sadece qty_by_size > 0 olanlar)
+    const allSizes = new Set();
+    filteredOrders.forEach(o => {
+      SIZE_ORDER.forEach(s => {
+        if (Number(o.qty_by_size?.[s] || 0) > 0) allSizes.add(s);
+      });
+    });
+    const sortedSizes = SIZE_ORDER.filter(s => allSizes.has(s));
+
+    const colCount = 3 + sortedSizes.length + 1; // Artikel + Model + Renk + bedenler + Toplam
+    const dateStr = new Date().toLocaleDateString('tr-TR');
+    const customers = [...new Set(filteredOrders.map(o => o.customer).filter(Boolean))];
+    const orderNos = [...new Set(filteredOrders.map(o => o.order_no).filter(Boolean))];
+
+    // ── BAŞLIK — diğer Excel dosyalarıyla aynı format ──
+    // Satır 1-2: Lacivert dolgu, beyaz büyük başlık
+    worksheet.mergeCells(1, 1, 2, colCount);
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = `SIPARIS LISTESI — ${customers.join(', ')}`;
+    titleCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    worksheet.getRow(1).height = 32;
+    worksheet.getRow(2).height = 32;
+
+    // Boş ayraç
+    worksheet.addRow([]);
+
+    // Satır 4: Order No sola, Tarih sağa
+    worksheet.mergeCells(4, 1, 4, colCount - 2);
+    const orderCell = worksheet.getCell('A4');
+    orderCell.value = `Order No: ${orderNos.map(n => '#' + n).join('  ')}`;
+    orderCell.font = { size: 9, bold: true, color: { argb: 'FF6B7280' } };
+    orderCell.alignment = { horizontal: 'left', vertical: 'middle' };
+    worksheet.mergeCells(4, colCount - 1, 4, colCount);
+    const dateCell = worksheet.getCell(4, colCount - 1);
+    dateCell.value = dateStr;
+    dateCell.font = { size: 9, bold: true, color: { argb: 'FF1E3A5F' } };
+    dateCell.alignment = { horizontal: 'right', vertical: 'middle' };
+    worksheet.getRow(4).height = 18;
+
+    // Boş ayraç
+    worksheet.addRow([]);
+
+    // ── TABLO BAŞLIĞI ──────────────────────
+    const headerRow = worksheet.addRow([
+      'Artikel', 'Model', 'Renk',
+      ...sortedSizes.map(s => getDisplayLabelLocal(s)),
+      'Toplam'
+    ]);
+    headerRow.height = 22;
+    headerRow.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+      cell.font = { bold: true, color: { argb: 'FF9CA3AF' }, size: 9 };
+      cell.border = { bottom: { style: 'medium', color: { argb: 'FF1E3A5F' } } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+    // İlk 3 sütun sola yaslı
+    [1, 2, 3].forEach(c => {
+      worksheet.getCell(headerRow.number, c).alignment = { horizontal: 'left', vertical: 'middle' };
+    });
+
+    // ── VERİ SATIRLARI ──────────────────────
+    filteredOrders.forEach(o => {
+      const total = sortedSizes.reduce((sum, s) => sum + Number(o.qty_by_size?.[s] || 0), 0);
+      const rowData = [
+        o.article || '',
+        o.model || '',
+        o.color || '',
+        ...sortedSizes.map(s => {
+          const val = Number(o.qty_by_size?.[s] || 0);
+          return val > 0 ? val : '';
+        }),
+        total,
+      ];
+
+      const row = worksheet.addRow(rowData);
+      row.eachCell((cell, colNumber) => {
+        cell.border = { bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } } };
+        cell.alignment = { horizontal: colNumber <= 3 ? 'left' : 'center', vertical: 'middle' };
+        // Toplam sütunu kalın lacivert
+        if (colNumber === colCount) {
+          cell.font = { bold: true, color: { argb: 'FF1E3A5F' } };
+        }
+      });
+    });
+
+    // ── GENEL TOPLAM SATIRI ──────────────────
+    const totalRow = worksheet.addRow([
+      'GENEL TOPLAM', '', '',
+      ...sortedSizes.map(s =>
+        filteredOrders.reduce((sum, o) => sum + Number(o.qty_by_size?.[s] || 0), 0)
+      ),
+      filteredOrders.reduce((sum, o) =>
+        sum + sortedSizes.reduce((s2, sz) => s2 + Number(o.qty_by_size?.[sz] || 0), 0), 0
+      ),
+    ]);
+    totalRow.eachCell((cell, colNumber) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } };
+      cell.border = { top: { style: 'medium', color: { argb: 'FF1E3A5F' } } };
+      cell.font = { bold: true, color: { argb: 'FF1E3A5F' } };
+      cell.alignment = { horizontal: colNumber <= 3 ? 'left' : 'center', vertical: 'middle' };
+    });
+
+    // ── SÜTUN GENİŞLİKLERİ ──────────────────
+    worksheet.getColumn(1).width = 14; // Artikel
+    worksheet.getColumn(2).width = 22; // Model
+    worksheet.getColumn(3).width = 18; // Renk
+    for (let i = 4; i <= 3 + sortedSizes.length; i++) {
+      worksheet.getColumn(i).width = 8;
+    }
+    worksheet.getColumn(colCount).width = 10; // Toplam
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), `siparis-listesi-${dateStr.replace(/\./g, '-')}.xlsx`);
+  };
 
   const filteredOrders = orders.filter(o => {
     const isArchived = o.status === 'archived' || o.is_archived === true;
@@ -81,8 +207,8 @@ export default function ProductionReport() {
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Navy Blue ERP Systems</p>
           <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter leading-none mt-1">Üretim Raporu</h1>
         </div>
-        <button onClick={handlePrint} className="flex items-center gap-2 px-6 py-2.5 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:opacity-90 transition-opacity" style={{ background: NAVY }}>
-          <Printer size={16} /> Yazdır / PDF Kaydet
+        <button onClick={exportToExcel} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-50 text-emerald-600 rounded-xl font-black text-[10px] uppercase border border-emerald-100 hover:bg-emerald-600 hover:text-white transition-all">
+          <FileSpreadsheet size={16} /> Excel İndir
         </button>
       </div>
 
@@ -205,6 +331,21 @@ export default function ProductionReport() {
                                 </tr>
                               </thead>
                               <tbody className="font-bold">
+                                <tr className="border-b border-slate-100">
+                                  <td className="py-2.5 px-4 text-left font-black text-slate-600 bg-slate-50/80 sticky left-0 text-[10px]">SİPARİŞ</td>
+                                  {activeSizes.map(s => <td key={s} className="py-2.5 px-3 border-l border-slate-100 text-slate-700 font-bold">{o.qty_by_size?.[s] || 0}</td>)}
+                                  <td className="py-2.5 px-4 text-right font-black text-slate-700 bg-slate-50">{pTotal}</td>
+                                </tr>
+                                <tr className="border-b border-slate-100">
+                                  <td className="py-2.5 px-4 text-left font-black text-slate-500 bg-slate-50/80 sticky left-0 text-[10px]">PLANLANAN</td>
+                                  {activeSizes.map(s => {
+                                    const planned = Math.ceil(Number(o.qty_by_size?.[s] || 0) * (1 + Number(o.extra_percent || 5) / 100));
+                                    return <td key={s} className="py-2.5 px-3 border-l border-slate-100 text-slate-500 font-bold">{planned || 0}</td>;
+                                  })}
+                                  <td className="py-2.5 px-4 text-right font-black text-slate-500 bg-slate-50">
+                                    {Math.ceil(pTotal * (1 + Number(o.extra_percent || 5) / 100))}
+                                  </td>
+                                </tr>
                                 <tr className="border-b border-slate-100">
                                   <td className="py-2.5 px-4 text-left font-black text-emerald-600 bg-slate-50/80 sticky left-0 text-[10px]">KESİLEN</td>
                                   {activeSizes.map(s => <td key={s} className="py-2.5 px-3 border-l border-slate-100 text-emerald-700 font-black">{normCut[s] || 0}</td>)}
