@@ -43,14 +43,26 @@ export default function FabricPoPrint({ pos, onClose }) {
       // ✅ Önce tanımla, sonra kullan
       const poNos = pos.map(p => clearTurkishChars(p.fabric_po_no)).join(' / ');
 
-      doc.setFontSize(20);
-      doc.setTextColor(17, 24, 39);
-      doc.text("Kumas Satin Alma Formu", 14, 27);
+      // Bağlı üretim sipariş numaraları
+      const orderNos = [...new Set(
+        pos.flatMap(po =>
+          (po.fabric_order_items || []).map(item => {
+            const ord = Array.isArray(item.orders) ? item.orders[0] : item.orders;
+            return ord?.order_no || null;
+          }).filter(Boolean)
+        )
+      )].join(', ');
 
+      doc.setFont("Helvetica", "bold");
+      doc.setFontSize(18);
+      doc.setTextColor(17, 24, 39);
+      doc.text(`Kumas Satin Alma Formu  #${orderNos || poNos}`, 14, 28);
+
+      // Kumaş PO numaraları küçük yazı ile altında
       doc.setFont("Helvetica", "normal");
-      doc.setFontSize(9);
+      doc.setFontSize(8.5);
       doc.setTextColor(...GRAY_TEXT);
-      doc.text(`#${poNos}`, 14, 34);
+      doc.text(`Kumas PO: ${poNos}`, 14, 34);
 
       doc.setFont("Helvetica", "bold");
       doc.setFontSize(9);
