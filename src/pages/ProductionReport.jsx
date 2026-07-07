@@ -67,55 +67,68 @@ export default function ProductionReport() {
     const customers = [...new Set(filteredOrders.map(o => o.customer).filter(Boolean))];
     const orderNos = [...new Set(filteredOrders.map(o => o.order_no).filter(Boolean))];
 
-    // ── BAŞLIK — diğer Excel dosyalarıyla aynı format ──
-    // Satır 1-2: Lacivert dolgu, beyaz büyük başlık
-    worksheet.mergeCells(1, 1, 2, colCount);
+    // ── BAŞLIK — orijinal dosya formatı ──
+    // Satır 1: Lacivert dolgu başlık
+    worksheet.mergeCells(1, 1, 1, colCount);
     const titleCell = worksheet.getCell('A1');
-    titleCell.value = `SIPARIS LISTESI — ${customers.join(', ')}`;
-    titleCell.font = { size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+    titleCell.value = `SIPARIS LISTESI — ${customers.join(', ').toUpperCase()}`;
+    titleCell.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
     titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    worksheet.getRow(1).height = 32;
-    worksheet.getRow(2).height = 32;
+    worksheet.getRow(1).height = 28;
 
-    // Boş ayraç
+    // Satır 2: Boş
     worksheet.addRow([]);
+    worksheet.getRow(2).height = 4;
 
-    // Satır 4: Order No sola, Tarih sağa
-    worksheet.mergeCells(4, 1, 4, colCount - 2);
-    const orderCell = worksheet.getCell('A4');
-    orderCell.value = `Order No: ${orderNos.map(n => '#' + n).join('  ')}`;
-    orderCell.font = { size: 9, bold: true, color: { argb: 'FF6B7280' } };
-    orderCell.alignment = { horizontal: 'left', vertical: 'middle' };
-    worksheet.mergeCells(4, colCount - 1, 4, colCount);
-    const dateCell = worksheet.getCell(4, colCount - 1);
-    dateCell.value = dateStr;
-    dateCell.font = { size: 9, bold: true, color: { argb: 'FF1E3A5F' } };
-    dateCell.alignment = { horizontal: 'right', vertical: 'middle' };
-    worksheet.getRow(4).height = 18;
+    // Satır 3: Müşteri sola, Tarih sağa
+    const row3 = worksheet.addRow([]);
+    worksheet.getCell(3, 1).value = 'Müşteri: ';
+    worksheet.getCell(3, 1).font = { name: 'Arial', size: 9, bold: true };
+    worksheet.getCell(3, 2).value = customers.join(', ');
+    worksheet.getCell(3, 2).font = { name: 'Arial', size: 9, bold: true };
+    worksheet.getCell(3, colCount).value = dateStr;
+    worksheet.getCell(3, colCount).font = { name: 'Arial', size: 9, bold: true };
+    worksheet.getCell(3, colCount).alignment = { horizontal: 'right' };
+    worksheet.getRow(3).height = 14;
 
-    // Boş ayraç
+    // Satır 4: Order No
     worksheet.addRow([]);
+    worksheet.getCell(4, 1).value = 'Order No:';
+    worksheet.getCell(4, 1).font = { name: 'Arial', size: 9, bold: true };
+    worksheet.getCell(4, 2).value = orderNos.map(n => '#' + n).join('  ');
+    worksheet.getCell(4, 2).font = { name: 'Arial', size: 9, bold: true };
+    worksheet.getRow(4).height = 14;
 
-    // ── TABLO BAŞLIĞI ──────────────────────
+    // Satır 5: Termin (boş)
+    worksheet.addRow([]);
+    worksheet.getCell(5, 1).value = 'Termin:';
+    worksheet.getCell(5, 1).font = { name: 'Arial', size: 9, bold: true };
+    worksheet.getRow(5).height = 14;
+
+    // Satır 6-8: Boş
+    worksheet.addRow([]); worksheet.getRow(6).height = 4;
+    worksheet.addRow([]); worksheet.getRow(7).height = 4;
+    worksheet.addRow([]); worksheet.getRow(8).height = 4;
+
+    // ── TABLO BAŞLIĞI — 4 taraflı thin border ──────────────────────
+    const allThin = { style: 'thin', color: { argb: 'FF000000' } };
+    const allThinBorder = { top: allThin, bottom: allThin, left: allThin, right: allThin };
+
     const headerRow = worksheet.addRow([
       'Artikel', 'Model', 'Renk',
       ...sortedSizes.map(s => getDisplayLabelLocal(s)),
       'Toplam'
     ]);
-    headerRow.height = 22;
-    headerRow.eachCell((cell) => {
+    headerRow.height = 16;
+    headerRow.eachCell((cell, colNumber) => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
-      cell.font = { bold: true, color: { argb: 'FF9CA3AF' }, size: 9 };
-      cell.border = { bottom: { style: 'medium', color: { argb: 'FF1E3A5F' } } };
-      cell.alignment = { horizontal: 'center', vertical: 'middle' };
-    });
-    // İlk 3 sütun sola yaslı
-    [1, 2, 3].forEach(c => {
-      worksheet.getCell(headerRow.number, c).alignment = { horizontal: 'left', vertical: 'middle' };
+      cell.font = { name: 'Arial', bold: true, size: 9 };
+      cell.border = allThinBorder;
+      cell.alignment = { horizontal: colNumber <= 3 ? 'left' : 'center', vertical: 'middle' };
     });
 
-    // ── VERİ SATIRLARI ──────────────────────
+    // ── VERİ SATIRLARI — 4 taraflı thin border ──────────────────────
     filteredOrders.forEach(o => {
       const total = sortedSizes.reduce((sum, s) => sum + Number(o.qty_by_size?.[s] || 0), 0);
       const rowData = [
@@ -130,17 +143,15 @@ export default function ProductionReport() {
       ];
 
       const row = worksheet.addRow(rowData);
+      row.height = 16;
       row.eachCell((cell, colNumber) => {
-        cell.border = { bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } } };
+        cell.border = allThinBorder;
+        cell.font = { name: 'Arial', size: 11, bold: colNumber === colCount };
         cell.alignment = { horizontal: colNumber <= 3 ? 'left' : 'center', vertical: 'middle' };
-        // Toplam sütunu kalın lacivert
-        if (colNumber === colCount) {
-          cell.font = { bold: true, color: { argb: 'FF1E3A5F' } };
-        }
       });
     });
 
-    // ── GENEL TOPLAM SATIRI ──────────────────
+    // ── GENEL TOPLAM SATIRI — border yok ──────────────────
     const totalRow = worksheet.addRow([
       'GENEL TOPLAM', '', '',
       ...sortedSizes.map(s =>
@@ -150,24 +161,24 @@ export default function ProductionReport() {
         sum + sortedSizes.reduce((s2, sz) => s2 + Number(o.qty_by_size?.[sz] || 0), 0), 0
       ),
     ]);
+    totalRow.height = 16;
     totalRow.eachCell((cell, colNumber) => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FA' } };
-      cell.border = { top: { style: 'medium', color: { argb: 'FF1E3A5F' } } };
-      cell.font = { bold: true, color: { argb: 'FF1E3A5F' } };
+      cell.font = { name: 'Arial', bold: true, size: 11 };
       cell.alignment = { horizontal: colNumber <= 3 ? 'left' : 'center', vertical: 'middle' };
     });
 
     // ── SÜTUN GENİŞLİKLERİ ──────────────────
-    worksheet.getColumn(1).width = 14; // Artikel
-    worksheet.getColumn(2).width = 22; // Model
-    worksheet.getColumn(3).width = 18; // Renk
+    worksheet.getColumn(1).width = 18;
+    worksheet.getColumn(2).width = 22;
+    worksheet.getColumn(3).width = 16;
     for (let i = 4; i <= 3 + sortedSizes.length; i++) {
-      worksheet.getColumn(i).width = 8;
+      worksheet.getColumn(i).width = 7;
     }
-    worksheet.getColumn(colCount).width = 10; // Toplam
+    worksheet.getColumn(colCount).width = 9;
 
     const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `siparis-listesi-${dateStr.replace(/\./g, '-')}.xlsx`);
+    const customerSlug = customers.join('-').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+    saveAs(new Blob([buffer]), `${customerSlug}-siparis-listesi-${dateStr.replace(/\./g, '-')}.xlsx`);
   };
 
   const filteredOrders = orders.filter(o => {
