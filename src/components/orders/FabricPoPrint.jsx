@@ -40,39 +40,38 @@ export default function FabricPoPrint({ pos, onClose }) {
       doc.setTextColor(...GRAY_LIGHT);
       doc.text("ALFA SPOR GIYIM SAN. TIC. LTD. STI.", 14, 18);
 
-      doc.setFontSize(22);
-      doc.setTextColor(17, 24, 39);
-      doc.text("Kumas Satin Alma Formu", 14, 28);
-
+      // ✅ Önce tanımla, sonra kullan
       const poNos = pos.map(p => clearTurkishChars(p.fabric_po_no)).join(' / ');
+
+      doc.setFontSize(20);
+      doc.setTextColor(17, 24, 39);
+      doc.text("Kumas Satin Alma Formu", 14, 27);
+
       doc.setFont("Helvetica", "normal");
       doc.setFontSize(9);
       doc.setTextColor(...GRAY_TEXT);
-      doc.text(`Siparis No: ${poNos}`, 14, 35);
+      doc.text(`#${poNos}`, 14, 34);
 
       doc.setFont("Helvetica", "bold");
       doc.setFontSize(9);
       doc.setTextColor(...NAVY);
       doc.text(dateStr, 196, 18, { align: 'right' });
-      doc.setFont("Helvetica", "normal");
-      doc.setFontSize(7.5);
-      doc.setTextColor(...GRAY_LIGHT);
-      doc.text("TARIH", 196, 22, { align: 'right' });
+
 
       doc.setDrawColor(229, 231, 235);
       doc.setLineWidth(0.3);
-      doc.line(14, 41, 196, 41);
+      doc.line(14, 37, 196, 37);
 
       // ── TEDARİKÇİ ───────────────────────────
       doc.setFont("Helvetica", "bold");
       doc.setFontSize(7.5);
       doc.setTextColor(...GRAY_LIGHT);
-      doc.text("TEDARIKCI FIRMA", 14, 50);
+      doc.text("TEDARIKCI FIRMA", 14, 46);
 
       doc.setFont("Helvetica", "bold");
       doc.setFontSize(13);
       doc.setTextColor(...NAVY);
-      doc.text(clearTurkishChars(supplierName).toUpperCase(), 14, 57);
+      doc.text(clearTurkishChars(supplierName).toUpperCase(), 14, 53);
 
       // ── GRUPLAMA: Kalite → Renkler ──────────
       // Önce kalite bazında grupla
@@ -191,7 +190,7 @@ export default function FabricPoPrint({ pos, onClose }) {
       });
 
       autoTable(doc, {
-        startY: 67,
+        startY: 62,
         head: tableHeaders,
         body: tableRows,
         theme: 'plain',

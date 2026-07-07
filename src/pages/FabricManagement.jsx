@@ -162,7 +162,12 @@ export default function FabricManagement() {
         const poOrdered = Number(po.ordered_qty_kg || 0);
         const poReceived = Number(po.received_qty_kg || 0);
         const itemAllocated = Number(item.allocated_qty_kg || 0);
-        const ratio = poOrdered > 0 ? itemAllocated / poOrdered : 0;
+        // ✅ Elle girilen toplam kg: PO'daki ordered_qty_kg
+        // Oran hesabı: bu kalemin PO toplamına oranı
+        const totalAllocated = (po.fabric_order_items || []).reduce((s, i) => s + Number(i.allocated_qty_kg || 0), 0);
+        const ratio = totalAllocated > 0 ? itemAllocated / totalAllocated : 0;
+        // Elle girilen miktarın bu kaleme düşen payı
+        const itemOrderedKg = poOrdered * ratio;
         const itemReceived = poReceived * ratio;
 
         rows.push({
@@ -176,9 +181,9 @@ export default function FabricManagement() {
           fabKey: item.fab_key,
           isMain: item.fab_key === 'main',
           isArchived: ord.is_archived === true || ord.status === 'archived',
-          orderedKg: itemAllocated,
+          orderedKg: itemOrderedKg,
           receivedKg: itemReceived,
-          remainingKg: Math.max(0, itemAllocated - itemReceived),
+          remainingKg: Math.max(0, itemOrderedKg - itemReceived),
           status: po.status,
           supplier: po.supplier_name,
         });
