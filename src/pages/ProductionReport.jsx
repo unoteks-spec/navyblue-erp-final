@@ -68,6 +68,20 @@ export default function ProductionReport() {
     const orderNos = [...new Set(filteredOrders.map(o => o.order_no).filter(Boolean))];
 
     // ── BAŞLIK — orijinal dosya formatı ──
+    const ROW_H = 18; // Tüm satırlar eşit yükseklikte
+    const terminDate = filteredOrders.find(o => o.due)?.due
+      ? new Date(filteredOrders.find(o => o.due).due).toLocaleDateString('tr-TR')
+      : '';
+
+    // A4 yatay baskı ayarları
+    worksheet.pageSetup.orientation = 'landscape';
+    worksheet.pageSetup.paperSize = 9; // A4
+    worksheet.pageSetup.fitToPage = true;
+    worksheet.pageSetup.fitToWidth = 1;
+    worksheet.pageSetup.fitToHeight = 0;
+    worksheet.pageSetup.horizontalCentered = true;
+    worksheet.pageSetup.margins = { left: 0.5, right: 0.5, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 };
+
     // Satır 1: Lacivert dolgu başlık
     worksheet.mergeCells(1, 1, 1, colCount);
     const titleCell = worksheet.getCell('A1');
@@ -75,14 +89,14 @@ export default function ProductionReport() {
     titleCell.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
     titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
-    worksheet.getRow(1).height = 28;
+    worksheet.getRow(1).height = ROW_H;
 
     // Satır 2: Boş
     worksheet.addRow([]);
-    worksheet.getRow(2).height = 4;
+    worksheet.getRow(2).height = ROW_H;
 
     // Satır 3: Müşteri sola, Tarih sağa
-    const row3 = worksheet.addRow([]);
+    worksheet.addRow([]);
     worksheet.getCell(3, 1).value = 'Müşteri: ';
     worksheet.getCell(3, 1).font = { name: 'Arial', size: 9, bold: true };
     worksheet.getCell(3, 2).value = customers.join(', ');
@@ -90,7 +104,7 @@ export default function ProductionReport() {
     worksheet.getCell(3, colCount).value = dateStr;
     worksheet.getCell(3, colCount).font = { name: 'Arial', size: 9, bold: true };
     worksheet.getCell(3, colCount).alignment = { horizontal: 'right' };
-    worksheet.getRow(3).height = 14;
+    worksheet.getRow(3).height = ROW_H;
 
     // Satır 4: Order No
     worksheet.addRow([]);
@@ -98,18 +112,20 @@ export default function ProductionReport() {
     worksheet.getCell(4, 1).font = { name: 'Arial', size: 9, bold: true };
     worksheet.getCell(4, 2).value = orderNos.map(n => '#' + n).join('  ');
     worksheet.getCell(4, 2).font = { name: 'Arial', size: 9, bold: true };
-    worksheet.getRow(4).height = 14;
+    worksheet.getRow(4).height = ROW_H;
 
-    // Satır 5: Termin (boş)
+    // Satır 5: Termin — otomatik
     worksheet.addRow([]);
     worksheet.getCell(5, 1).value = 'Termin:';
     worksheet.getCell(5, 1).font = { name: 'Arial', size: 9, bold: true };
-    worksheet.getRow(5).height = 14;
+    worksheet.getCell(5, 2).value = terminDate;
+    worksheet.getCell(5, 2).font = { name: 'Arial', size: 9, bold: true };
+    worksheet.getRow(5).height = ROW_H;
 
     // Satır 6-8: Boş
-    worksheet.addRow([]); worksheet.getRow(6).height = 4;
-    worksheet.addRow([]); worksheet.getRow(7).height = 4;
-    worksheet.addRow([]); worksheet.getRow(8).height = 4;
+    worksheet.addRow([]); worksheet.getRow(6).height = ROW_H;
+    worksheet.addRow([]); worksheet.getRow(7).height = ROW_H;
+    worksheet.addRow([]); worksheet.getRow(8).height = ROW_H;
 
     // ── TABLO BAŞLIĞI — 4 taraflı thin border ──────────────────────
     const allThin = { style: 'thin', color: { argb: 'FF000000' } };
@@ -120,7 +136,7 @@ export default function ProductionReport() {
       ...sortedSizes.map(s => getDisplayLabelLocal(s)),
       'Toplam'
     ]);
-    headerRow.height = 16;
+    headerRow.height = ROW_H;
     headerRow.eachCell((cell, colNumber) => {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
       cell.font = { name: 'Arial', bold: true, size: 9 };
@@ -143,7 +159,7 @@ export default function ProductionReport() {
       ];
 
       const row = worksheet.addRow(rowData);
-      row.height = 16;
+      row.height = ROW_H;
       row.eachCell((cell, colNumber) => {
         cell.border = allThinBorder;
         cell.font = { name: 'Arial', size: 11, bold: colNumber === colCount };
@@ -161,7 +177,7 @@ export default function ProductionReport() {
         sum + sortedSizes.reduce((s2, sz) => s2 + Number(o.qty_by_size?.[sz] || 0), 0), 0
       ),
     ]);
-    totalRow.height = 16;
+    totalRow.height = ROW_H;
     totalRow.eachCell((cell, colNumber) => {
       cell.font = { name: 'Arial', bold: true, size: 11 };
       cell.alignment = { horizontal: colNumber <= 3 ? 'left' : 'center', vertical: 'middle' };
