@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../api/orderService';
-import { Plus, Trash2, Download, ChevronDown, ChevronUp, Save, X, Ruler } from 'lucide-react';
+import { uploadModelImage } from '../api/orderService';
+import { Plus, Trash2, Download, ChevronDown, ChevronUp, Save, X, Ruler, UploadCloud, Loader2 } from 'lucide-react';
 import { SIZE_GROUPS } from '../constants/sizes';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -107,6 +108,8 @@ export default function SizeCharts() {
   const [selectedSizes, setSelectedSizes] = useState([]);
   const [measurements, setMeasurements] = useState([]);
   const [notes, setNotes] = useState('');
+  const [modelImage, setModelImage] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
@@ -164,6 +167,20 @@ export default function SizeCharts() {
   };
 
   // Formu başlat
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await uploadModelImage(file);
+      setModelImage(url);
+    } catch (err) {
+      alert('Resim yüklenemedi.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const startNew = () => {
     setEditingId(null);
     setCustomer('');
@@ -173,6 +190,7 @@ export default function SizeCharts() {
     setSelectedSizes([]);
     setMeasurements(buildEmptyMeasurements('top', []));
     setNotes('');
+    setModelImage(null);
     setShowForm(true);
   };
 
@@ -186,6 +204,7 @@ export default function SizeCharts() {
     setSelectedSizes(chart.selected_sizes);
     setMeasurements(chart.measurements);
     setNotes(chart.notes || '');
+    setModelImage(chart.model_image || null);
     setShowForm(true);
   };
 
@@ -203,6 +222,7 @@ export default function SizeCharts() {
       selected_sizes: selectedSizes,
       measurements,
       notes,
+      model_image: modelImage || null,
       updated_at: new Date().toISOString(),
     };
     if (editingId) {
@@ -436,6 +456,40 @@ export default function SizeCharts() {
                       <option key={k} value={k}>{v.label}</option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              {/* MODEL RESMİ */}
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Model Resmi (Opsiyonel)</label>
+                <div className="flex items-center gap-4">
+                  {modelImage && (
+                    <div className="w-20 h-20 rounded-xl overflow-hidden border border-slate-200 shrink-0">
+                      <img src={modelImage} className="w-full h-full object-cover" alt="model"/>
+                    </div>
+                  )}
+                  <div className="relative flex-1 h-11 bg-slate-50 border border-slate-200 rounded-xl flex items-center px-3 cursor-pointer hover:bg-white transition-all overflow-hidden">
+                    {uploading ? (
+                      <div className="flex items-center gap-2 font-black text-[9px] uppercase" style={{ color: NAVY }}>
+                        <Loader2 size={14} className="animate-spin"/> Yükleniyor...
+                      </div>
+                    ) : (
+                      <>
+                        <input type="file" accept="image/*" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer z-10"/>
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-[10px] font-black text-slate-500 uppercase">
+                            {modelImage ? 'Resim Hazır ✅' : 'Resim Yükle'}
+                          </span>
+                          <UploadCloud size={16} className="text-slate-400"/>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {modelImage && (
+                    <button onClick={() => setModelImage(null)} className="p-2 text-red-400 hover:text-red-600 transition-colors">
+                      <X size={16}/>
+                    </button>
+                  )}
                 </div>
               </div>
 
