@@ -1,6 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { supabase } from '../api/orderService';
-import { uploadModelImage } from '../api/orderService';
+import React, { useEffect, useState } from 'react';
+import { supabase, uploadModelImage } from '../api/orderService';
 import { Plus, Trash2, Download, Save, X, Ruler, UploadCloud, Loader2 } from 'lucide-react';
 import { SIZE_GROUPS } from '../constants/sizes';
 import * as ExcelJS from 'exceljs';
@@ -9,7 +8,7 @@ const NAVY = '#1e3a5f';
 
 const GARMENT_TYPES = {
   top: {
-    label: 'Üst Giysi / Top',
+    label: 'T-shirt',
     measurements: [
       { tr: 'Boy', en: 'Length' },
       { tr: 'Göğüs (1/2)', en: 'Chest (1/2)' },
@@ -18,9 +17,25 @@ const GARMENT_TYPES = {
       { tr: 'Omuz', en: 'Shoulder' },
       { tr: 'Kol Boyu', en: 'Sleeve Length' },
       { tr: 'Kol Ağzı (1/2)', en: 'Sleeve Opening (1/2)' },
-      { tr: 'Kol Evi', en: 'Armhole' },
+      { tr: 'Kolevi', en: 'Armhole' },
       { tr: 'Yaka Açıklığı', en: 'Neck Opening' },
       { tr: 'Yaka Yüksekliği', en: 'Collar Height' },
+    ]
+  },
+  hoodie: {
+    label: 'Hoodie / Sweatshirt',
+    measurements: [
+      { tr: 'Boy', en: 'Length' },
+      { tr: 'Göğüs (1/2)', en: 'Chest (1/2)' },
+      { tr: 'Bel (1/2)', en: 'Waist (1/2)' },
+      { tr: 'Alt Etek (1/2)', en: 'Bottom Hem (1/2)' },
+      { tr: 'Omuz', en: 'Shoulder' },
+      { tr: 'Kol Boyu', en: 'Sleeve Length' },
+      { tr: 'Kol Ağzı (1/2)', en: 'Sleeve Opening (1/2)' },
+      { tr: 'Kolevi', en: 'Armhole' },
+      { tr: 'Kapüşon Boyu', en: 'Hood Height' },
+      { tr: 'Kapüşon Genişliği', en: 'Hood Width' },
+      { tr: 'Cep Genişliği', en: 'Pocket Width' },
     ]
   },
   bottom: {
@@ -61,7 +76,7 @@ const GARMENT_TYPES = {
       { tr: 'Omuz', en: 'Shoulder' },
       { tr: 'Kol Boyu', en: 'Sleeve Length' },
       { tr: 'Kol Ağzı (1/2)', en: 'Sleeve Opening (1/2)' },
-      { tr: 'Kol Evi', en: 'Armhole' },
+      { tr: 'Kolevi', en: 'Armhole' },
       { tr: 'Yaka Açıklığı', en: 'Neck Opening' },
       { tr: 'Yaka Yüksekliği', en: 'Collar Height' },
     ]
@@ -86,7 +101,7 @@ const getDisplayLabel = (s) => {
 
 const buildEmptyMeasurements = (garmentType, selectedSizes) => {
   return GARMENT_TYPES[garmentType]?.measurements.map(m => ({
-    tr: m.tr, en: m.en, tol: '',
+    tr: m.tr, en: m.en, tol: '', custom: false,
     values: Object.fromEntries(selectedSizes.map(s => [s, ''])),
   })) || [];
 };
@@ -125,7 +140,7 @@ export default function SizeCharts() {
   const handleSizeGroupChange = (group) => {
     setSizeGroup(group);
     setSelectedSizes([]);
-    setMeasurements(buildEmptyMeasurements(garmentType, []));
+    setMeasurements(prev => prev.map(m => ({ ...m, values: {} })));
   };
 
   const toggleSize = (size) => {
@@ -155,6 +170,23 @@ export default function SizeCharts() {
     setMeasurements(prev => prev.map((m, i) =>
       i === mIdx ? { ...m, tol: val } : m
     ));
+  };
+
+  const updateRowLabel = (mIdx, field, val) => {
+    setMeasurements(prev => prev.map((m, i) =>
+      i === mIdx ? { ...m, [field]: val } : m
+    ));
+  };
+
+  const addCustomRow = () => {
+    setMeasurements(prev => [...prev, {
+      tr: '', en: '', tol: '', custom: true,
+      values: Object.fromEntries(selectedSizes.map(s => [s, ''])),
+    }]);
+  };
+
+  const removeRow = (mIdx) => {
+    setMeasurements(prev => prev.filter((_, i) => i !== mIdx));
   };
 
   const handleFileChange = async (e) => {
@@ -208,16 +240,16 @@ export default function SizeCharts() {
     const payload = {
       customer, model_name: modelName, garment_type: garmentType,
       size_group: sizeGroup, selected_sizes: selectedSizes,
-      measurements, notes,
+      measurements: measurements.filter(m => m.tr || m.en),
+      notes,
       model_image: modelImage || null,
       approved_at: approvedAt || null,
       updated_at: new Date().toISOString(),
     };
-    if (editingId) {
-      await supabase.from('size_charts').update(payload).eq('id', editingId);
-    } else {
-      await supabase.from('size_charts').insert([payload]);
-    }
+    const { error } = editingId
+      ? await supabase.from('size_charts').update(payload).eq('id', editingId)
+      : await supabase.from('size_charts').insert([payload]);
+    if (error) alert('Kayıt hatası: ' + error.message);
     setSaving(false);
     setShowForm(false);
     load();
@@ -229,7 +261,7 @@ export default function SizeCharts() {
     load();
   };
 
-  // ── EXCEL EXPORT ──────────────────────────────────────────────
+  // ── EXCEL EXPORT — PDF formatında ──────────────────────────
   const exportExcel = async (chart) => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Size Chart');
@@ -238,8 +270,11 @@ export default function SizeCharts() {
     const ROW_H = 18;
     const NAVY_HEX = 'FF1E3A5F';
     const WHITE = 'FFFFFFFF';
-    const LIGHT = 'FFF8F9FA';
-    const BORDER_COLOR = 'FF000000';
+    const BORDER = { style: 'thin', color: { argb: 'FF000000' } };
+    const allBorder = { top: BORDER, bottom: BORDER, left: BORDER, right: BORDER };
+
+    // Sütunlar: TR | EN | bedenler | TOL
+    const colCount = 2 + sizes.length + 1;
 
     ws.pageSetup.orientation = 'landscape';
     ws.pageSetup.paperSize = 9;
@@ -247,137 +282,143 @@ export default function SizeCharts() {
     ws.pageSetup.fitToWidth = 1;
     ws.pageSetup.fitToHeight = 0;
     ws.pageSetup.horizontalCentered = true;
+    ws.pageSetup.margins = { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 };
 
-    const allThin = { style: 'thin', color: { argb: BORDER_COLOR } };
-    const allBorder = { top: allThin, bottom: allThin, left: allThin, right: allThin };
-
-    // Sütun sayısı: TR + EN + bedenler + TOL
-    const colCount = 2 + sizes.length + 1;
-
-    // ── BAŞLIK ──
+    // ── SATIR 1: Lacivert başlık ──
     ws.mergeCells(1, 1, 1, colCount);
     const t = ws.getCell('A1');
     t.value = 'SIZE CHART / ÖLÇÜ TABLOSU';
-    t.font = { name: 'Arial', size: 14, bold: true, color: { argb: WHITE } };
+    t.font = { name: 'Arial', size: 12, bold: true, color: { argb: WHITE } };
     t.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY_HEX } };
     t.alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getRow(1).height = ROW_H;
 
-    // ── BİLGİ SATIRLARI ──
-    ws.addRow([]);
-    ws.getCell(2, 1).value = `Customer / Müşteri:`;
+    // ── SATIR 2: Customer + Tarih ──
+    ws.getCell(2, 1).value = 'Customer / Müşteri:';
     ws.getCell(2, 1).font = { name: 'Arial', size: 9, bold: true };
-    ws.getCell(2, 2).value = chart.customer;
+    ws.getCell(2, 2).value = (chart.customer || '').toUpperCase();
     ws.getCell(2, 2).font = { name: 'Arial', size: 9, bold: true };
-    ws.getCell(2, colCount).value = chart.approved_at
-      ? new Date(chart.approved_at).toLocaleDateString('tr-TR')
-      : new Date(chart.created_at).toLocaleDateString('tr-TR');
-    ws.getCell(2, colCount).font = { name: 'Arial', size: 9, bold: true };
-    ws.getCell(2, colCount).alignment = { horizontal: 'right' };
+    // Tarih — resimden önceki sütuna (resim son 2 sütunda)
+    const dateCol = Math.max(3, colCount - 2);
+    ws.getCell(2, dateCol).value = new Date(chart.updated_at || chart.created_at).toLocaleDateString('tr-TR');
+    ws.getCell(2, dateCol).font = { name: 'Arial', size: 9, bold: true };
+    ws.getCell(2, dateCol).alignment = { horizontal: 'right' };
     ws.getRow(2).height = ROW_H;
 
-    ws.addRow([]);
-    ws.getCell(3, 1).value = `Style / Model:`;
+    // ── SATIR 3: Model + Approval ──
+    ws.getCell(3, 1).value = 'Style / Model:';
     ws.getCell(3, 1).font = { name: 'Arial', size: 9, bold: true };
-    ws.getCell(3, 2).value = chart.model_name;
+    ws.getCell(3, 2).value = (chart.model_name || '').toUpperCase();
     ws.getCell(3, 2).font = { name: 'Arial', size: 9, bold: true };
-    ws.getCell(3, colCount - 1).value = 'Approval / Onay:';
-    ws.getCell(3, colCount - 1).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF6B7280' } };
-    ws.getCell(3, colCount).value = chart.approved_at
-      ? new Date(chart.approved_at).toLocaleDateString('tr-TR')
-      : '—';
-    ws.getCell(3, colCount).font = { name: 'Arial', size: 9, bold: true };
-    ws.getCell(3, colCount).alignment = { horizontal: 'right' };
+    if (chart.approved_at) {
+      ws.getCell(3, Math.max(3, dateCol - 1)).value = 'Approval:';
+      ws.getCell(3, Math.max(3, dateCol - 1)).font = { name: 'Arial', size: 9, bold: true };
+      ws.getCell(3, Math.max(3, dateCol - 1)).alignment = { horizontal: 'right' };
+      ws.getCell(3, dateCol).value = new Date(chart.approved_at).toLocaleDateString('tr-TR');
+      ws.getCell(3, dateCol).font = { name: 'Arial', size: 9, bold: true };
+      ws.getCell(3, dateCol).alignment = { horizontal: 'right' };
+    }
     ws.getRow(3).height = ROW_H;
 
-    ws.addRow([]);
+    // ── SATIR 4: Giysi türü ──
     ws.getCell(4, 1).value = GARMENT_TYPES[chart.garment_type]?.label || '';
-    ws.getCell(4, 1).font = { name: 'Arial', size: 9, color: { argb: 'FF6B7280' } };
+    ws.getCell(4, 1).font = { name: 'Arial', size: 9, bold: true };
     ws.getRow(4).height = ROW_H;
 
-    // Model resmi varsa ekle
+    // ── MODEL RESMİ — her zaman sağ üstte, tablo genişliğinden bağımsız ──
     if (chart.model_image) {
       try {
         const response = await fetch(chart.model_image);
-        const buffer = await response.arrayBuffer();
-        const ext = chart.model_image.split('.').pop().toLowerCase().replace(/\?.*/, '');
+        const arrayBuf = await response.arrayBuffer();
+        const cleanUrl = chart.model_image.split('?')[0];
+        const ext = cleanUrl.split('.').pop().toLowerCase();
         const imageType = ['jpg', 'jpeg'].includes(ext) ? 'jpeg' : 'png';
-        const imageId = wb.addImage({ buffer, extension: imageType });
+        const imageId = wb.addImage({ buffer: arrayBuf, extension: imageType });
+        // Resim: son 2 sütunun üzerinde, satır 2-5 arası — piksel bazlı sabit boyut
         ws.addImage(imageId, {
-          tl: { col: colCount - 1.8, row: 0.2 },
-          br: { col: colCount, row: 4 },
+          tl: { col: colCount - 1.6, row: 1.1 },
+          ext: { width: 110, height: 110 },
         });
       } catch (e) {
         console.warn('Resim eklenemedi:', e);
       }
     }
 
-    ws.addRow([]); ws.getRow(5).height = ROW_H;
+    // ── SATIR 5-6: Boş (resim alanı) ──
+    ws.getRow(5).height = ROW_H;
+    ws.getRow(6).height = ROW_H;
 
-    // ── TABLO BAŞLIĞI ──
+    // ── SATIR 7: Tablo başlığı ──
     const headerVals = ['Ölçü / Measurement', 'TR / EN', ...sizes.map(s => getDisplayLabel(s)), 'TOL (±cm)'];
-    const headerRow = ws.addRow(headerVals);
-    headerRow.height = ROW_H;
-    headerRow.eachCell((cell, ci) => {
-      cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: WHITE } };
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY_HEX } };
-      cell.alignment = { horizontal: ci <= 2 ? 'left' : 'center', vertical: 'middle' };
-      cell.border = allBorder;
+    const headerRowNum = 7;
+    headerVals.forEach((val, i) => {
+      const c = ws.getCell(headerRowNum, i + 1);
+      c.value = val;
+      c.font = { name: 'Arial', size: 9, bold: true, color: { argb: WHITE } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY_HEX } };
+      c.alignment = { horizontal: i <= 1 ? 'left' : 'center', vertical: 'middle' };
+      c.border = allBorder;
     });
+    ws.getRow(headerRowNum).height = ROW_H;
 
-    // ── ÖLÇÜ SATIRLARI ──
+    // ── ÖLÇÜ SATIRLARI — full border, sayısal değerler ──
     chart.measurements.forEach((m, idx) => {
-      const isAlt = idx % 2 === 1;
+      const rowNum = headerRowNum + 1 + idx;
       const rowVals = [
         m.tr, m.en,
         ...sizes.map(s => {
-          const v = m.values[s];
-          // ✅ Sayısal değerleri Number olarak kaydet (metin uyarısı kalkıyor)
-          const num = parseFloat(v);
-          return (!v || v === '') ? '' : isNaN(num) ? v : num;
+          const v = m.values?.[s];
+          if (v === undefined || v === null || v === '') return '';
+          const num = parseFloat(String(v).replace(',', '.'));
+          return isNaN(num) ? v : num;
         }),
-        m.tol ? parseFloat(m.tol) || m.tol : '',
+        (() => {
+          if (!m.tol) return '';
+          const num = parseFloat(String(m.tol).replace(',', '.'));
+          return isNaN(num) ? m.tol : num;
+        })(),
       ];
-      const row = ws.addRow(rowVals);
-      row.height = ROW_H;
-      row.eachCell((cell, ci) => {
-        cell.font = { name: 'Arial', size: 9, bold: ci === 1 };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isAlt ? LIGHT : WHITE } };
-        cell.alignment = { horizontal: ci <= 2 ? 'left' : 'center', vertical: 'middle' };
-        cell.border = allBorder; // ✅ Full kenarlık
-        if (ci > 2 && ci < colCount + 1 && typeof cell.value === 'number') {
-          cell.numFmt = '0.0';
-        }
-        if (ci === colCount) {
-          cell.font = { name: 'Arial', size: 9, color: { argb: 'FFEF4444' } };
-        }
+      rowVals.forEach((val, ci) => {
+        const c = ws.getCell(rowNum, ci + 1);
+        c.value = val === '' ? null : val;
+        c.font = {
+          name: 'Arial', size: 9,
+          bold: ci === 0,
+          color: ci === rowVals.length - 1 ? { argb: 'FFEF4444' } : undefined
+        };
+        c.alignment = { horizontal: ci <= 1 ? 'left' : 'center', vertical: 'middle' };
+        c.border = allBorder;
+        if (typeof c.value === 'number') c.numFmt = '0.0';
       });
+      ws.getRow(rowNum).height = ROW_H;
     });
 
+    // Notlar
     if (chart.notes) {
-      ws.addRow([]); ws.getRow(ws.lastRow.number).height = ROW_H;
-      const noteRow = ws.addRow([`Notes / Notlar: ${chart.notes}`]);
-      ws.mergeCells(noteRow.number, 1, noteRow.number, colCount);
-      noteRow.getCell(1).font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF6B7280' } };
-      noteRow.height = ROW_H;
+      const noteRowNum = headerRowNum + 1 + chart.measurements.length + 1;
+      ws.mergeCells(noteRowNum, 1, noteRowNum, colCount);
+      const nc = ws.getCell(noteRowNum, 1);
+      nc.value = `Notes / Notlar: ${chart.notes}`;
+      nc.font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF6B7280' } };
+      ws.getRow(noteRowNum).height = ROW_H;
     }
 
     // ── SÜTUN GENİŞLİKLERİ ──
-    ws.getColumn(1).width = 22;
-    ws.getColumn(2).width = 22;
+    ws.getColumn(1).width = 20;
+    ws.getColumn(2).width = 20;
     for (let i = 3; i <= 2 + sizes.length; i++) {
       ws.getColumn(i).width = 8;
     }
     ws.getColumn(colCount).width = 10;
 
-    // ✅ .xlsx olarak kaydet (buffer → Blob → link tıklama)
+    // ── İNDİR (.xlsx garantili) ──
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     const fileName = `${chart.customer}-${chart.model_name}-size-chart.xlsx`
-      .toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
+      .toLowerCase().replace(/[^a-z0-9.-]/g, '-').replace(/-+/g, '-');
     a.download = fileName;
     document.body.appendChild(a);
     a.click();
@@ -418,11 +459,13 @@ export default function SizeCharts() {
                     : <Ruler size={18} className="text-white"/>}
                 </div>
                 <div>
-                  <div className="font-black text-slate-900 uppercase tracking-tight">{chart.model_name}</div>
+                  <div className="font-black text-slate-900 uppercase tracking-tight">
+                    <span style={{ color: NAVY }}>{chart.customer}</span>
+                    <span className="text-slate-300 mx-1.5">—</span>
+                    {chart.model_name}
+                  </div>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase">{chart.customer}</span>
-                    <span className="text-slate-200">·</span>
-                    <span className="text-[9px] font-bold uppercase" style={{ color: NAVY }}>{GARMENT_TYPES[chart.garment_type]?.label}</span>
+                    <span className="text-[9px] font-bold uppercase text-slate-400">{GARMENT_TYPES[chart.garment_type]?.label}</span>
                     <span className="text-slate-200">·</span>
                     <span className="text-[9px] font-bold text-slate-400 uppercase">{chart.size_group}</span>
                     <span className="text-slate-200">·</span>
@@ -437,7 +480,7 @@ export default function SizeCharts() {
                     )}
                   </div>
                   <div className="text-[8px] text-slate-300 mt-1">
-                    {new Date(chart.created_at).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    Kayıt: {new Date(chart.created_at).toLocaleDateString('tr-TR')}
                   </div>
                 </div>
               </div>
@@ -481,7 +524,7 @@ export default function SizeCharts() {
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Müşteri</label>
                   <input type="text" value={customer} onChange={e => setCustomer(e.target.value)}
                     className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none uppercase"
-                    placeholder="MONNALISA" />
+                    placeholder="MÜŞTERİ" />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Model Adı</label>
@@ -535,7 +578,7 @@ export default function SizeCharts() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Onay Tarihi (Opsiyonel)</label>
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Onay Tarihi (Approval)</label>
                   <input type="date" value={approvedAt} onChange={e => setApprovedAt(e.target.value)}
                     className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none"/>
                 </div>
@@ -581,13 +624,32 @@ export default function SizeCharts() {
                             <th key={s} className="py-3 px-3 text-center min-w-14">{getDisplayLabel(s)}</th>
                           ))}
                           <th className="py-3 px-3 text-center w-16 text-red-300">TOL ±</th>
+                          <th className="py-3 px-2 w-8"></th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {measurements.map((m, mIdx) => (
                           <tr key={mIdx} className={mIdx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'}>
-                            <td className="py-2 px-4 font-black text-slate-700 text-[10px]">{m.tr}</td>
-                            <td className="py-2 px-4 text-slate-400 text-[10px]">{m.en}</td>
+                            <td className="py-1.5 px-2">
+                              {m.custom ? (
+                                <input type="text" value={m.tr}
+                                  onChange={e => updateRowLabel(mIdx, 'tr', e.target.value)}
+                                  className="w-full h-8 px-2 rounded-lg bg-white border border-slate-200 outline-none text-[10px] font-black text-slate-700"
+                                  placeholder="Ölçü adı (TR)"/>
+                              ) : (
+                                <span className="font-black text-slate-700 text-[10px] px-2">{m.tr}</span>
+                              )}
+                            </td>
+                            <td className="py-1.5 px-2">
+                              {m.custom ? (
+                                <input type="text" value={m.en}
+                                  onChange={e => updateRowLabel(mIdx, 'en', e.target.value)}
+                                  className="w-full h-8 px-2 rounded-lg bg-white border border-slate-200 outline-none text-[10px] text-slate-500"
+                                  placeholder="Measurement (EN)"/>
+                              ) : (
+                                <span className="text-slate-400 text-[10px] px-2">{m.en}</span>
+                              )}
+                            </td>
                             {selectedSizes.map(s => (
                               <td key={s} className="py-1.5 px-1">
                                 <input type="number" step="0.1"
@@ -604,11 +666,22 @@ export default function SizeCharts() {
                                 className="w-full h-8 text-center rounded-lg bg-red-50 border border-red-100 outline-none text-xs font-bold text-red-500"
                                 placeholder="1"/>
                             </td>
+                            <td className="py-1.5 px-1 text-center">
+                              <button onClick={() => removeRow(mIdx)}
+                                className="p-1.5 text-slate-300 hover:text-red-500 transition-colors" title="Satırı sil">
+                                <Trash2 size={13}/>
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
+                  <button onClick={addCustomRow}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl text-[10px] font-black uppercase border border-slate-200 hover:bg-slate-100 transition-all"
+                    style={{ color: NAVY }}>
+                    <Plus size={14}/> Satır Ekle
+                  </button>
                 </div>
               )}
 
