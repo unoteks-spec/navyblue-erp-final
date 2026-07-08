@@ -19,6 +19,8 @@ const GARMENT_TYPES = {
       { tr: 'Kol Ağzı (1/2)', en: 'Sleeve Opening (1/2)' },
       { tr: 'Kolevi', en: 'Armhole' },
       { tr: 'Yaka Açıklığı', en: 'Neck Opening' },
+      { tr: 'Ön Yaka Düşüklüğü', en: 'Front Neck Drop' },
+      { tr: 'Arka Yaka Düşüklüğü', en: 'Back Neck Drop' },
       { tr: 'Yaka Yüksekliği', en: 'Collar Height' },
     ]
   },
@@ -33,6 +35,9 @@ const GARMENT_TYPES = {
       { tr: 'Kol Boyu', en: 'Sleeve Length' },
       { tr: 'Kol Ağzı (1/2)', en: 'Sleeve Opening (1/2)' },
       { tr: 'Kolevi', en: 'Armhole' },
+      { tr: 'Yaka Açıklığı', en: 'Neck Opening' },
+      { tr: 'Ön Yaka Düşüklüğü', en: 'Front Neck Drop' },
+      { tr: 'Arka Yaka Düşüklüğü', en: 'Back Neck Drop' },
       { tr: 'Kapüşon Boyu', en: 'Hood Height' },
       { tr: 'Kapüşon Genişliği', en: 'Hood Width' },
       { tr: 'Cep Genişliği', en: 'Pocket Width' },
@@ -63,6 +68,8 @@ const GARMENT_TYPES = {
       { tr: 'Kol Boyu', en: 'Sleeve Length' },
       { tr: 'Alt Etek (1/2)', en: 'Bottom Hem (1/2)' },
       { tr: 'Yaka Açıklığı', en: 'Neck Opening' },
+      { tr: 'Ön Yaka Düşüklüğü', en: 'Front Neck Drop' },
+      { tr: 'Arka Yaka Düşüklüğü', en: 'Back Neck Drop' },
       { tr: 'Yaka Yüksekliği', en: 'Collar Height' },
     ]
   },
@@ -78,6 +85,8 @@ const GARMENT_TYPES = {
       { tr: 'Kol Ağzı (1/2)', en: 'Sleeve Opening (1/2)' },
       { tr: 'Kolevi', en: 'Armhole' },
       { tr: 'Yaka Açıklığı', en: 'Neck Opening' },
+      { tr: 'Ön Yaka Düşüklüğü', en: 'Front Neck Drop' },
+      { tr: 'Arka Yaka Düşüklüğü', en: 'Back Neck Drop' },
       { tr: 'Yaka Yüksekliği', en: 'Collar Height' },
     ]
   },
@@ -217,6 +226,29 @@ export default function SizeCharts() {
     setShowForm(true);
   };
 
+  // Eski kayıtlardaki ölçü isimlerini yeni standarda çevir + eksik satırları ekle
+  const normalizeMeasurements = (list, gType, sizes) => {
+    const renameMap = {
+      'Yaka Genişliği': { tr: 'Yaka Açıklığı', en: 'Neck Opening' },
+      'Koltuk Altı':    { tr: 'Kolevi', en: 'Armhole' },
+    };
+    let result = (list || []).map(m => {
+      const renamed = renameMap[m.tr];
+      return renamed ? { ...m, tr: renamed.tr, en: renamed.en } : m;
+    });
+    // Şablonda olup kayıtta olmayan satırları sona ekle (örn. Yaka Yüksekliği)
+    const templateRows = GARMENT_TYPES[gType]?.measurements || [];
+    templateRows.forEach(tpl => {
+      if (!result.some(m => m.tr === tpl.tr)) {
+        result.push({
+          tr: tpl.tr, en: tpl.en, tol: '', custom: false,
+          values: Object.fromEntries((sizes || []).map(s => [s, ''])),
+        });
+      }
+    });
+    return result;
+  };
+
   const startEdit = (chart) => {
     setEditingId(chart.id);
     setCustomer(chart.customer);
@@ -224,7 +256,7 @@ export default function SizeCharts() {
     setGarmentType(chart.garment_type);
     setSizeGroup(chart.size_group);
     setSelectedSizes(chart.selected_sizes);
-    setMeasurements(chart.measurements);
+    setMeasurements(normalizeMeasurements(chart.measurements, chart.garment_type, chart.selected_sizes));
     setNotes(chart.notes || '');
     setModelImage(chart.model_image || null);
     setApprovedAt(chart.approved_at ? chart.approved_at.substring(0, 10) : '');
