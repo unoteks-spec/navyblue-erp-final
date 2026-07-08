@@ -273,8 +273,8 @@ export default function SizeCharts() {
     const BORDER = { style: 'thin', color: { argb: 'FF000000' } };
     const allBorder = { top: BORDER, bottom: BORDER, left: BORDER, right: BORDER };
 
-    // Sütunlar: TR | EN | bedenler | TOL
-    const colCount = 2 + sizes.length + 1;
+    // Sütunlar: TR | EN | her beden için (değer + boş kontrol kutusu) | TOL
+    const colCount = 2 + sizes.length * 2 + 1;
 
     ws.pageSetup.orientation = 'landscape';
     ws.pageSetup.paperSize = 9;
@@ -299,7 +299,7 @@ export default function SizeCharts() {
     ws.getCell(2, 2).value = (chart.customer || '').toUpperCase();
     ws.getCell(2, 2).font = { name: 'Arial', size: 9, bold: true };
     // Tarih — resimden önceki sütuna (resim son 2 sütunda)
-    const dateCol = Math.max(3, colCount - 2);
+    const dateCol = Math.max(3, colCount - 3);
     ws.getCell(2, dateCol).value = new Date(chart.updated_at || chart.created_at).toLocaleDateString('tr-TR');
     ws.getCell(2, dateCol).font = { name: 'Arial', size: 9, bold: true };
     ws.getCell(2, dateCol).alignment = { horizontal: 'right' };
@@ -348,8 +348,13 @@ export default function SizeCharts() {
     ws.getRow(5).height = ROW_H;
     ws.getRow(6).height = ROW_H;
 
-    // ── SATIR 7: Tablo başlığı ──
-    const headerVals = ['Ölçü / Measurement', 'TR / EN', ...sizes.map(s => getDisplayLabel(s)), 'TOL (±cm)'];
+    // ── SATIR 7: Tablo başlığı — her beden + boş kontrol sütunu ──
+    const headerVals = ['Ölçü / Measurement', 'TR / EN'];
+    sizes.forEach(s => {
+      headerVals.push(getDisplayLabel(s));
+      headerVals.push(''); // kontrol kutusu sütunu
+    });
+    headerVals.push('TOL (±cm)');
     const headerRowNum = 7;
     headerVals.forEach((val, i) => {
       const c = ws.getCell(headerRowNum, i + 1);
@@ -364,20 +369,22 @@ export default function SizeCharts() {
     // ── ÖLÇÜ SATIRLARI — full border, sayısal değerler ──
     chart.measurements.forEach((m, idx) => {
       const rowNum = headerRowNum + 1 + idx;
-      const rowVals = [
-        m.tr, m.en,
-        ...sizes.map(s => {
-          const v = m.values?.[s];
-          if (v === undefined || v === null || v === '') return '';
+      const rowVals = [m.tr, m.en];
+      sizes.forEach(s => {
+        const v = m.values?.[s];
+        if (v === undefined || v === null || v === '') {
+          rowVals.push('');
+        } else {
           const num = parseFloat(String(v).replace(',', '.'));
-          return isNaN(num) ? v : num;
-        }),
-        (() => {
-          if (!m.tol) return '';
-          const num = parseFloat(String(m.tol).replace(',', '.'));
-          return isNaN(num) ? m.tol : num;
-        })(),
-      ];
+          rowVals.push(isNaN(num) ? v : num);
+        }
+        rowVals.push(''); // boş kontrol kutusu
+      });
+      rowVals.push((() => {
+        if (!m.tol) return '';
+        const num = parseFloat(String(m.tol).replace(',', '.'));
+        return isNaN(num) ? m.tol : num;
+      })());
       rowVals.forEach((val, ci) => {
         const c = ws.getCell(rowNum, ci + 1);
         c.value = val === '' ? null : val;
@@ -406,8 +413,9 @@ export default function SizeCharts() {
     // ── SÜTUN GENİŞLİKLERİ ──
     ws.getColumn(1).width = 20;
     ws.getColumn(2).width = 20;
-    for (let i = 3; i <= 2 + sizes.length; i++) {
-      ws.getColumn(i).width = 8;
+    for (let i = 0; i < sizes.length; i++) {
+      ws.getColumn(3 + i * 2).width = 8;     // beden değeri
+      ws.getColumn(3 + i * 2 + 1).width = 4; // kontrol kutusu
     }
     ws.getColumn(colCount).width = 10;
 
