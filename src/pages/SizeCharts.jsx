@@ -298,11 +298,15 @@ export default function SizeCharts() {
     ws.getCell(2, 1).font = { name: 'Arial', size: 9, bold: true };
     ws.getCell(2, 2).value = (chart.customer || '').toUpperCase();
     ws.getCell(2, 2).font = { name: 'Arial', size: 9, bold: true };
-    // Tarih — resimden önceki sütuna (resim son 2 sütunda)
-    const dateCol = Math.max(3, colCount - 3);
-    ws.getCell(2, dateCol).value = new Date(chart.updated_at || chart.created_at).toLocaleDateString('tr-TR');
-    ws.getCell(2, dateCol).font = { name: 'Arial', size: 9, bold: true };
-    ws.getCell(2, dateCol).alignment = { horizontal: 'right' };
+    // Tarih ve Approval — dar kontrol sütunlarına sığması için hücreleri birleştir
+    // Resim son ~3 sütunda, o yüzden bilgiler resimden önce bitmeli
+    const infoEndCol = Math.max(4, colCount - 3);   // birleşik alanın son sütunu
+    const infoStartCol = Math.max(3, infoEndCol - 3); // 4 sütunluk birleşik alan
+    ws.mergeCells(2, infoStartCol, 2, infoEndCol);
+    const dCell = ws.getCell(2, infoStartCol);
+    dCell.value = new Date(chart.updated_at || chart.created_at).toLocaleDateString('tr-TR');
+    dCell.font = { name: 'Arial', size: 9, bold: true };
+    dCell.alignment = { horizontal: 'right', vertical: 'middle' };
     ws.getRow(2).height = ROW_H;
 
     // ── SATIR 3: Model + Approval ──
@@ -311,12 +315,11 @@ export default function SizeCharts() {
     ws.getCell(3, 2).value = (chart.model_name || '').toUpperCase();
     ws.getCell(3, 2).font = { name: 'Arial', size: 9, bold: true };
     if (chart.approved_at) {
-      ws.getCell(3, Math.max(3, dateCol - 1)).value = 'Approval:';
-      ws.getCell(3, Math.max(3, dateCol - 1)).font = { name: 'Arial', size: 9, bold: true };
-      ws.getCell(3, Math.max(3, dateCol - 1)).alignment = { horizontal: 'right' };
-      ws.getCell(3, dateCol).value = new Date(chart.approved_at).toLocaleDateString('tr-TR');
-      ws.getCell(3, dateCol).font = { name: 'Arial', size: 9, bold: true };
-      ws.getCell(3, dateCol).alignment = { horizontal: 'right' };
+      ws.mergeCells(3, infoStartCol, 3, infoEndCol);
+      const aCell = ws.getCell(3, infoStartCol);
+      aCell.value = `Approval: ${new Date(chart.approved_at).toLocaleDateString('tr-TR')}`;
+      aCell.font = { name: 'Arial', size: 9, bold: true };
+      aCell.alignment = { horizontal: 'right', vertical: 'middle' };
     }
     ws.getRow(3).height = ROW_H;
 
@@ -334,10 +337,10 @@ export default function SizeCharts() {
         const ext = cleanUrl.split('.').pop().toLowerCase();
         const imageType = ['jpg', 'jpeg'].includes(ext) ? 'jpeg' : 'png';
         const imageId = wb.addImage({ buffer: arrayBuf, extension: imageType });
-        // Resim: son 2 sütunun üzerinde, satır 2-5 arası — piksel bazlı sabit boyut
+        // Resim: son ~3 sütun bölgesinde (beden+kutu+TOL ≈ 165px alan), taşmadan
         ws.addImage(imageId, {
-          tl: { col: colCount - 1.6, row: 1.1 },
-          ext: { width: 110, height: 110 },
+          tl: { col: colCount - 3, row: 1.1 },
+          ext: { width: 100, height: 100 },
         });
       } catch (e) {
         console.warn('Resim eklenemedi:', e);
