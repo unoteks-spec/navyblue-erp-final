@@ -381,8 +381,8 @@ export default function SizeCharts() {
         const imageId = wb.addImage({ buffer: arrayBuf, extension: imageType });
 
         // Resim Approval/Tarih bloğunun hemen solunda (önce), tablodan bağımsız
-        const imgEndCol = Math.max(6, infoStartCol - 1);
-        const imgStartCol = Math.max(4, imgEndCol - 2);
+        const imgEndCol = Math.max(7, infoStartCol - 1);
+        const imgStartCol = Math.max(4, imgEndCol - 3); // 4 sütunluk geniş çerçeve
         // Çerçeve: satır 3-9 (tablo 11'de başlıyor, satır 10 boş — tabloya değmiyor)
         for (let r = 3; r <= 9; r++) {
           for (let c = imgStartCol; c <= imgEndCol; c++) {
@@ -394,8 +394,9 @@ export default function SizeCharts() {
             };
           }
         }
+        // Resmi çerçeve içinde ortala (çerçeve ≈ 185px x 168px, resim 120x110)
         ws.addImage(imageId, {
-          tl: { col: imgStartCol - 1 + 0.2, row: 2.35 },
+          tl: { col: imgStartCol - 1 + 0.55, row: 3.2 },
           ext: { width: 120, height: 110 },
         });
       } catch (e) {
