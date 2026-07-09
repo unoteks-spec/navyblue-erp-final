@@ -380,22 +380,23 @@ export default function SizeCharts() {
         const imageType = ['jpg', 'jpeg'].includes(ext) ? 'jpeg' : 'png';
         const imageId = wb.addImage({ buffer: arrayBuf, extension: imageType });
 
-        const imgStartCol = Math.max(4, Math.floor(colCount / 2) - 1);
-        const imgEndCol = Math.min(colCount - 1, imgStartCol + 2);
-        // Çerçeve: satır 5-10, dış kenarlar
-        for (let r = 5; r <= 10; r++) {
+        // Resim Approval/Tarih bloğunun hemen solunda (önce), tablodan bağımsız
+        const imgEndCol = Math.max(6, infoStartCol - 1);
+        const imgStartCol = Math.max(4, imgEndCol - 2);
+        // Çerçeve: satır 3-9 (tablo 11'de başlıyor, satır 10 boş — tabloya değmiyor)
+        for (let r = 3; r <= 9; r++) {
           for (let c = imgStartCol; c <= imgEndCol; c++) {
             ws.getCell(r, c).border = {
-              top:    r === 5 ? BORDER : undefined,
-              bottom: r === 10 ? BORDER : undefined,
+              top:    r === 3 ? BORDER : undefined,
+              bottom: r === 9 ? BORDER : undefined,
               left:   c === imgStartCol ? BORDER : undefined,
               right:  c === imgEndCol ? BORDER : undefined,
             };
           }
         }
         ws.addImage(imageId, {
-          tl: { col: imgStartCol - 1 + 0.2, row: 4.3 },
-          ext: { width: 125, height: 100 },
+          tl: { col: imgStartCol - 1 + 0.2, row: 2.35 },
+          ext: { width: 120, height: 110 },
         });
       } catch (e) {
         console.warn('Resim eklenemedi:', e);
