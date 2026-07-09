@@ -226,8 +226,8 @@ function StageColumn({ stage, index, orders, openCardId, onToggle, onSaveWaybill
   const { setNodeRef, isOver } = useDroppable({ id: stage.key });
 
   return (
-    <div ref={setNodeRef} className="flex flex-col gap-3 min-w-64 md:min-w-72 snap-center">
-      <div className={`p-4 rounded-xl border-b-2 transition-all ${
+    <div className="flex flex-col gap-3 min-w-64 md:min-w-72 snap-center h-full">
+      <div className={`p-4 rounded-xl border-b-2 transition-all shrink-0 ${
         stage.key === 'yuklendi' ? 'text-white' : 'bg-white border-slate-200 text-slate-800'
       }`} style={stage.key === 'yuklendi' ? { background: NAVY, borderColor: NAVY } : {}}>
         <div className="flex justify-between items-center mb-0.5">
@@ -237,7 +237,7 @@ function StageColumn({ stage, index, orders, openCardId, onToggle, onSaveWaybill
         <h3 className="text-xs md:text-sm font-black tracking-widest uppercase truncate">{stage.label}</h3>
       </div>
 
-      <div className={`flex flex-col gap-2.5 min-h-[65vh] p-2 rounded-2xl border-2 border-dashed transition-colors ${
+      <div ref={setNodeRef} className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col gap-2.5 p-2 rounded-2xl border-2 border-dashed transition-colors ${
         isOver ? 'bg-slate-50 border-slate-300' : 'bg-slate-50/30 border-slate-200/50'
       }`}>
         {orders.map(order => (
@@ -263,6 +263,7 @@ export default function ProductionTrack() {
   const [shipmentModalOrder, setShipmentModalOrder] = useState(null);
   const [openCardId, setOpenCardId] = useState(null);
   const [activeDragOrder, setActiveDragOrder] = useState(null);
+  const [hideEmpty, setHideEmpty] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -405,8 +406,14 @@ export default function ProductionTrack() {
     return hasCutting && !o.is_archived && o.status !== 'archived';
   });
 
+  // Boş aşamaları gizle — ama kart sürüklenirken hepsi görünür (hedef olabilsin)
+  const visibleStages = STAGES.filter(stage =>
+    !hideEmpty || activeDragOrder ||
+    visibleOrders.some(o => (o.current_stage || 'kesimhanede') === stage.key)
+  );
+
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 pb-32">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-4">
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-4 mb-4">
         <div>
@@ -424,6 +431,15 @@ export default function ProductionTrack() {
               İrsaliye Bekleyen: {orders.filter(o => o.waybill_tracking_active && !o.is_waybill_issued).length}
             </span>
           </div>
+          <button
+            onClick={() => setHideEmpty(!hideEmpty)}
+            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase border transition-all ${
+              hideEmpty ? 'text-white border-transparent' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
+            }`}
+            style={hideEmpty ? { background: NAVY } : {}}
+          >
+            {hideEmpty ? '✓ Boşlar Gizli' : 'Boş Aşamaları Gizle'}
+          </button>
         </div>
       </div>
 
@@ -432,15 +448,18 @@ export default function ProductionTrack() {
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
-        autoScroll={{ threshold: { x: 0.15, y: 0 } }}
+        autoScroll={{ threshold: { x: 0.15, y: 0.2 } }}
       >
-        <div className={`flex gap-4 overflow-x-auto pb-10 custom-scrollbar -mx-4 md:-mx-6 px-4 md:px-6 ${activeDragOrder ? '' : 'snap-x snap-mandatory'}`}>
+        <div
+          className={`flex gap-4 overflow-x-auto overflow-y-hidden custom-scrollbar -mx-4 md:-mx-6 px-4 md:px-6 ${activeDragOrder ? '' : 'snap-x snap-mandatory'}`}
+          style={{ height: 'calc(100dvh - 245px)', minHeight: '420px' }}
+        >
           {loading ? (
             <div className="py-20 text-center text-slate-300 font-black text-[10px] animate-pulse uppercase tracking-widest w-full">
               Veriler Alınıyor...
             </div>
           ) : (
-            STAGES.map((stage, index) => (
+            visibleStages.map((stage, index) => (
               <StageColumn
                 key={stage.key}
                 stage={stage}
