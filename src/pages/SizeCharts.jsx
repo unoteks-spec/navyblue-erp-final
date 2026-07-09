@@ -340,7 +340,7 @@ export default function SizeCharts() {
     ws.getCell(3, 1).font = { name: 'Arial', size: 9, bold: true };
     ws.getCell(3, 2).value = (chart.customer || '').toUpperCase();
     ws.getCell(3, 2).font = { name: 'Arial', size: 9, bold: true };
-    const infoStartCol = Math.max(3, colCount - 4);
+    const infoStartCol = Math.max(3, colCount - 3);
     ws.mergeCells(3, infoStartCol, 3, colCount);
     const dCell = ws.getCell(3, infoStartCol);
     dCell.value = `Date / Tarih: ${new Date(chart.updated_at || chart.created_at).toLocaleDateString('tr-TR')}`;
@@ -382,7 +382,7 @@ export default function SizeCharts() {
 
         // Resim Approval/Tarih bloğunun hemen solunda (önce), tablodan bağımsız
         const imgEndCol = Math.max(7, infoStartCol - 1);
-        const imgStartCol = Math.max(4, imgEndCol - 3); // 4 sütunluk geniş çerçeve
+        const imgStartCol = Math.max(4, imgEndCol - 3); // 4 sütunluk çerçeve
         // Çerçeve: satır 3-9 (tablo 11'de başlıyor, satır 10 boş — tabloya değmiyor)
         for (let r = 3; r <= 9; r++) {
           for (let c = imgStartCol; c <= imgEndCol; c++) {
@@ -394,10 +394,10 @@ export default function SizeCharts() {
             };
           }
         }
-        // Resmi çerçeve içinde ortala (çerçeve ≈ 185px x 168px, resim 120x110)
+        // Resim çerçeve alanına eşit iç boşlukla oturur — her tabloda tam ortalı
         ws.addImage(imageId, {
-          tl: { col: imgStartCol - 1 + 0.55, row: 3.2 },
-          ext: { width: 120, height: 110 },
+          tl: { col: imgStartCol - 1 + 0.3, row: 2.35 },
+          br: { col: imgEndCol - 0.3, row: 8.65 },
         });
       } catch (e) {
         console.warn('Resim eklenemedi:', e);
