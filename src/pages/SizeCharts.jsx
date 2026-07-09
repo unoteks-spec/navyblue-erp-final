@@ -293,7 +293,7 @@ export default function SizeCharts() {
     load();
   };
 
-  // ── EXCEL EXPORT — PDF formatında ──────────────────────────
+  // ── EXCEL EXPORT — Uluslararası teknik paket formatı ──────────
   const exportExcel = async (chart) => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Size Chart');
@@ -302,10 +302,12 @@ export default function SizeCharts() {
     const ROW_H = 18;
     const NAVY_HEX = 'FF1E3A5F';
     const WHITE = 'FFFFFFFF';
+    const LIGHT = 'FFF8F9FA';
+    const GRAY = 'FF9CA3AF';
     const BORDER = { style: 'thin', color: { argb: 'FF000000' } };
     const allBorder = { top: BORDER, bottom: BORDER, left: BORDER, right: BORDER };
 
-    // Sütunlar: TR | EN | her beden için (değer + boş kontrol kutusu) | TOL
+    // Sütunlar: TR | EN | her beden için (değer + kontrol kutusu) | TOL
     const colCount = 2 + sizes.length * 2 + 1;
 
     ws.pageSetup.orientation = 'landscape';
@@ -316,51 +318,59 @@ export default function SizeCharts() {
     ws.pageSetup.horizontalCentered = true;
     ws.pageSetup.margins = { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 };
 
-    // ── SATIR 1: Lacivert başlık ──
+    // ── SATIR 1: Firma adı ──
     ws.mergeCells(1, 1, 1, colCount);
-    const t = ws.getCell('A1');
+    const firmCell = ws.getCell(1, 1);
+    firmCell.value = 'ALFA SPOR GIYIM SAN. TIC. LTD. STI.';
+    firmCell.font = { name: 'Arial', size: 8, bold: true, color: { argb: GRAY } };
+    firmCell.alignment = { horizontal: 'left', vertical: 'middle' };
+    ws.getRow(1).height = ROW_H;
+
+    // ── SATIR 2: Lacivert başlık ──
+    ws.mergeCells(2, 1, 2, colCount);
+    const t = ws.getCell(2, 1);
     t.value = 'SIZE CHART / ÖLÇÜ TABLOSU';
     t.font = { name: 'Arial', size: 12, bold: true, color: { argb: WHITE } };
     t.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY_HEX } };
     t.alignment = { horizontal: 'center', vertical: 'middle' };
-    ws.getRow(1).height = ROW_H;
-
-    // ── SATIR 2: Customer + Tarih ──
-    ws.getCell(2, 1).value = 'Customer / Müşteri:';
-    ws.getCell(2, 1).font = { name: 'Arial', size: 9, bold: true };
-    ws.getCell(2, 2).value = (chart.customer || '').toUpperCase();
-    ws.getCell(2, 2).font = { name: 'Arial', size: 9, bold: true };
-    // Tarih ve Approval — dar kontrol sütunlarına sığması için hücreleri birleştir
-    // Resim son ~3 sütunda, o yüzden bilgiler resimden önce bitmeli
-    const infoEndCol = Math.max(4, colCount - 3);   // birleşik alanın son sütunu
-    const infoStartCol = Math.max(3, infoEndCol - 3); // 4 sütunluk birleşik alan
-    ws.mergeCells(2, infoStartCol, 2, infoEndCol);
-    const dCell = ws.getCell(2, infoStartCol);
-    dCell.value = new Date(chart.updated_at || chart.created_at).toLocaleDateString('tr-TR');
-    dCell.font = { name: 'Arial', size: 9, bold: true };
-    dCell.alignment = { horizontal: 'right', vertical: 'middle' };
     ws.getRow(2).height = ROW_H;
 
-    // ── SATIR 3: Model + Approval ──
-    ws.getCell(3, 1).value = 'Style / Model:';
+    // ── SATIR 3: Customer + Tarih (en sağda) ──
+    ws.getCell(3, 1).value = 'Customer / Müşteri:';
     ws.getCell(3, 1).font = { name: 'Arial', size: 9, bold: true };
-    ws.getCell(3, 2).value = (chart.model_name || '').toUpperCase();
+    ws.getCell(3, 2).value = (chart.customer || '').toUpperCase();
     ws.getCell(3, 2).font = { name: 'Arial', size: 9, bold: true };
+    const infoStartCol = Math.max(3, colCount - 4);
+    ws.mergeCells(3, infoStartCol, 3, colCount);
+    const dCell = ws.getCell(3, infoStartCol);
+    dCell.value = `Date / Tarih: ${new Date(chart.updated_at || chart.created_at).toLocaleDateString('tr-TR')}`;
+    dCell.font = { name: 'Arial', size: 9, bold: true };
+    dCell.alignment = { horizontal: 'right', vertical: 'middle' };
+    ws.getRow(3).height = ROW_H;
+
+    // ── SATIR 4: Model + Approval (en sağda) ──
+    ws.getCell(4, 1).value = 'Style / Model:';
+    ws.getCell(4, 1).font = { name: 'Arial', size: 9, bold: true };
+    ws.getCell(4, 2).value = (chart.model_name || '').toUpperCase();
+    ws.getCell(4, 2).font = { name: 'Arial', size: 9, bold: true };
     if (chart.approved_at) {
-      ws.mergeCells(3, infoStartCol, 3, infoEndCol);
-      const aCell = ws.getCell(3, infoStartCol);
-      aCell.value = `Approval: ${new Date(chart.approved_at).toLocaleDateString('tr-TR')}`;
+      ws.mergeCells(4, infoStartCol, 4, colCount);
+      const aCell = ws.getCell(4, infoStartCol);
+      aCell.value = `Approval / Onay: ${new Date(chart.approved_at).toLocaleDateString('tr-TR')}`;
       aCell.font = { name: 'Arial', size: 9, bold: true };
       aCell.alignment = { horizontal: 'right', vertical: 'middle' };
     }
-    ws.getRow(3).height = ROW_H;
-
-    // ── SATIR 4: Giysi türü ──
-    ws.getCell(4, 1).value = GARMENT_TYPES[chart.garment_type]?.label || '';
-    ws.getCell(4, 1).font = { name: 'Arial', size: 9, bold: true };
     ws.getRow(4).height = ROW_H;
 
-    // ── MODEL RESMİ — her zaman sağ üstte, tablo genişliğinden bağımsız ──
+    // ── SATIR 5: Giysi türü ──
+    ws.getCell(5, 1).value = GARMENT_TYPES[chart.garment_type]?.label || '';
+    ws.getCell(5, 1).font = { name: 'Arial', size: 9, bold: true };
+    ws.getRow(5).height = ROW_H;
+
+    // ── SATIR 6-10: Boş (resim alanı) ──
+    for (let r = 6; r <= 10; r++) ws.getRow(r).height = ROW_H;
+
+    // ── MODEL RESMİ: ortada, çerçeveli ──
     if (chart.model_image) {
       try {
         const response = await fetch(chart.model_image);
@@ -369,28 +379,37 @@ export default function SizeCharts() {
         const ext = cleanUrl.split('.').pop().toLowerCase();
         const imageType = ['jpg', 'jpeg'].includes(ext) ? 'jpeg' : 'png';
         const imageId = wb.addImage({ buffer: arrayBuf, extension: imageType });
-        // Resim: son ~3 sütun bölgesinde (beden+kutu+TOL ≈ 165px alan), taşmadan
+
+        const imgStartCol = Math.max(4, Math.floor(colCount / 2) - 1);
+        const imgEndCol = Math.min(colCount - 1, imgStartCol + 2);
+        // Çerçeve: satır 5-10, dış kenarlar
+        for (let r = 5; r <= 10; r++) {
+          for (let c = imgStartCol; c <= imgEndCol; c++) {
+            ws.getCell(r, c).border = {
+              top:    r === 5 ? BORDER : undefined,
+              bottom: r === 10 ? BORDER : undefined,
+              left:   c === imgStartCol ? BORDER : undefined,
+              right:  c === imgEndCol ? BORDER : undefined,
+            };
+          }
+        }
         ws.addImage(imageId, {
-          tl: { col: colCount - 3, row: 1.1 },
-          ext: { width: 100, height: 100 },
+          tl: { col: imgStartCol - 1 + 0.2, row: 4.3 },
+          ext: { width: 125, height: 100 },
         });
       } catch (e) {
         console.warn('Resim eklenemedi:', e);
       }
     }
 
-    // ── SATIR 5-6: Boş (resim alanı) ──
-    ws.getRow(5).height = ROW_H;
-    ws.getRow(6).height = ROW_H;
-
-    // ── SATIR 7: Tablo başlığı — her beden + boş kontrol sütunu ──
+    // ── SATIR 11: Tablo başlığı ──
+    const headerRowNum = 11;
     const headerVals = ['Ölçü / Measurement', 'TR / EN'];
     sizes.forEach(s => {
       headerVals.push(getDisplayLabel(s));
-      headerVals.push(''); // kontrol kutusu sütunu
+      headerVals.push('');
     });
     headerVals.push('TOL (±cm)');
-    const headerRowNum = 7;
     headerVals.forEach((val, i) => {
       const c = ws.getCell(headerRowNum, i + 1);
       c.value = val;
@@ -401,9 +420,10 @@ export default function SizeCharts() {
     });
     ws.getRow(headerRowNum).height = ROW_H;
 
-    // ── ÖLÇÜ SATIRLARI — full border, sayısal değerler ──
+    // ── ÖLÇÜ SATIRLARI: zebra + full border + sayısal ──
     chart.measurements.forEach((m, idx) => {
       const rowNum = headerRowNum + 1 + idx;
+      const isAlt = idx % 2 === 1;
       const rowVals = [m.tr, m.en];
       sizes.forEach(s => {
         const v = m.values?.[s];
@@ -413,13 +433,14 @@ export default function SizeCharts() {
           const num = parseFloat(String(v).replace(',', '.'));
           rowVals.push(isNaN(num) ? v : num);
         }
-        rowVals.push(''); // boş kontrol kutusu
+        rowVals.push('');
       });
       rowVals.push((() => {
         if (!m.tol) return '';
         const num = parseFloat(String(m.tol).replace(',', '.'));
         return isNaN(num) ? m.tol : num;
       })());
+
       rowVals.forEach((val, ci) => {
         const c = ws.getCell(rowNum, ci + 1);
         c.value = val === '' ? null : val;
@@ -428,6 +449,7 @@ export default function SizeCharts() {
           bold: ci === 0,
           color: ci === rowVals.length - 1 ? { argb: 'FFEF4444' } : undefined
         };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isAlt ? LIGHT : WHITE } };
         c.alignment = { horizontal: ci <= 1 ? 'left' : 'center', vertical: 'middle' };
         c.border = allBorder;
         if (typeof c.value === 'number') c.numFmt = '0.0';
@@ -435,26 +457,62 @@ export default function SizeCharts() {
       ws.getRow(rowNum).height = ROW_H;
     });
 
-    // Notlar
+    // ── STANDART NOTLAR ──
+    let cursor = headerRowNum + chart.measurements.length + 2;
+    ws.mergeCells(cursor, 1, cursor, colCount);
+    const cmNote = ws.getCell(cursor, 1);
+    cmNote.value = 'All measurements are in cm. / Tüm ölçüler cm cinsindendir.';
+    cmNote.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF6B7280' } };
+    ws.getRow(cursor).height = ROW_H;
+    cursor++;
+
+    ws.mergeCells(cursor, 1, cursor, colCount);
+    const flatNote = ws.getCell(cursor, 1);
+    flatNote.value = 'Garment measured flat. / Ürün düz zeminde ölçülür.';
+    flatNote.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF6B7280' } };
+    ws.getRow(cursor).height = ROW_H;
+    cursor++;
+
     if (chart.notes) {
-      const noteRowNum = headerRowNum + 1 + chart.measurements.length + 1;
-      ws.mergeCells(noteRowNum, 1, noteRowNum, colCount);
-      const nc = ws.getCell(noteRowNum, 1);
+      ws.mergeCells(cursor, 1, cursor, colCount);
+      const nc = ws.getCell(cursor, 1);
       nc.value = `Notes / Notlar: ${chart.notes}`;
-      nc.font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF6B7280' } };
-      ws.getRow(noteRowNum).height = ROW_H;
+      nc.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF6B7280' } };
+      ws.getRow(cursor).height = ROW_H;
+      cursor++;
     }
+
+    // ── İMZA BLOĞU ──
+    cursor += 1; // boşluk
+    ws.getRow(cursor).height = 26; // imza alanı
+    cursor++;
+    const sigRow = cursor;
+    // Sol blok: Prepared by
+    const sigLeftEnd = Math.min(4, colCount);
+    for (let c = 1; c <= sigLeftEnd; c++) {
+      ws.getCell(sigRow, c).border = { top: BORDER };
+    }
+    ws.getCell(sigRow, 1).value = 'Prepared by / Hazırlayan';
+    ws.getCell(sigRow, 1).font = { name: 'Arial', size: 8, bold: true, color: { argb: 'FF6B7280' } };
+    // Sağ blok: Approved by
+    const sigRightStart = Math.max(sigLeftEnd + 2, colCount - 4);
+    for (let c = sigRightStart; c <= colCount; c++) {
+      ws.getCell(sigRow, c).border = { top: BORDER };
+    }
+    ws.getCell(sigRow, sigRightStart).value = 'Approved by (Customer) / Onaylayan (Müşteri)';
+    ws.getCell(sigRow, sigRightStart).font = { name: 'Arial', size: 8, bold: true, color: { argb: 'FF6B7280' } };
+    ws.getRow(sigRow).height = ROW_H;
 
     // ── SÜTUN GENİŞLİKLERİ ──
     ws.getColumn(1).width = 20;
     ws.getColumn(2).width = 20;
     for (let i = 0; i < sizes.length; i++) {
-      ws.getColumn(3 + i * 2).width = 8;     // beden değeri
-      ws.getColumn(3 + i * 2 + 1).width = 4; // kontrol kutusu
+      ws.getColumn(3 + i * 2).width = 8;
+      ws.getColumn(3 + i * 2 + 1).width = 4;
     }
     ws.getColumn(colCount).width = 10;
 
-    // ── İNDİR (.xlsx garantili) ──
+    // ── İNDİR ──
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
