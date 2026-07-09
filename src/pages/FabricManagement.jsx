@@ -37,7 +37,7 @@ export default function FabricManagement() {
   const [printMultiPos, setPrintMultiPos] = useState(null);
 
   const [poForm, setPoForm] = useState({ supplierName: '', customQtyKg: '', unitPrice: '', priceCurrency: 'EUR' });
-  const [receiveForm, setReceiveForm] = useState({ receivedKg: '', receivedRolls: '' });
+  const [receiveForm, setReceiveForm] = useState({ receivedKg: '', receivedRolls: '', batchNo: '', deliveryDate: new Date().toISOString().split('T')[0], receivedBy: '' });
   const [editForm, setEditForm] = useState({ supplierName: '', orderedQtyKg: '', fabricType: '', color: '' });
 
   const loadData = async () => {
@@ -375,10 +375,14 @@ export default function FabricManagement() {
     e.preventDefault();
     if (!selectedPo) return;
     try {
-      await receiveFabricDelivery(selectedPo.id, receiveForm.receivedKg, receiveForm.receivedRolls);
+      await receiveFabricDelivery(selectedPo.id, receiveForm.receivedKg, receiveForm.receivedRolls, {
+        batchNo: receiveForm.batchNo,
+        deliveryDate: receiveForm.deliveryDate,
+        receivedBy: receiveForm.receivedBy,
+      });
       alert("Kumaş girişi yapıldı! İlgili artikeller otomatik olarak KESİM aşamasına aktarıldı.");
       setShowReceiveModal(false);
-      setReceiveForm({ receivedKg: '', receivedRolls: '' });
+      setReceiveForm({ receivedKg: '', receivedRolls: '', batchNo: '', deliveryDate: new Date().toISOString().split('T')[0], receivedBy: '' });
       setSelectedPo(null);
       loadData();
     } catch (err) {
@@ -880,6 +884,20 @@ export default function FabricManagement() {
                 <div className="space-y-1">
                   <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Gelen Top / Rulo Sayısı</label>
                   <input required type="number" className="w-full h-11 px-4 bg-slate-50 border border-slate-200 rounded-lg text-sm font-black text-center outline-none" style={{ color: NAVY }} placeholder="Örn: 15" value={receiveForm.receivedRolls} onChange={e => setReceiveForm({...receiveForm, receivedRolls: e.target.value})} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Parti No</label>
+                    <input type="text" className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none uppercase" placeholder="Örn: P-4521" value={receiveForm.batchNo} onChange={e => setReceiveForm({...receiveForm, batchNo: e.target.value})} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Geliş Tarihi</label>
+                    <input type="date" className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none" value={receiveForm.deliveryDate} onChange={e => setReceiveForm({...receiveForm, deliveryDate: e.target.value})} />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Teslim Alan Kişi</label>
+                  <input type="text" className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none" placeholder="Ad Soyad" value={receiveForm.receivedBy} onChange={e => setReceiveForm({...receiveForm, receivedBy: e.target.value})} />
                 </div>
                 <div className="flex gap-3 pt-2">
                   <button type="button" onClick={() => { setShowReceiveModal(false); setSelectedPo(null); }} className="flex-1 h-11 bg-slate-100 rounded-xl font-black text-xs uppercase hover:bg-slate-200 transition-colors">Vazgeç</button>

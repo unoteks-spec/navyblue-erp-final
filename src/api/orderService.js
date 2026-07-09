@@ -429,7 +429,7 @@ export const updateFabricPurchaseOrder = async (poId, updatedData) => {
   return data[0];
 };
 
-export const receiveFabricDelivery = async (fabricOrderId, receivedKg, receivedRolls) => {
+export const receiveFabricDelivery = async (fabricOrderId, receivedKg, receivedRolls, extras = {}) => {
   const { data: currentPo, error: fetchError } = await supabase
     .from('fabric_orders')
     .select('received_qty_kg, received_rolls')
@@ -445,7 +445,10 @@ export const receiveFabricDelivery = async (fabricOrderId, receivedKg, receivedR
     .update({
       received_qty_kg: newTotalReceived,
       received_rolls: newTotalRolls,
-      status: 'completed'
+      status: 'completed',
+      batch_no: extras.batchNo || null,
+      delivery_date: extras.deliveryDate || null,
+      received_by: extras.receivedBy || null
     })
     .eq('id', fabricOrderId);
   if (poUpdateError) throw poUpdateError;
