@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase, uploadModelImage } from '../api/orderService';
-import { Plus, Trash2, Download, Save, X, Ruler, UploadCloud, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Download, Save, X, Ruler, UploadCloud, Loader2, Search } from 'lucide-react';
 import { SIZE_GROUPS } from '../constants/sizes';
 import * as ExcelJS from 'exceljs';
 
@@ -120,6 +120,7 @@ const buildEmptyMeasurements = (garmentType, selectedSizes) => {
 
 export default function SizeCharts() {
   const [charts, setCharts] = useState([]);
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -148,6 +149,16 @@ export default function SizeCharts() {
   };
 
   useEffect(() => { load(); }, []);
+  const filteredCharts = charts.filter(chart => {
+  if (!search.trim()) return true;
+  const q = search.toLocaleLowerCase('tr-TR');
+  return (
+    (chart.customer || '').toLocaleLowerCase('tr-TR').includes(q) ||
+    (chart.model_name || '').toLocaleLowerCase('tr-TR').includes(q) ||
+    (GARMENT_TYPES[chart.garment_type]?.label || '').toLocaleLowerCase('tr-TR').includes(q) ||
+    (chart.size_group || '').toLocaleLowerCase('tr-TR').includes(q)
+  );
+});
 
   const handleSizeGroupChange = (group) => {
     setSizeGroup(group);
@@ -546,16 +557,27 @@ export default function SizeCharts() {
           <Plus size={16}/> Yeni Ölçü Tablosu
         </button>
       </div>
-
+<div className="border border-slate-200 rounded-xl">
+  <div className="relative">
+    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+    <input
+      type="text"
+      value={search}
+      onChange={e => setSearch(e.target.value)}
+      placeholder="Müşteri, model, giysi türü veya beden grubu ara..."
+      className="w-full pl-11 pr-4 py-3 bg-transparent rounded-xl outline-none text-[12px] font-medium"
+    />
+  </div>
+</div>
       {loading ? (
         <div className="text-center py-20 text-slate-300 font-black text-[10px] uppercase animate-pulse">Yükleniyor...</div>
-      ) : charts.length === 0 ? (
+      ) : filteredCharts.length === 0 ? (
         <div className="text-center py-20 border border-dashed border-slate-200 rounded-2xl text-slate-300 font-black text-[10px] uppercase">
           Henüz ölçü tablosu eklenmemiş
         </div>
       ) : (
         <div className="grid gap-4">
-          {charts.map(chart => (
+          {filteredCharts.map(chart => (
             <div key={chart.id} className="bg-white border border-slate-100 rounded-2xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="flex items-center gap-4 flex-1">
                 <div className="w-12 h-12 rounded-xl overflow-hidden border border-slate-100 shrink-0 bg-slate-50 flex items-center justify-center"
