@@ -237,8 +237,10 @@ function StageColumn({ stage, index, orders, openCardId, onToggle, onSaveWaybill
         <h3 className="text-xs md:text-sm lg:text-[11px] xl:text-xs font-black tracking-widest lg:tracking-wider uppercase truncate">{stage.label}</h3>
       </div>
 
-      <div ref={setNodeRef} className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col gap-2.5 lg:gap-2 p-2 lg:p-1.5 rounded-2xl border-2 border-dashed transition-colors ${
-        isOver ? 'bg-slate-50 border-slate-300' : 'bg-slate-50/30 border-slate-200/50'
+      <div ref={setNodeRef} className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col gap-2.5 lg:gap-2 p-2 lg:p-1.5 rounded-2xl border transition-all duration-200 ${
+        isOver
+          ? 'bg-[#1e3a5f]/[0.06] border-[#1e3a5f]/40 shadow-inner'
+          : 'bg-slate-50/70 border-slate-100'
       }`}>
         {orders.map(order => (
           <OrderCard
