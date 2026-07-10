@@ -226,15 +226,15 @@ function StageColumn({ stage, index, orders, openCardId, onToggle, onSaveWaybill
   const { setNodeRef, isOver } = useDroppable({ id: stage.key });
 
   return (
-    <div className="flex flex-col gap-3 min-w-64 md:min-w-72 snap-center h-full">
-      <div className={`p-4 rounded-xl border-b-2 transition-all shrink-0 ${
+    <div className="flex flex-col gap-3 min-w-64 snap-center h-full lg:min-w-0 lg:flex-1 lg:snap-none">
+      <div className={`p-4 lg:p-3 rounded-xl border-b-2 transition-all shrink-0 ${
         stage.key === 'yuklendi' ? 'text-white' : 'bg-white border-slate-200 text-slate-800'
       }`} style={stage.key === 'yuklendi' ? { background: NAVY, borderColor: NAVY } : {}}>
         <div className="flex justify-between items-center mb-0.5">
           <div className="text-[8px] font-black opacity-60 uppercase tracking-widest">AŞAMA {index + 1}</div>
           <div className={`text-[10px] font-black px-2 py-0.5 rounded-full ${stage.key === 'yuklendi' ? 'bg-white/20' : 'bg-slate-100 text-slate-500'}`}>{orders.length}</div>
         </div>
-        <h3 className="text-xs md:text-sm font-black tracking-widest uppercase truncate">{stage.label}</h3>
+        <h3 className="text-xs md:text-sm lg:text-[11px] xl:text-xs font-black tracking-widest lg:tracking-wider uppercase truncate">{stage.label}</h3>
       </div>
 
       <div ref={setNodeRef} className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col gap-2.5 p-2 rounded-2xl border-2 border-dashed transition-colors ${
@@ -451,7 +451,7 @@ export default function ProductionTrack() {
         autoScroll={{ threshold: { x: 0.15, y: 0.2 } }}
       >
         <div
-          className={`flex gap-4 overflow-x-auto overflow-y-hidden custom-scrollbar -mx-4 md:-mx-6 px-4 md:px-6 ${activeDragOrder ? '' : 'snap-x snap-mandatory'}`}
+          className={`flex gap-4 lg:gap-3 overflow-x-auto lg:overflow-x-hidden overflow-y-hidden custom-scrollbar -mx-4 md:-mx-6 px-4 md:px-6 ${activeDragOrder ? '' : 'snap-x snap-mandatory lg:snap-none'}`}
           style={{ height: 'calc(100dvh - 245px)', minHeight: '420px' }}
         >
           {loading ? (
