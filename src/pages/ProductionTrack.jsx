@@ -54,7 +54,7 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
       } ${isDragging ? 'opacity-40' : ''}`}
     >
       {/* KAPALI BAŞLIK */}
-      <div className="flex items-center gap-2 p-3">
+      <div className="flex items-center gap-2 p-3 lg:p-2 lg:gap-1.5">
         <div
           {...listeners}
           {...attributes}
@@ -73,7 +73,7 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
           className="min-w-0 flex-1 overflow-hidden cursor-pointer"
           onClick={() => onToggle(order.id)}
         >
-          <div className="font-black text-[11px] text-slate-900 tracking-tighter uppercase truncate leading-tight">
+          <div className="font-black text-[11px] text-slate-900 tracking-tighter uppercase truncate leading-tight" title={order.article}>
             {order.article}
           </div>
           {order.color && (
@@ -84,7 +84,7 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
         </div>
 
         <div className="flex flex-col items-end gap-1 shrink-0">
-          <div className={`flex items-center gap-0.5 text-[7px] font-black px-1 py-0.5 rounded-md uppercase whitespace-nowrap ${
+          <div className={`flex lg:hidden xl:flex items-center gap-0.5 text-[7px] font-black px-1 py-0.5 rounded-md uppercase whitespace-nowrap ${
             stage.key === 'yuklendi' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'
           }`}>
             <Clock size={7}/>{entryDate}
@@ -237,7 +237,7 @@ function StageColumn({ stage, index, orders, openCardId, onToggle, onSaveWaybill
         <h3 className="text-xs md:text-sm lg:text-[11px] xl:text-xs font-black tracking-widest lg:tracking-wider uppercase truncate">{stage.label}</h3>
       </div>
 
-      <div ref={setNodeRef} className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col gap-2.5 p-2 rounded-2xl border-2 border-dashed transition-colors ${
+      <div ref={setNodeRef} className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col gap-2.5 lg:gap-2 p-2 lg:p-1.5 rounded-2xl border-2 border-dashed transition-colors ${
         isOver ? 'bg-slate-50 border-slate-300' : 'bg-slate-50/30 border-slate-200/50'
       }`}>
         {orders.map(order => (
@@ -451,7 +451,7 @@ export default function ProductionTrack() {
         autoScroll={{ threshold: { x: 0.15, y: 0.2 } }}
       >
         <div
-          className={`flex gap-4 lg:gap-3 overflow-x-auto lg:overflow-x-hidden overflow-y-hidden custom-scrollbar -mx-4 md:-mx-6 px-4 md:px-6 ${activeDragOrder ? '' : 'snap-x snap-mandatory lg:snap-none'}`}
+          className={`flex gap-4 lg:gap-1.5 overflow-x-auto lg:overflow-x-hidden overflow-y-hidden custom-scrollbar -mx-4 md:-mx-6 px-4 md:px-6 ${activeDragOrder ? '' : 'snap-x snap-mandatory lg:snap-none'}`}
           style={{ height: 'calc(100dvh - 245px)', minHeight: '420px' }}
         >
           {loading ? (
