@@ -38,7 +38,7 @@ export default function FabricManagement() {
 
   const [poForm, setPoForm] = useState({ supplierName: '', customQtyKg: '', unitPrice: '', priceCurrency: 'EUR' });
   const [receiveForm, setReceiveForm] = useState({ receivedKg: '', receivedRolls: '', batchNo: '', deliveryDate: new Date().toISOString().split('T')[0], receivedBy: '' });
-  const [editForm, setEditForm] = useState({ supplierName: '', orderedQtyKg: '', fabricType: '', color: '' });
+  const [editForm, setEditForm] = useState({ supplierName: '', orderedQtyKg: '', fabricType: '', color: '', receivedQtyKg: '', receivedRolls: '', batchNo: '' });
 
   const loadData = async () => {
     setLoading(true);
@@ -396,7 +396,10 @@ export default function FabricManagement() {
       supplierName: po.supplier_name,
       orderedQtyKg: po.ordered_qty_kg,
       fabricType: po.fabric_type,
-      color: po.color
+      color: po.color,
+      receivedQtyKg: po.received_qty_kg ?? '',
+      receivedRolls: po.received_rolls ?? '',
+      batchNo: po.batch_no ?? ''
     });
     setShowEditModal(true);
   };
@@ -935,6 +938,24 @@ export default function FabricManagement() {
                 <div className="space-y-1">
                   <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Sipariş Kilosu (KG)</label>
                   <input required type="number" className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-black outline-none" style={{ color: NAVY }} value={editForm.orderedQtyKg} onChange={e => setEditForm({...editForm, orderedQtyKg: e.target.value})} />
+                </div>
+                <div className="border-t border-slate-100 pt-4 mt-2">
+                  <p className="text-[9px] font-black uppercase text-emerald-600 ml-1 tracking-widest mb-3">İrsaliye Düzeltme (Fiilen Gelen)</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Gelen Miktar (KG)</label>
+                      <input type="number" step="0.01" className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-black text-emerald-600 outline-none" value={editForm.receivedQtyKg} onChange={e => setEditForm({...editForm, receivedQtyKg: e.target.value})} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Gelen Top / Rulo</label>
+                      <input type="number" className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-black outline-none" style={{ color: NAVY }} value={editForm.receivedRolls} onChange={e => setEditForm({...editForm, receivedRolls: e.target.value})} />
+                    </div>
+                  </div>
+                  <div className="space-y-1 mt-3">
+                    <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Parti No</label>
+                    <input type="text" className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold outline-none uppercase" placeholder="Örn: P-4521" value={editForm.batchNo} onChange={e => setEditForm({...editForm, batchNo: e.target.value})} />
+                  </div>
+                  <p className="text-[9px] text-slate-400 mt-2 ml-1">Bu alanlar toplam gelen miktarı doğrudan değiştirir. Yanlış girilen irsaliyeyi düzeltmek için kullanın.</p>
                 </div>
                 <div className="flex gap-3 pt-2">
                   <button type="button" onClick={() => { setShowEditModal(false); setSelectedPo(null); }} className="flex-1 h-12 bg-slate-100 rounded-xl font-black text-xs uppercase tracking-wider hover:bg-slate-200 transition-colors">Vazgeç</button>

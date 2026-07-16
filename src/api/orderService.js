@@ -415,14 +415,28 @@ export const getFabricOrders = async () => {
 };
 
 export const updateFabricPurchaseOrder = async (poId, updatedData) => {
+  const updatePayload = {
+    supplier_name: updatedData.supplierName,
+    ordered_qty_kg: Number(updatedData.orderedQtyKg || 0),
+    fabric_type: updatedData.fabricType,
+    color: updatedData.color
+  };
+
+  // İrsaliye düzeltmesi: gelen kg/rulo alanları gönderildiyse doğrudan set et
+  if (updatedData.receivedQtyKg !== undefined && updatedData.receivedQtyKg !== '') {
+    updatePayload.received_qty_kg = Number(updatedData.receivedQtyKg || 0);
+    updatePayload.status = Number(updatedData.receivedQtyKg || 0) > 0 ? 'completed' : 'pending';
+  }
+  if (updatedData.receivedRolls !== undefined && updatedData.receivedRolls !== '') {
+    updatePayload.received_rolls = Number(updatedData.receivedRolls || 0);
+  }
+  if (updatedData.batchNo !== undefined) {
+    updatePayload.batch_no = updatedData.batchNo || null;
+  }
+
   const { data, error } = await supabase
     .from('fabric_orders')
-    .update({
-      supplier_name: updatedData.supplierName,
-      ordered_qty_kg: Number(updatedData.orderedQtyKg || 0),
-      fabric_type: updatedData.fabricType,
-      color: updatedData.color
-    })
+    .update(updatePayload)
     .eq('id', poId)
     .select();
   if (error) throw error;
