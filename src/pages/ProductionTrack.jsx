@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { getAllOrders, updateOrderStage, supabase } from '../api/orderService';
 import {
-  Clock, Activity, User, Hash, Archive, PackageCheck, AlertCircle,
-  ClipboardCheck, Truck, ChevronDown, Pencil, Check, X, GripVertical
+  Clock, User, Hash, Archive, PackageCheck, AlertCircle,
+  ClipboardCheck, Truck, Pencil, Check, X, GripVertical, Calculator
 } from 'lucide-react';
 import ShipmentResultModal from '../components/orders/ShipmentResultModal';
 import {
@@ -24,8 +24,8 @@ const STAGES = [
   { key: 'yuklendi', label: 'YÜKLENDİ', isFason: false }
 ];
 
-// ───────────────────────── KART (sürüklenebilir + akordeon) ─────────────────────────
-function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybill }) {
+// ───────────────────────── KART (minimal: resim + artikel + renk) ─────────────────────────
+function OrderCard({ order, stage, onOpenDetail }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: order.id,
     data: { order, fromStage: stage.key },
@@ -35,45 +35,37 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50 }
     : undefined;
 
-  const totalQty = Object.values(order.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
   const needsWaybill = order.waybill_tracking_active && !order.is_waybill_issued;
-  const entryDate = order.tracking?.[stage.key]
-    ? new Date(order.tracking[stage.key]).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' })
-    : 'GİRİŞ';
-
-  const [editingWaybill, setEditingWaybill] = useState(false);
-  const [waybillInput, setWaybillInput] = useState('');
-  const [workshopInput, setWorkshopInput] = useState('');
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-white rounded-2xl shadow-sm border transition-all ${
+      className={`bg-white rounded-xl shadow-sm border transition-all ${
         needsWaybill ? 'border-red-300 ring-1 ring-red-50' : 'border-slate-100'
       } ${isDragging ? 'opacity-40' : ''}`}
     >
-      {/* KAPALI BAŞLIK */}
-      <div className="flex items-center gap-2 p-3 lg:p-2 lg:gap-1.5">
+      <div className="flex items-center gap-1.5 p-2">
         <div
           {...listeners}
           {...attributes}
-          className="p-1 -ml-1 text-slate-300 cursor-grab active:cursor-grabbing touch-none shrink-0"
+          className="p-0.5 -ml-0.5 text-slate-300 cursor-grab active:cursor-grabbing touch-none shrink-0"
         >
-          <GripVertical size={14}/>
+          <GripVertical size={13}/>
         </div>
 
-        <div className="w-9 h-9 rounded-lg overflow-hidden border border-slate-100 shrink-0 bg-slate-50 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-100 shrink-0 bg-slate-50 flex items-center justify-center">
           {order.model_image
             ? <img src={order.model_image} className="w-full h-full object-cover" alt="model" draggable={false}/>
-            : <Hash size={16} className="text-slate-200"/>}
+            : <Hash size={13} className="text-slate-200"/>}
         </div>
 
         <div
           className="min-w-0 flex-1 overflow-hidden cursor-pointer"
-          onClick={() => onToggle(order.id)}
+          onClick={() => onOpenDetail(order)}
+          title={`${order.article}${order.color ? ' — ' + order.color : ''}`}
         >
-          <div className="font-black text-[11px] text-slate-900 tracking-tighter uppercase truncate leading-tight" title={order.article}>
+          <div className="font-black text-[10.5px] text-slate-900 tracking-tighter uppercase truncate leading-tight">
             {order.article}
           </div>
           {order.color && (
@@ -83,146 +75,16 @@ function OrderCard({ order, stage, isOpen, onToggle, onSaveWaybill, onEditWaybil
           )}
         </div>
 
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <div className={`flex lg:hidden xl:flex items-center gap-0.5 text-[7px] font-black px-1 py-0.5 rounded-md uppercase whitespace-nowrap ${
-            stage.key === 'yuklendi' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'
-          }`}>
-            <Clock size={7}/>{entryDate}
-          </div>
-          {needsWaybill && <AlertCircle size={12} className="text-red-500 animate-pulse"/>}
-        </div>
-
-        <button
-          onClick={() => onToggle(order.id)}
-          className="p-1 text-slate-300 hover:text-slate-600 transition-colors shrink-0"
-        >
-          <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}/>
-        </button>
+        {needsWaybill && (
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" title="İrsaliye bekliyor"/>
+        )}
       </div>
-
-      {/* AÇIK AKORDEON İÇERİĞİ */}
-      {isOpen && (
-        <div className="px-3 pb-3 pt-0 border-t border-slate-50 space-y-3">
-          {/* Müşteri + Adet */}
-          <div className="flex items-center justify-between pt-3">
-            <span className="flex items-center gap-1 text-[9px] font-black text-slate-500 bg-slate-50 px-2 py-1 rounded-lg uppercase border border-slate-100">
-              <User size={9}/> {order.customer}
-            </span>
-            <div className="text-white px-2.5 py-1 rounded-lg text-[10px] font-black" style={{ background: NAVY }}>{totalQty} AD</div>
-          </div>
-
-          {/* İrsaliye bölümü — sadece fason aşamalarda */}
-          {stage.isFason && (
-            <div>
-              {!order.waybill_tracking_active ? (
-                <button
-                  onClick={() => onSaveWaybill(order.id, 'START_TRACKING')}
-                  className="w-full py-2 bg-slate-50 rounded-xl text-[9px] font-black uppercase flex items-center justify-center gap-2 border border-slate-200 hover:opacity-90 transition-all"
-                  style={{ color: NAVY }}
-                >
-                  <Truck size={13}/> Atölyeye Sevk Et (Fason)
-                </button>
-              ) : (
-                <div className={`p-2.5 rounded-xl border border-dashed ${order.is_waybill_issued ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'}`}>
-                  {order.is_waybill_issued && !editingWaybill ? (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-emerald-600 font-black text-[9px] uppercase">
-                          <ClipboardCheck size={13}/> İrsaliye: {order.current_waybill_no}
-                        </div>
-                        <button
-                          onClick={() => {
-                            setWaybillInput(order.current_waybill_no || '');
-                            setWorkshopInput(order.current_workshop_name || '');
-                            setEditingWaybill(true);
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-amber-600 transition-colors"
-                          title="İrsaliye No / Atölye Düzelt"
-                        >
-                          <Pencil size={13}/>
-                        </button>
-                      </div>
-                      {order.current_workshop_name && (
-                        <div className="flex items-center gap-1.5 text-[8.5px] font-bold text-slate-500 uppercase pl-0.5">
-                          <Truck size={10}/> {order.current_workshop_name}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center gap-1.5 text-[9px] font-black uppercase">
-                        {editingWaybill
-                          ? <span className="text-amber-600 flex items-center gap-1"><Pencil size={11}/> İrsaliye / Atölye Düzelt</span>
-                          : <span className="text-red-600 flex items-center gap-1 animate-pulse"><AlertCircle size={11}/> İrsaliye Bekliyor</span>
-                        }
-                      </div>
-                      <div className="flex gap-1">
-                        <input
-                          type="text"
-                          autoFocus
-                          defaultValue={editingWaybill ? waybillInput : ''}
-                          placeholder="İrsaliye No"
-                          id={`waybill-input-${order.id}`}
-                          className="flex-1 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:ring-1 focus:ring-slate-300"
-                        />
-                        <button
-                          onClick={() => {
-                            const val = document.getElementById(`waybill-input-${order.id}`).value;
-                            const workshopVal = document.getElementById(`workshop-input-${order.id}`).value;
-                            onSaveWaybill(order.id, val, workshopVal);
-                            setEditingWaybill(false);
-                          }}
-                          className="bg-emerald-600 text-white p-2 rounded-lg"
-                        >
-                          <Check size={13}/>
-                        </button>
-                        {editingWaybill && (
-                          <button
-                            onClick={() => setEditingWaybill(false)}
-                            className="bg-slate-200 text-slate-600 p-2 rounded-lg"
-                          >
-                            <X size={13}/>
-                          </button>
-                        )}
-                      </div>
-                      <input
-                        type="text"
-                        defaultValue={editingWaybill ? workshopInput : ''}
-                        placeholder="Atölye Adı (opsiyonel)"
-                        id={`workshop-input-${order.id}`}
-                        className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:ring-1 focus:ring-slate-300"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            const val = document.getElementById(`waybill-input-${order.id}`).value;
-                            onSaveWaybill(order.id, val, e.target.value);
-                            setEditingWaybill(false);
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Arşivle butonu — sadece YÜKLENDİ aşamasında */}
-          {stage.key === 'yuklendi' && (
-            <button
-              onClick={() => onEditWaybill(order)}
-              className="w-full py-2.5 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all tracking-widest"
-            >
-              ARŞİVLE <Archive size={14}/>
-            </button>
-          )}
-        </div>
-      )}
     </div>
   );
 }
 
 // ───────────────────────── SÜTUN (drop alanı) ─────────────────────────
-function StageColumn({ stage, index, orders, openCardId, onToggle, onSaveWaybill, onArchive }) {
+function StageColumn({ stage, index, orders, onOpenDetail }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.key });
 
   return (
@@ -237,7 +99,7 @@ function StageColumn({ stage, index, orders, openCardId, onToggle, onSaveWaybill
         <h3 className="text-xs md:text-sm lg:text-[11px] xl:text-xs font-black tracking-widest lg:tracking-wider uppercase truncate">{stage.label}</h3>
       </div>
 
-      <div ref={setNodeRef} className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col gap-2.5 lg:gap-2 p-2 lg:p-1.5 rounded-2xl border transition-all duration-200 ${
+      <div ref={setNodeRef} className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col gap-2 p-2 lg:p-1.5 rounded-2xl border transition-all duration-200 ${
         isOver
           ? 'bg-[#1e3a5f]/[0.06] border-[#1e3a5f]/40 shadow-inner'
           : 'bg-slate-50/70 border-slate-100'
@@ -247,12 +109,170 @@ function StageColumn({ stage, index, orders, openCardId, onToggle, onSaveWaybill
             key={order.id}
             order={order}
             stage={stage}
-            isOpen={openCardId === order.id}
-            onToggle={onToggle}
-            onSaveWaybill={onSaveWaybill}
-            onEditWaybill={onArchive}
+            onOpenDetail={onOpenDetail}
           />
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ───────────────────────── DETAY MODALI ─────────────────────────
+function OrderDetailModal({ order, onClose, onSaveWaybill, onArchive }) {
+  const stage = STAGES.find(s => s.key === (order.current_stage || 'kesimhanede')) || STAGES[0];
+  const totalQty = Object.values(order.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
+  const entryDate = order.tracking?.[stage.key]
+    ? new Date(order.tracking[stage.key]).toLocaleDateString('tr-TR')
+    : '—';
+
+  const [editingWaybill, setEditingWaybill] = useState(false);
+  const [waybillInput, setWaybillInput] = useState('');
+  const [workshopInput, setWorkshopInput] = useState('');
+
+  const needsWaybill = order.waybill_tracking_active && !order.is_waybill_issued;
+  const showWaybillForm = needsWaybill || editingWaybill;
+
+  const handleSave = () => {
+    const val = document.getElementById(`modal-waybill-input`)?.value;
+    const workshopVal = document.getElementById(`modal-workshop-input`)?.value;
+    if (!val) return;
+    onSaveWaybill(order.id, val, workshopVal);
+    setEditingWaybill(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4" onClick={onClose}>
+      <div className="bg-white w-full max-w-md max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+
+        {/* HEADER */}
+        <div className="p-5 text-white flex items-center justify-between shrink-0" style={{ background: NAVY }}>
+          <div className="min-w-0">
+            <h2 className="text-sm font-black uppercase tracking-tight truncate">{order.article}</h2>
+            <p className="text-[10px] text-white/60 uppercase truncate mt-0.5">{order.color || '—'}</p>
+          </div>
+          <button onClick={onClose} className="p-2 text-white/70 hover:text-white transition-colors shrink-0"><X size={18}/></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-4">
+
+          {/* RESİM + BİLGİLER */}
+          <div className="flex gap-4">
+            <div className="w-24 h-28 rounded-xl overflow-hidden border border-slate-100 bg-slate-50 flex items-center justify-center shrink-0">
+              {order.model_image
+                ? <img src={order.model_image} className="w-full h-full object-cover" alt="model"/>
+                : <Hash size={24} className="text-slate-200"/>}
+            </div>
+            <div className="flex-1 space-y-2 min-w-0">
+              {[
+                { label: 'Müşteri', value: order.customer || '—', icon: User },
+                { label: 'Aşama', value: stage.label, icon: PackageCheck },
+                { label: 'Giriş', value: entryDate, icon: Clock },
+                { label: 'Kesilen', value: `${totalQty} Adet`, icon: Calculator },
+              ].map(f => (
+                <div key={f.label} className="flex items-center gap-2">
+                  <f.icon size={12} className="text-slate-300 shrink-0"/>
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest w-14 shrink-0">{f.label}</span>
+                  <span className="text-xs font-black text-slate-800 uppercase truncate">{f.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* İRSALİYE BÖLÜMÜ — sadece fason aşamalarda */}
+          {stage.isFason && (
+            <div className="border-t border-slate-100 pt-4">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Fason / İrsaliye Takibi</p>
+
+              {!order.waybill_tracking_active ? (
+                <button
+                  onClick={() => onSaveWaybill(order.id, 'START_TRACKING')}
+                  className="w-full py-3 bg-slate-50 rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-100 transition-all"
+                  style={{ color: NAVY }}
+                >
+                  <Truck size={14}/> Atölyeye Sevk Et (Fason)
+                </button>
+              ) : order.is_waybill_issued && !editingWaybill ? (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-emerald-600 font-black text-[10px] uppercase">
+                      <ClipboardCheck size={14}/> İrsaliye: {order.current_waybill_no}
+                    </div>
+                    <button
+                      onClick={() => {
+                        setWaybillInput(order.current_waybill_no || '');
+                        setWorkshopInput(order.current_workshop_name || '');
+                        setEditingWaybill(true);
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-amber-600 transition-colors"
+                      title="İrsaliye No / Atölye Düzelt"
+                    >
+                      <Pencil size={14}/>
+                    </button>
+                  </div>
+                  {order.current_workshop_name && (
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase">
+                      <Truck size={11}/> {order.current_workshop_name}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className={`p-3 rounded-xl border border-dashed ${editingWaybill ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-100'} space-y-2`}>
+                  <div className="flex items-center gap-1.5 text-[10px] font-black uppercase">
+                    {editingWaybill
+                      ? <span className="text-amber-600 flex items-center gap-1"><Pencil size={12}/> İrsaliye / Atölye Düzelt</span>
+                      : <span className="text-red-600 flex items-center gap-1 animate-pulse"><AlertCircle size={12}/> İrsaliye Bekliyor</span>
+                    }
+                  </div>
+                  <input
+                    type="text"
+                    autoFocus
+                    defaultValue={editingWaybill ? waybillInput : ''}
+                    placeholder="İrsaliye No"
+                    id="modal-waybill-input"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold outline-none focus:ring-1 focus:ring-slate-300"
+                  />
+                  <input
+                    type="text"
+                    defaultValue={editingWaybill ? workshopInput : ''}
+                    placeholder="Atölye Adı (opsiyonel)"
+                    id="modal-workshop-input"
+                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold outline-none focus:ring-1 focus:ring-slate-300"
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={handleSave} className="flex-1 bg-emerald-600 text-white py-2 rounded-lg text-[10px] font-black uppercase flex items-center justify-center gap-1.5 hover:bg-emerald-700 transition-all">
+                      <Check size={13}/> Kaydet
+                    </button>
+                    {editingWaybill && (
+                      <button onClick={() => setEditingWaybill(false)} className="px-4 bg-slate-200 text-slate-600 py-2 rounded-lg text-[10px] font-black uppercase">
+                        Vazgeç
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ARŞİVLE — sadece YÜKLENDİ aşamasında */}
+          {stage.key === 'yuklendi' && (
+            <div className="border-t border-slate-100 pt-4">
+              <button
+                onClick={() => onArchive(order)}
+                className="w-full py-3 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all tracking-widest"
+              >
+                SEVKİYATI TAMAMLA VE ARŞİVLE <Archive size={14}/>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* FOOTER */}
+        <div className="p-4 border-t border-slate-100 shrink-0">
+          <button onClick={onClose} className="w-full py-3 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:opacity-90 transition-opacity" style={{ background: NAVY }}>
+            Kapat
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -263,7 +283,7 @@ export default function ProductionTrack() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [shipmentModalOrder, setShipmentModalOrder] = useState(null);
-  const [openCardId, setOpenCardId] = useState(null);
+  const [detailOrderId, setDetailOrderId] = useState(null);
   const [activeDragOrder, setActiveDragOrder] = useState(null);
   const [hideEmpty, setHideEmpty] = useState(false);
 
@@ -286,10 +306,6 @@ export default function ProductionTrack() {
   };
 
   useEffect(() => { load(); }, []);
-
-  const toggleCard = (orderId) => {
-    setOpenCardId(prev => prev === orderId ? null : orderId);
-  };
 
   const handleSaveWaybill = async (orderId, value, workshopName = '') => {
     try {
@@ -359,7 +375,10 @@ export default function ProductionTrack() {
     }
   };
 
-  const handleArchive = (order) => setShipmentModalOrder(order);
+  const handleArchive = (order) => {
+    setDetailOrderId(null);
+    setShipmentModalOrder(order);
+  };
 
   const handleDragStart = (event) => {
     const order = orders.find(o => o.id === event.active.id);
@@ -414,6 +433,8 @@ export default function ProductionTrack() {
     visibleOrders.some(o => (o.current_stage || 'kesimhanede') === stage.key)
   );
 
+  const detailOrder = orders.find(o => o.id === detailOrderId);
+
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-4">
 
@@ -422,7 +443,7 @@ export default function ProductionTrack() {
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Sürükle-Bırak ile Aşama Yönetimi</p>
           <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter leading-none mt-1">Üretim Akışı</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <div className="border border-slate-200 px-4 py-2 rounded-xl flex items-center gap-2">
             <PackageCheck size={14} className="text-emerald-500"/>
             <span className="text-[10px] font-black text-slate-900 uppercase">Aktif İş: {visibleOrders.length}</span>
@@ -465,12 +486,9 @@ export default function ProductionTrack() {
               <StageColumn
                 key={stage.key}
                 stage={stage}
-                index={index}
+                index={STAGES.indexOf(stage)}
                 orders={visibleOrders.filter(o => (o.current_stage || 'kesimhanede') === stage.key)}
-                openCardId={openCardId}
-                onToggle={toggleCard}
-                onSaveWaybill={handleSaveWaybill}
-                onArchive={handleArchive}
+                onOpenDetail={(order) => setDetailOrderId(order.id)}
               />
             ))
           )}
@@ -478,20 +496,30 @@ export default function ProductionTrack() {
 
         <DragOverlay>
           {activeDragOrder && (
-            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 flex items-center gap-3 w-64 opacity-95">
-              <div className="w-11 h-11 rounded-xl overflow-hidden border border-slate-100 shrink-0 bg-slate-50 flex items-center justify-center">
+            <div className="bg-white rounded-xl shadow-2xl border border-slate-200 p-2 flex items-center gap-2 w-56 opacity-95">
+              <div className="w-9 h-9 rounded-lg overflow-hidden border border-slate-100 shrink-0 bg-slate-50 flex items-center justify-center">
                 {activeDragOrder.model_image
                   ? <img src={activeDragOrder.model_image} className="w-full h-full object-cover" alt="model"/>
-                  : <Hash size={16} className="text-slate-200"/>}
+                  : <Hash size={14} className="text-slate-200"/>}
               </div>
               <div className="min-w-0">
-                <div className="font-black text-[11px] text-slate-900 uppercase truncate">{activeDragOrder.article}</div>
-                <div className="text-[8px] font-black text-slate-400 uppercase">{activeDragOrder.customer}</div>
+                <div className="font-black text-[10.5px] text-slate-900 uppercase truncate">{activeDragOrder.article}</div>
+                <div className="text-[8.5px] font-black uppercase truncate" style={{ color: NAVY }}>{activeDragOrder.color || activeDragOrder.customer}</div>
               </div>
             </div>
           )}
         </DragOverlay>
       </DndContext>
+
+      {/* DETAY MODALI */}
+      {detailOrder && (
+        <OrderDetailModal
+          order={detailOrder}
+          onClose={() => setDetailOrderId(null)}
+          onSaveWaybill={handleSaveWaybill}
+          onArchive={handleArchive}
+        />
+      )}
 
       {shipmentModalOrder && (
         <ShipmentResultModal
