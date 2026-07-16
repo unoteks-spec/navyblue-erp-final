@@ -406,16 +406,44 @@ export default function ProductionTrack() {
             waybill_tracking_active: false,
             is_waybill_issued: false,
             current_waybill_no: null,
+            current_workshop_name: null,
           }
         : o
     ));
 
     try {
-      await supabase
-        .from('orders')
-        .update({ waybill_tracking_active: false, is_waybill_issued: false, current_waybill_no: null })
-        .eq('id', order.id);
+      // ✅ Hedef aşamaya daha önce irsaliye girilmişse geri yükle
+      // (yanlışlıkla taşıyıp geri alma durumunda irsaliye kaybolmaz)
+      const { data: prevLog } = await supabase
+        .from('waybill_logs')
+        .select('waybill_no, workshop_name')
+        .eq('order_id', order.id)
+        .eq('stage', targetStageKey)
+        .order('sent_at', { ascending: false })
+        .limit(1);
+
+      const restored = prevLog && prevLog.length > 0 ? prevLog[0] : null;
+      const waybillFields = restored
+        ? {
+            waybill_tracking_active: true,
+            is_waybill_issued: true,
+            current_waybill_no: restored.waybill_no,
+            current_workshop_name: restored.workshop_name || null,
+          }
+        : {
+            waybill_tracking_active: false,
+            is_waybill_issued: false,
+            current_waybill_no: null,
+            current_workshop_name: null,
+          };
+
+      await supabase.from('orders').update(waybillFields).eq('id', order.id);
       await updateOrderStage(order.id, targetStageKey, order.tracking);
+
+      // Eski irsaliye bulunduysa ekranda da göster
+      if (restored) {
+        setOrders(prev => prev.map(o => o.id === order.id ? { ...o, ...waybillFields } : o));
+      }
     } catch (err) {
       alert("Aşama değiştirilirken hata oluştu.");
       setOrders(prev => prev.map(o => o.id === order.id ? { ...o, current_stage: fromStageKey } : o));
