@@ -93,7 +93,8 @@ export default function OrderList({ onEditOrder }) {
 
   const handleCloneOrder = async (originalOrder) => {
     try {
-      const { id, created_at, updated_at, ...clonedData } = originalOrder;
+      // ✅ Join'den gelen sanal alanları (fabric_order_items vb.) insert'ten çıkar
+      const { id, created_at, updated_at, fabric_order_items, ...clonedData } = originalOrder;
       const finalData = {
         ...clonedData,
         order_no: `${originalOrder.order_no}-KOPYA`,
@@ -101,7 +102,13 @@ export default function OrderList({ onEditOrder }) {
         is_archived: false,
         fabric_ordered: false,
         cutting_qty: {},
-        current_stage: 'kesim_bekliyor'
+        shipped_qty: {},
+        tracking: {},
+        current_stage: 'kesim_bekliyor',
+        current_waybill_no: null,
+        is_waybill_issued: false,
+        waybill_tracking_active: false,
+        current_workshop_name: null
       };
       const { error } = await supabase.from('orders').insert([finalData]);
       if (error) throw error;
