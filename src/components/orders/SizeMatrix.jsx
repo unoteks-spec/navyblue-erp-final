@@ -5,10 +5,38 @@ import { SIZE_GROUPS } from '../../constants/sizes';
 const NAVY = '#1e3a5f';
 
 export default function SizeMatrix({ register, watch, control }) {
-  const [selectedGroup, setSelectedGroup] = React.useState(Object.keys(SIZE_GROUPS)[0]);
-  const sizes = SIZE_GROUPS[selectedGroup];
-
   const currentValues = useWatch({ control, name: 'qtyBySize' }) || {};
+
+  // ✅ Formdaki dolu bedenlere bakıp doğru grubu otomatik seç
+  const [selectedGroup, setSelectedGroup] = React.useState(() => {
+    const filledSizes = Object.entries(currentValues)
+      .filter(([_, v]) => Number(v) > 0)
+      .map(([k]) => k);
+    if (filledSizes.length === 0) return Object.keys(SIZE_GROUPS)[0];
+    const foundGroup = Object.entries(SIZE_GROUPS).find(([_, sizes]) =>
+      filledSizes.some(s => sizes.includes(s))
+    );
+    return foundGroup ? foundGroup[0] : Object.keys(SIZE_GROUPS)[0];
+  });
+
+  // Form dışarıdan güncellenirse (edit modunda ilk render'dan sonra) grubu tekrar tespit et
+  const [autoDetected, setAutoDetected] = React.useState(false);
+  React.useEffect(() => {
+    if (autoDetected) return;
+    const filledSizes = Object.entries(currentValues)
+      .filter(([_, v]) => Number(v) > 0)
+      .map(([k]) => k);
+    if (filledSizes.length === 0) return;
+    const foundGroup = Object.entries(SIZE_GROUPS).find(([_, sizes]) =>
+      filledSizes.some(s => sizes.includes(s))
+    );
+    if (foundGroup && foundGroup[0] !== selectedGroup) {
+      setSelectedGroup(foundGroup[0]);
+    }
+    setAutoDetected(true);
+  }, [currentValues, autoDetected, selectedGroup]);
+
+  const sizes = SIZE_GROUPS[selectedGroup];
 
   const total = React.useMemo(() => {
     return Object.values(currentValues).reduce((acc, curr) => {
