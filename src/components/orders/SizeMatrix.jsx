@@ -18,7 +18,7 @@ export default function SizeMatrix({ register, watch, control }) {
   }, [currentValues]);
 
   const getDisplayLabel = (size) => {
-    const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
+    const prefixes = ['B', 'K', 'C', 'S', 'Y', 'U', 'N'];
     return prefixes.includes(size.charAt(0)) && size.length > 1 ? size.substring(1) : size;
   };
 

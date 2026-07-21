@@ -101,7 +101,7 @@ function StageColumn({ stage, index, orders, onOpenDetail }) {
 
       <div ref={setNodeRef} className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col gap-2 p-2 lg:p-1.5 rounded-2xl border transition-all duration-200 ${
         isOver
-          ? 'bg-[#1e3a5f]/[0.06] border-[#1e3a5f]/40 shadow-inner'
+          ? 'bg-[#1e3a5f]/6 border-[#1e3a5f]/40 shadow-inner'
           : 'bg-slate-50/70 border-slate-100'
       }`}>
         {orders.map(order => (

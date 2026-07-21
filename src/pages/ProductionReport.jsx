@@ -19,7 +19,7 @@ export default function ProductionReport() {
   const [expandedId, setExpandedId] = useState(null);
 
   const getDisplayLabel = (s) => {
-    const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
+    const prefixes = ['B', 'K', 'C', 'S', 'Y', 'U', 'N'];
     return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
   };
 
@@ -49,7 +49,7 @@ export default function ProductionReport() {
     const worksheet = workbook.addWorksheet('Siparis Listesi');
 
     const getDisplayLabelLocal = (s) => {
-      const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
+      const prefixes = ['B', 'K', 'C', 'S', 'Y', 'U', 'N'];
       return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
     };
 
@@ -300,7 +300,7 @@ export default function ProductionReport() {
 
                 const qtyKeys2 = Object.keys(o.qty_by_size || {});
                 const getDisplayLabelLocal = (s) => {
-                  const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
+                  const prefixes = ['B', 'K', 'C', 'S', 'Y', 'U', 'N'];
                   return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
                 };
                 const labelToKey = {};

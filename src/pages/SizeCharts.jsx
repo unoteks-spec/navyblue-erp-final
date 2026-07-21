@@ -107,7 +107,7 @@ const GARMENT_TYPES = {
 };
 
 const getDisplayLabel = (s) => {
-  const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
+  const prefixes = ['B', 'K', 'C', 'S', 'Y', 'U', 'N'];
   return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
 };
 

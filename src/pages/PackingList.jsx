@@ -52,7 +52,7 @@ export default function PackingList() {
     // Direkt eşleşme var mı?
     if (orderSizes.includes(upper)) return upper;
     // Prefix ekleyerek ara
-    const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
+    const prefixes = ['B', 'K', 'C', 'S', 'Y', 'U', 'N'];
     for (const p of prefixes) {
       const candidate = p + upper;
       if (orderSizes.includes(candidate)) return candidate;
@@ -62,7 +62,7 @@ export default function PackingList() {
   };
 
   const getDisplayLabel = (s) => {
-    const prefixes = ['B', 'K', 'S', 'Y', 'U', 'N'];
+    const prefixes = ['B', 'K', 'C', 'S', 'Y', 'U', 'N'];
     return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
   };
 
