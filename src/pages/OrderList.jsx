@@ -97,7 +97,8 @@ export default function OrderList({ onEditOrder }) {
       const { id, created_at, updated_at, fabric_order_items, ...clonedData } = originalOrder;
       const finalData = {
         ...clonedData,
-        order_no: `${originalOrder.order_no}-KOPYA`,
+        order_no: originalOrder.order_no,
+        article: `${originalOrder.article}-KOPYA`,
         status: 'draft',
         is_archived: false,
         fabric_ordered: false,
