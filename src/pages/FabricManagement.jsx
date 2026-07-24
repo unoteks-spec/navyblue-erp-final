@@ -66,6 +66,17 @@ export default function FabricManagement() {
 
   useEffect(() => { loadData(); }, []);
 
+  // ✅ PO'nun kumaş birimini bağlı ilk sipariş kaleminden çek (KG veya MT)
+  const getPoUnit = (po) => {
+    const items = po?.fabric_order_items || [];
+    for (const item of items) {
+      const ord = Array.isArray(item.orders) ? item.orders[0] : item.orders;
+      const fab = ord?.fabrics?.[item.fab_key];
+      if (fab?.unit) return fab.unit.toUpperCase();
+    }
+    return 'KG';
+  };
+
   const flattenedFabricPool = useMemo(() => {
     const pool = [];
     if (!waitingOrders.length) return pool;
@@ -675,9 +686,9 @@ export default function FabricManagement() {
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
                     <div><span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">KUMAŞ / GARNİ</span><span className="text-xs font-black uppercase" style={{ color: NAVY }}>{po.fabric_type}</span></div>
                     <div><span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">RENK</span><span className="text-xs font-black text-slate-700 uppercase">{po.color}</span></div>
-                    <div><span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">SİPARİŞ EDİLEN</span><span className="text-xs font-black text-slate-900">{po.ordered_qty_kg} KG</span></div>
-                    <div><span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">FİİLEN GELEN</span><span className="text-xs font-black text-emerald-600">{po.received_qty_kg || 0} / {po.ordered_qty_kg} KG</span></div>
-                    <div><span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">BİRİM FİYAT</span><span className="text-xs font-black text-slate-900">{po.unit_price ? `${Number(po.unit_price).toFixed(2)} ${po.price_currency || 'EUR'}/KG` : '—'}</span></div>
+                    <div><span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">SİPARİŞ EDİLEN</span><span className="text-xs font-black text-slate-900">{po.ordered_qty_kg} {getPoUnit(po)}</span></div>
+                    <div><span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">FİİLEN GELEN</span><span className="text-xs font-black text-emerald-600">{po.received_qty_kg || 0} / {po.ordered_qty_kg} {getPoUnit(po)}</span></div>
+                    <div><span className="block text-[8px] font-black text-slate-400 uppercase tracking-widest">BİRİM FİYAT</span><span className="text-xs font-black text-slate-900">{po.unit_price ? `${Number(po.unit_price).toFixed(2)} ${po.price_currency || 'EUR'}/${getPoUnit(po)}` : '—'}</span></div>
                   </div>
 
                   <div className="flex flex-wrap gap-2 pt-1">
@@ -877,11 +888,11 @@ export default function FabricManagement() {
                 <p>PO No: <span className="text-slate-900 font-black">{selectedPo?.fabric_po_no}</span></p>
                 <p>Tedarikçi: <span className="text-slate-900 font-black uppercase">{selectedPo?.supplier_name}</span></p>
                 <p>Kumaş / Renk: <span className="font-black uppercase" style={{ color: NAVY }}>{selectedPo?.fabric_type} / {selectedPo?.color}</span></p>
-                <p>Beklenen Miktar: <span className="text-emerald-600 font-black">{selectedPo?.ordered_qty_kg} KG</span></p>
+                <p>Beklenen Miktar: <span className="text-emerald-600 font-black">{selectedPo?.ordered_qty_kg} {getPoUnit(selectedPo)}</span></p>
               </div>
               <form onSubmit={handleReceiveDelivery} className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Gelen Net İrsaliye Kilosu (KG)</label>
+                  <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Gelen Net İrsaliye Miktarı ({getPoUnit(selectedPo)})</label>
                   <input required type="number" step="0.01" className="w-full h-11 px-4 bg-slate-50 border border-slate-200 rounded-lg text-sm font-black text-center text-emerald-600 outline-none" placeholder="0.00" value={receiveForm.receivedKg} onChange={e => setReceiveForm({...receiveForm, receivedKg: e.target.value})} />
                 </div>
                 <div className="space-y-1">
@@ -936,14 +947,14 @@ export default function FabricManagement() {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Sipariş Kilosu (KG)</label>
+                  <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Sipariş Miktarı ({getPoUnit(selectedPo)})</label>
                   <input required type="number" className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-black outline-none" style={{ color: NAVY }} value={editForm.orderedQtyKg} onChange={e => setEditForm({...editForm, orderedQtyKg: e.target.value})} />
                 </div>
                 <div className="border-t border-slate-100 pt-4 mt-2">
                   <p className="text-[9px] font-black uppercase text-emerald-600 ml-1 tracking-widest mb-3">İrsaliye Düzeltme (Fiilen Gelen)</p>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Gelen Miktar (KG)</label>
+                      <label className="text-[9px] font-black uppercase text-slate-400 ml-1 tracking-widest">Gelen Miktar ({getPoUnit(selectedPo)})</label>
                       <input type="number" step="0.01" className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-black text-emerald-600 outline-none" value={editForm.receivedQtyKg} onChange={e => setEditForm({...editForm, receivedQtyKg: e.target.value})} />
                     </div>
                     <div className="space-y-1">
