@@ -216,7 +216,7 @@ export default function OrderList({ onEditOrder }) {
           const isCut = order.status === 'cut_completed' || totalCut > 0;
 
           return (
-            <div key={order.id} className={`bg-white p-5 md:p-6 rounded-2xl border transition-all group relative ${isCut ? 'border-emerald-200' : 'border-slate-100'} hover:shadow-md`}>
+            <div key={order.id} className="bg-white p-5 md:p-6 rounded-2xl border border-slate-100 transition-all group relative hover:shadow-md hover:border-slate-200">
               <div className="absolute -top-3 -right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all z-30">
                 <button onClick={(e) => { e.stopPropagation(); handleCloneOrder(order); }} className="w-10 h-10 bg-white text-slate-500 hover:text-slate-900 rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110" title="Kopyala"><Copy size={16} /></button>
                 <button onClick={(e) => { e.stopPropagation(); onEditOrder(order); }} className="w-10 h-10 bg-white rounded-xl shadow-lg border border-slate-100 flex items-center justify-center hover:scale-110" style={{ color: NAVY }} title="Düzenle"><Edit3 size={16} /></button>
