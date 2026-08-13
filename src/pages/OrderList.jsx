@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { 
   Search, Hash, CheckCircle, LayoutGrid, RefreshCcw, X, Calendar, Activity, Copy, Calculator, Scissors, Edit3, Trash2
 } from 'lucide-react';
@@ -15,6 +15,7 @@ export default function OrderList({ onEditOrder }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [customerFilter, setCustomerFilter] = useState('');
   const [preparingOrder, setPreparingOrder] = useState(null);
   const [printCuttingOrder, setPrintCuttingOrder] = useState(null);
   const [cuttingResultOrder, setCuttingResultOrder] = useState(null);
@@ -165,15 +166,25 @@ export default function OrderList({ onEditOrder }) {
     return stageMap[key] || 'KESİM BEKLİYOR';
   };
 
+  // ✅ Aktif siparişlerden benzersiz müşteri listesi — süzme butonları için
+  const allCustomers = useMemo(() => {
+    const active = orders.filter(o => !(o.status === 'archived' || o.is_archived === true));
+    return [...new Set(active.map(o => o.customer).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b, 'tr-TR')
+    );
+  }, [orders]);
+
   const filteredOrders = orders
     .filter(o => {
       const isArchived = o.status === 'archived' || o.is_archived === true;
       if (isArchived) return false;
-      return (
+      const matchesSearch = (
         o.order_no?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         o.customer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         o.article?.toLowerCase().includes(searchTerm.toLowerCase())
       );
+      const matchesCustomer = !customerFilter || o.customer === customerFilter;
+      return matchesSearch && matchesCustomer;
     })
     .sort((a, b) => (a.due ? new Date(a.due) : new Date('9999-12-31')) - (b.due ? new Date(b.due) : new Date('9999-12-31')));
 
@@ -204,11 +215,39 @@ export default function OrderList({ onEditOrder }) {
         </div>
       </div>
 
+      {/* 2b. MÜŞTERİ SÜZME BUTONLARI */}
+      {allCustomers.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">Müşteri:</span>
+          <button
+            onClick={() => setCustomerFilter('')}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${
+              !customerFilter ? 'text-white border-transparent' : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-400'
+            }`}
+            style={!customerFilter ? { background: NAVY } : {}}
+          >
+            Tümü
+          </button>
+          {allCustomers.map(cust => (
+            <button
+              key={cust}
+              onClick={() => setCustomerFilter(customerFilter === cust ? '' : cust)}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${
+                customerFilter === cust ? 'text-white border-transparent' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-400'
+              }`}
+              style={customerFilter === cust ? { background: NAVY } : {}}
+            >
+              {cust}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* 3. ANA LİSTE */}
       <div className="grid gap-4">
         {filteredOrders.length === 0 ? (
           <div className="py-20 text-center border border-dashed border-slate-200 rounded-2xl text-slate-300 font-black uppercase tracking-widest text-xs">
-            Görüntülenecek aktif iş emri bulunamadı
+            {customerFilter ? `${customerFilter} için sipariş bulunamadı` : 'Görüntülenecek aktif iş emri bulunamadı'}
           </div>
         ) : filteredOrders.map(order => {
           const stats = calculateProgress(order);
