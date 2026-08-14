@@ -22,7 +22,7 @@ export default function OrderList({ onEditOrder }) {
   const [selectedOrderDetail, setSelectedOrderDetail] = useState(null);
 
   const getDisplayLabel = (s) => {
-    const prefixes = ['B', 'K', 'C', 'S', 'Y', 'U', 'N'];
+    const prefixes = ['B', 'K', 'C', 'J', 'S', 'Y', 'U', 'N'];
     return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
   };
 
@@ -316,7 +316,7 @@ export default function OrderList({ onEditOrder }) {
         const cutQty = Object.values(od.cutting_qty || {}).reduce((a, b) => a + Number(b || 0), 0);
         const qtyKeys = Object.keys(od.qty_by_size || {});
         const getDisplayLabelLocal = (s) => {
-          const prefixes = ['B', 'K', 'C', 'S', 'Y', 'U', 'N'];
+          const prefixes = ['B', 'K', 'C', 'J', 'S', 'Y', 'U', 'N'];
           return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
         };
         const labelToKey = {};

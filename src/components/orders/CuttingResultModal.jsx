@@ -9,7 +9,7 @@ export default function CuttingResultModal({ order, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
 
   const getDisplayLabel = (s) => {
-    const prefixes = ['B', 'K', 'C', 'S', 'Y', 'U', 'N'];
+    const prefixes = ['B', 'K', 'C', 'J', 'S', 'Y', 'U', 'N'];
     const firstChar = s.charAt(0);
     return prefixes.includes(firstChar) && s.length > 1 ? s.substring(1) : s;
   };

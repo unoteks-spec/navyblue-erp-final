@@ -10,14 +10,14 @@ const GARMENT_TYPES = {
   top: {
     label: 'T-shirt',
     measurements: [
-      { tr: 'Omuzdan Boy', en: 'Length' },
+      { tr: 'Boy', en: 'Length' },
       { tr: 'Göğüs (1/2)', en: 'Chest (1/2)' },
       { tr: 'Bel (1/2)', en: 'Waist (1/2)' },
       { tr: 'Alt Etek (1/2)', en: 'Bottom Hem (1/2)' },
-      { tr: 'Tüm Omuz', en: 'Total Shoulder' },
+      { tr: 'Omuz', en: 'Shoulder' },
       { tr: 'Kol Boyu', en: 'Sleeve Length' },
       { tr: 'Kol Ağzı (1/2)', en: 'Sleeve Opening (1/2)' },
-      { tr: 'Kolevi Direkt (1/2)', en: 'Armhole Direct (1/2)' },
+      { tr: 'Kolevi', en: 'Armhole' },
       { tr: 'Yaka Açıklığı', en: 'Neck Opening' },
       { tr: 'Ön Yaka Düşüklüğü', en: 'Front Neck Drop' },
       { tr: 'Arka Yaka Düşüklüğü', en: 'Back Neck Drop' },
@@ -27,37 +27,34 @@ const GARMENT_TYPES = {
   hoodie: {
     label: 'Hoodie / Sweatshirt',
     measurements: [
-      { tr: 'Omuzdan Boy', en: 'Length' },
+      { tr: 'Boy', en: 'Length' },
       { tr: 'Göğüs (1/2)', en: 'Chest (1/2)' },
       { tr: 'Bel (1/2)', en: 'Waist (1/2)' },
       { tr: 'Alt Etek (1/2)', en: 'Bottom Hem (1/2)' },
-      { tr: 'Tüm Omuz', en: 'Total Shoulder' },
+      { tr: 'Omuz', en: 'Shoulder' },
       { tr: 'Kol Boyu', en: 'Sleeve Length' },
       { tr: 'Kol Ağzı (1/2)', en: 'Sleeve Opening (1/2)' },
-      { tr: 'Kolevi Direkt (1/2)', en: 'Armhole Direct (1/2)' },
+      { tr: 'Kolevi', en: 'Armhole' },
       { tr: 'Yaka Açıklığı', en: 'Neck Opening' },
       { tr: 'Ön Yaka Düşüklüğü', en: 'Front Neck Drop' },
       { tr: 'Arka Yaka Düşüklüğü', en: 'Back Neck Drop' },
-      { tr: 'Kol Ribana Yüksekliği', en: 'Cuff Rib Height' },
-      { tr: 'Etek Ribana Yüksekliği', en: 'Hem Rib Height' },
       { tr: 'Kapüşon Boyu', en: 'Hood Height' },
       { tr: 'Kapüşon Genişliği', en: 'Hood Width' },
       { tr: 'Cep Genişliği', en: 'Pocket Width' },
-      { tr: 'Cep Boyu', en: 'Pocket Length' },
     ]
   },
   bottom: {
     label: 'Alt Giysi / Bottom',
     measurements: [
+      { tr: 'Boy', en: 'Length' },
       { tr: 'Bel (1/2)', en: 'Waist (1/2)' },
-      { tr: 'Basen (1/2)', en: 'Hip (1/2)' },
-      { tr: 'Baldır (1/2)', en: 'Thigh (1/2)' },
-      { tr: 'Ön Ağ', en: 'Front Rise' },
-      { tr: 'Arka Ağ', en: 'Back Rise' },
+      { tr: 'Kalça (1/2)', en: 'Hip (1/2)' },
+      { tr: 'Ön Yükselti', en: 'Front Rise' },
+      { tr: 'Arka Yükselti', en: 'Back Rise' },
       { tr: 'İç Bacak', en: 'Inseam' },
       { tr: 'Dış Bacak', en: 'Outseam' },
       { tr: 'Paça Ağzı (1/2)', en: 'Leg Opening (1/2)' },
-      { tr: 'Paça Ribana Yüksekliği', en: 'Leg Rib Height' },
+      { tr: 'Kasık (1/2)', en: 'Thigh (1/2)' },
     ]
   },
   dress: {
@@ -107,7 +104,7 @@ const GARMENT_TYPES = {
 };
 
 const getDisplayLabel = (s) => {
-  const prefixes = ['B', 'K', 'C', 'S', 'Y', 'U', 'N'];
+  const prefixes = ['B', 'K', 'C', 'J', 'S', 'Y', 'U', 'N'];
   return prefixes.includes(s.charAt(0)) && s.length > 1 ? s.substring(1) : s;
 };
 
@@ -149,16 +146,18 @@ export default function SizeCharts() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Süzme filtresi — müşteri, model, tür, beden grubu
   const filteredCharts = charts.filter(chart => {
-  if (!search.trim()) return true;
-  const q = search.toLocaleLowerCase('tr-TR');
-  return (
-    (chart.customer || '').toLocaleLowerCase('tr-TR').includes(q) ||
-    (chart.model_name || '').toLocaleLowerCase('tr-TR').includes(q) ||
-    (GARMENT_TYPES[chart.garment_type]?.label || '').toLocaleLowerCase('tr-TR').includes(q) ||
-    (chart.size_group || '').toLocaleLowerCase('tr-TR').includes(q)
-  );
-});
+    if (!search.trim()) return true;
+    const q = search.toLocaleLowerCase('tr-TR');
+    return (
+      (chart.customer || '').toLocaleLowerCase('tr-TR').includes(q) ||
+      (chart.model_name || '').toLocaleLowerCase('tr-TR').includes(q) ||
+      (GARMENT_TYPES[chart.garment_type]?.label || '').toLocaleLowerCase('tr-TR').includes(q) ||
+      (chart.size_group || '').toLocaleLowerCase('tr-TR').includes(q)
+    );
+  });
 
   const handleSizeGroupChange = (group) => {
     setSizeGroup(group);
@@ -557,23 +556,26 @@ export default function SizeCharts() {
           <Plus size={16}/> Yeni Ölçü Tablosu
         </button>
       </div>
-<div className="border border-slate-200 rounded-xl">
-  <div className="relative">
-    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
-    <input
-      type="text"
-      value={search}
-      onChange={e => setSearch(e.target.value)}
-      placeholder="Müşteri, model, giysi türü veya beden grubu ara..."
-      className="w-full pl-11 pr-4 py-3 bg-transparent rounded-xl outline-none text-[12px] font-medium"
-    />
-  </div>
-</div>
+
+      {/* SÜZME FİLTRESİ */}
+      <div className="border border-slate-200 rounded-xl">
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Müşteri, model, giysi türü veya beden grubu ara..."
+            className="w-full pl-11 pr-4 py-3 bg-transparent rounded-xl outline-none text-[12px] font-medium"
+          />
+        </div>
+      </div>
+
       {loading ? (
         <div className="text-center py-20 text-slate-300 font-black text-[10px] uppercase animate-pulse">Yükleniyor...</div>
       ) : filteredCharts.length === 0 ? (
         <div className="text-center py-20 border border-dashed border-slate-200 rounded-2xl text-slate-300 font-black text-[10px] uppercase">
-          Henüz ölçü tablosu eklenmemiş
+          {search ? 'Eşleşen ölçü tablosu bulunamadı' : 'Henüz ölçü tablosu eklenmemiş'}
         </div>
       ) : (
         <div className="grid gap-4">
