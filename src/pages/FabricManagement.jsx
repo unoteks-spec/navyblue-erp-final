@@ -28,6 +28,7 @@ export default function FabricManagement() {
   const [summarySearch, setSummarySearch] = useState('');
   const [showArchivedFabric, setShowArchivedFabric] = useState(false);
   const [showArchivedPos, setShowArchivedPos] = useState(false);
+  const [poCustomerFilter, setPoCustomerFilter] = useState('');
   const [showPoModal, setShowPoModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -260,10 +261,19 @@ export default function FabricManagement() {
     }), { ordered: 0, received: 0, remaining: 0 });
   }, [filteredSummaryRows]);
 
-  // ✅ Geçilen Siparişler sekmesi için filtre
+  // ✅ PO'nun bağlı olduğu siparişlerden müşteri adlarını çek
+  const getPoCustomers = (po) => {
+    const items = po.fabric_order_items || [];
+    const names = items.map(item => {
+      const ord = Array.isArray(item.orders) ? item.orders[0] : item.orders;
+      return ord?.customer;
+    }).filter(Boolean);
+    return [...new Set(names)];
+  };
+
+  // ✅ Geçilen Siparişler sekmesi için filtre (arşiv + müşteri)
   const filteredFabricOrders = useMemo(() => {
-    if (showArchivedPos) return fabricOrders;
-    return fabricOrders.filter(po => {
+    let rows = showArchivedPos ? fabricOrders : fabricOrders.filter(po => {
       // PO'nun bağlı olduğu siparişlerden en az biri aktif ise göster
       const items = po.fabric_order_items || [];
       if (items.length === 0) return true; // bağlı sipariş yoksa göster
@@ -273,6 +283,26 @@ export default function FabricManagement() {
       });
       return hasActive;
     });
+
+    if (poCustomerFilter) {
+      rows = rows.filter(po => getPoCustomers(po).includes(poCustomerFilter));
+    }
+
+    return rows;
+  }, [fabricOrders, showArchivedPos, poCustomerFilter]);
+
+  // ✅ Geçilen Siparişler sekmesindeki tüm benzersiz müşteriler — süzme butonları için
+  const allPoCustomers = useMemo(() => {
+    const base = showArchivedPos ? fabricOrders : fabricOrders.filter(po => {
+      const items = po.fabric_order_items || [];
+      if (items.length === 0) return true;
+      return items.some(item => {
+        const ord = Array.isArray(item.orders) ? item.orders[0] : item.orders;
+        return ord && !ord.is_archived && ord.status !== 'archived';
+      });
+    });
+    const names = base.flatMap(po => getPoCustomers(po));
+    return [...new Set(names)].sort((a, b) => a.localeCompare(b, 'tr-TR'));
   }, [fabricOrders, showArchivedPos]);
 
   const togglePoSelect = (poId) => {
@@ -662,6 +692,46 @@ export default function FabricManagement() {
               {showArchivedPos ? '✓ Arşiv Dahil' : 'Sadece Aktif'}
             </button>
           </div>
+
+          {/* MÜŞTERİ SÜZME BUTONLARI */}
+          {allPoCustomers.length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">Müşteri:</span>
+              <button
+                onClick={() => setPoCustomerFilter('')}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${
+                  !poCustomerFilter ? 'text-white border-transparent' : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-400'
+                }`}
+                style={!poCustomerFilter ? { background: NAVY } : {}}
+              >
+                Tümü
+              </button>
+              {allPoCustomers.map(cust => (
+                <button
+                  key={cust}
+                  onClick={() => setPoCustomerFilter(poCustomerFilter === cust ? '' : cust)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${
+                    poCustomerFilter === cust ? 'text-white border-transparent' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-slate-400'
+                  }`}
+                  style={poCustomerFilter === cust ? { background: NAVY } : {}}
+                >
+                  {cust}
+                </button>
+              ))}
+              {poCustomerFilter && (
+                <span className="text-[9px] font-black text-slate-400 uppercase ml-1">
+                  {filteredFabricOrders.length} / {(showArchivedPos ? fabricOrders : fabricOrders.filter(po => {
+                    const items = po.fabric_order_items || [];
+                    if (items.length === 0) return true;
+                    return items.some(item => {
+                      const ord = Array.isArray(item.orders) ? item.orders[0] : item.orders;
+                      return ord && !ord.is_archived && ord.status !== 'archived';
+                    });
+                  })).length} PO gösteriliyor
+                </span>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-4">
           {filteredFabricOrders.length === 0 ? (
             <div className="border p-20 text-center rounded-2xl text-slate-300 font-black uppercase tracking-widest">Henüz geçilmiş bir kumaş satın alma siparişi yok.</div>
