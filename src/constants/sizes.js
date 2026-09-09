@@ -1,6 +1,6 @@
 export const SIZE_GROUPS = {
   STANDART: ["SXS", "SS", "SM", "SL", "SXL", "S2XL", "S3XL"],
-  BEBEK:    ["B3M", "B6M", "B9M", "B12M", "B18M", "B24M", "B3Y", "B4Y", "B5Y", "B6Y"],
+  BEBEK:    ["B1M", "B3M", "B6M", "B9M", "B12M", "B18M", "B24M", "B3Y", "B4Y", "B5Y", "B6Y", "BST"],
   COCUK:    ["K2Y", "K3Y", "K4Y", "K5Y", "K6Y", "K7Y", "K8Y", "K9Y", "K10Y", "K11Y", "K12Y", "KXS", "KS", "KM", "KL"],
   "STELLA MC": ["C2", "C3", "C4", "C5", "C6", "C8", "C10", "C12", "C14", "C14+"],
   JAAM:     ["J128", "J140", "J152", "J164", "JXS", "JS", "JM", "JL", "JXL", "J2XL", "J3XL"],
@@ -10,7 +10,7 @@ export const SIZE_GROUPS = {
 };
 
 export const SIZE_ORDER = [
-  'B3M', 'B6M', 'B9M', 'B12M', 'B18M', 'B24M', 'B3Y', 'B4Y', 'B5Y', 'B6Y',
+  'B1M', 'B3M', 'B6M', 'B9M', 'B12M', 'B18M', 'B24M', 'B3Y', 'B4Y', 'B5Y', 'B6Y', 'BST',
   'K2Y', 'K3Y', 'K4Y', 'K5Y', 'K6Y', 'K7Y', 'K8Y', 'K9Y', 'K10Y', 'K11Y', 'K12Y', 'KXS', 'KS', 'KM', 'KL',
   'C2', 'C3', 'C4', 'C5', 'C6', 'C8', 'C10', 'C12', 'C14', 'C14+',
   'J128', 'J140', 'J152', 'J164', 'JXS', 'JS', 'JM', 'JL', 'JXL', 'J2XL', 'J3XL',
